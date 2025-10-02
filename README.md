@@ -6,5 +6,6 @@ This cross-platform mobile application empowers farmers with intelligent, real-t
 🔮 Demand Forecasting – Anticipate crop demand trends using predictive analytics.<br/>
 🗣️ Customer Voice Intention Analysis – Enhance negotiation outcomes during land sales calls through voice-based sentiment prediction.<br/>
 🌦️ Climate-Resilient Trade Recommendations – Receive tailored suggestions for sustainable and profitable trade strategies.<br/>
+🛰️ Idle Land Detection - Detect idle lands/manual listing of lands and lease lands for a better income for residences 
 
 <br/>Built as part of our final year research initiative, Smart Agri-Suite aims to bridge the gap between data science and rural accessibility—bringing powerful tools to the hands of farmers through an intuitive interface.
