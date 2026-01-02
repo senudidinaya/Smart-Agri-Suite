@@ -9,3 +9,9 @@ This cross-platform mobile application empowers farmers with intelligent, real-t
 🛰️ Idle Land Detection - Detect idle lands/manual listing of lands and lease lands for a better income for residences 
 
 <br/>Built as part of our final year research initiative, Smart Agri-Suite aims to bridge the gap between data science and rural accessibility—bringing powerful tools to the hands of farmers through an intuitive interface.
+
+start backend:
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+start frontend:
+npx expo start -c
