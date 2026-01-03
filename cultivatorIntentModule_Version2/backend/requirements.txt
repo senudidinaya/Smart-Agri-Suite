@@ -1,0 +1,30 @@
+# Paralinguistic Voice-Based Buyer Intent Prediction API
+# Dependencies for Smart Agri-Suite Backend
+
+# Web Framework
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+python-multipart==0.0.9
+
+# Settings & Validation
+pydantic==2.6.1
+pydantic-settings==2.1.0
+python-dotenv==1.0.1
+
+# HTTP Client (for testing)
+httpx==0.26.0
+
+# Testing
+pytest>=7.4.0,<8.0.0
+pytest-asyncio==0.23.4
+
+# Typing Extensions
+typing-extensions==4.9.0
+
+# Future ML Dependencies (uncomment when integrating real model)
+# torch==2.2.0
+# torchaudio==2.2.0
+# transformers==4.37.2
+# librosa==0.10.1
+# numpy==1.26.4
+# scipy==1.12.0

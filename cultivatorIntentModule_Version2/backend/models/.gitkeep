@@ -1,0 +1,8 @@
+# Model Directory
+
+Place your trained model files here.
+
+Expected files:
+- `intent_classifier.pt` - PyTorch model checkpoint
+
+The model path can be configured via the `MODEL_PATH` environment variable.
