@@ -17,6 +17,7 @@ from app.api.v1.routes import router as api_v1_router
 from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import CorrelationIdMiddleware, RequestLoggingMiddleware, get_correlation_id
+from app.core.database import connect_db, close_db
 from app.services.inference import get_classifier, reset_classifier
 
 # Initialize logging
@@ -30,8 +31,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Application lifespan manager.
     
     Handles startup and shutdown events:
-    - Startup: Load ML model, initialize resources
-    - Shutdown: Cleanup resources, unload model
+    - Startup: Connect to MongoDB, load ML model
+    - Shutdown: Close database, cleanup resources
     """
     settings = get_settings()
     
@@ -46,6 +47,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         },
     )
     
+    # Connect to MongoDB
+    try:
+        await connect_db()
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {e}")
+        # Continue without database for health checks
+    
     # Initialize classifier (loads model)
     classifier = get_classifier()
     logger.info(f"Model loaded: {classifier.is_loaded}")
@@ -54,6 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     # Shutdown
     logger.info("Shutting down application...")
+    await close_db()
     reset_classifier()
     logger.info("Cleanup complete")
 
@@ -81,16 +90,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     
-    # Add middleware (order matters - first added = outermost)
-    # Correlation ID must be first to be available for logging
+    # Add middleware (order matters - last added = runs first)
+    # CORS middleware must be added LAST so it runs FIRST
     app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     
-    # CORS middleware
+    # CORS middleware - allow all origins for mobile app development
+    # Added last so it processes requests first (handles preflight OPTIONS)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_credentials=True,
+        allow_origins=["*"],  # Allow all origins for mobile development
+        allow_credentials=False,  # Must be False when using allow_origins=["*"]
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["X-Correlation-ID", "X-Process-Time-Ms"],

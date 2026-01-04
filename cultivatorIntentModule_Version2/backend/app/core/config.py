@@ -5,7 +5,7 @@ Loads configuration from environment variables and .env file.
 
 from functools import lru_cache
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,10 +23,10 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = Field(
-        default="Paralinguistic Voice-Based Buyer Intent Prediction API",
+        default="Smart Agri-Suite API",
         description="Application name",
     )
-    app_version: str = Field(default="1.0.0", description="Application version")
+    app_version: str = Field(default="2.0.0", description="Application version")
     debug: bool = Field(default=False, description="Debug mode")
     environment: str = Field(default="development", description="Environment name")
 
@@ -45,6 +45,22 @@ class Settings(BaseSettings):
             "http://127.0.0.1:19006",
         ],
         description="Allowed CORS origins",
+    )
+
+    # MongoDB settings
+    mongodb_url: str = Field(
+        default="mongodb://localhost:27017",
+        description="MongoDB connection URL",
+    )
+    mongodb_database: str = Field(
+        default="smartagri",
+        description="MongoDB database name",
+    )
+
+    # Simple auth secret
+    auth_secret: str = Field(
+        default="smartagri_secret_key_change_in_production",
+        description="Secret key for token generation",
     )
 
     # Model settings
