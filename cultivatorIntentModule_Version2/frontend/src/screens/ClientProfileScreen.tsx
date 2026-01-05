@@ -1,8 +1,8 @@
 /**
- * Client Profile Screen - Create/update profile and post availability
+ * Client Profile Screen - Create job posts for farm work
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -19,13 +19,11 @@ import { api } from '../services/api';
 
 export default function ClientProfileScreen() {
   const { user } = useAuth();
-  const [fullName, setFullName] = useState('');
-  const [villageOrDistrict, setVillageOrDistrict] = useState('');
-  const [contactNumber, setContactNumber] = useState('');
-  const [typeOfWork, setTypeOfWork] = useState('');
-  const [availableFrom, setAvailableFrom] = useState('');
+  const [title, setTitle] = useState('');
+  const [districtOrLocation, setDistrictOrLocation] = useState('');
+  const [startsOnText, setStartsOnText] = useState('');
+  const [ratePerDay, setRatePerDay] = useState('');
   const [loading, setLoading] = useState(false);
-  const [hasProfile, setHasProfile] = useState(false);
 
   // Work type options
   const workTypes = [
@@ -39,50 +37,37 @@ export default function ClientProfileScreen() {
 
   const [showWorkDropdown, setShowWorkDropdown] = useState(false);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    try {
-      const profile = await api.getMyProfile();
-      if (profile) {
-        setFullName(profile.fullName);
-        setVillageOrDistrict(profile.villageOrDistrict);
-        setContactNumber(profile.contactNumber || '');
-        setTypeOfWork(profile.typeOfWork);
-        setAvailableFrom(profile.availableFrom);
-        setHasProfile(true);
-      } else if (user) {
-        // Pre-fill from user data
-        setFullName(user.fullName);
-      }
-    } catch (e) {
-      // No profile yet, use user's name
-      if (user) {
-        setFullName(user.fullName);
-      }
-    }
+  const resetForm = () => {
+    setTitle('');
+    setDistrictOrLocation('');
+    setStartsOnText('');
+    setRatePerDay('');
   };
 
   const handleSubmit = async () => {
-    if (!fullName.trim() || !villageOrDistrict.trim() || !typeOfWork || !availableFrom.trim()) {
+    if (!title.trim() || !districtOrLocation.trim() || !startsOnText.trim() || !ratePerDay.trim()) {
       Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    const rate = parseFloat(ratePerDay);
+    if (isNaN(rate) || rate <= 0) {
+      Alert.alert('Error', 'Please enter a valid rate per day');
       return;
     }
 
     setLoading(true);
     try {
-      await api.saveProfile({
-        fullName,
-        villageOrDistrict,
-        contactNumber: contactNumber || undefined,
-        typeOfWork,
-        availableFrom,
+      await api.createJob({
+        title,
+        districtOrLocation,
+        startsOnText,
+        ratePerDay: rate,
       });
 
-      Alert.alert('Success', hasProfile ? 'Profile updated!' : 'Your availability has been posted!');
-      setHasProfile(true);
+      Alert.alert('Success', 'Your job post has been created!', [
+        { text: 'OK', onPress: resetForm }
+      ]);
     } catch (e: any) {
       Alert.alert('Error', e.message);
     } finally {
@@ -95,51 +80,20 @@ export default function ClientProfileScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Create Profile</Text>
-          <Text style={styles.headerSubtitle}>Post your availability for farm work</Text>
+          <Text style={styles.headerTitle}>Create Job Post</Text>
+          <Text style={styles.headerSubtitle}>Post a farming job opportunity</Text>
         </View>
 
         {/* Form */}
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name *</Text>
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Enter your full name"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Village / District *</Text>
-            <TextInput
-              style={styles.input}
-              value={villageOrDistrict}
-              onChangeText={setVillageOrDistrict}
-              placeholder="e.g., Anuradhapura"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Contact Number</Text>
-            <TextInput
-              style={styles.input}
-              value={contactNumber}
-              onChangeText={setContactNumber}
-              placeholder="e.g., 071-1234567"
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Type of Work *</Text>
+            <Text style={styles.label}>Job Title / Type of Work *</Text>
             <TouchableOpacity
               style={styles.dropdown}
               onPress={() => setShowWorkDropdown(!showWorkDropdown)}
             >
-              <Text style={typeOfWork ? styles.dropdownText : styles.dropdownPlaceholder}>
-                {typeOfWork || 'Select work type'}
+              <Text style={title ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {title || 'Select work type'}
               </Text>
               <Text style={styles.dropdownArrow}>▼</Text>
             </TouchableOpacity>
@@ -151,7 +105,7 @@ export default function ClientProfileScreen() {
                     key={type}
                     style={styles.dropdownItem}
                     onPress={() => {
-                      setTypeOfWork(type);
+                      setTitle(type);
                       setShowWorkDropdown(false);
                     }}
                   >
@@ -163,12 +117,33 @@ export default function ClientProfileScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Available From *</Text>
+            <Text style={styles.label}>Village / District *</Text>
             <TextInput
               style={styles.input}
-              value={availableFrom}
-              onChangeText={setAvailableFrom}
-              placeholder="e.g., January 2025 or Immediate"
+              value={districtOrLocation}
+              onChangeText={setDistrictOrLocation}
+              placeholder="e.g., Anuradhapura"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Starts From *</Text>
+            <TextInput
+              style={styles.input}
+              value={startsOnText}
+              onChangeText={setStartsOnText}
+              placeholder="e.g., January 2026 or Immediate"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Rate Per Day (Rs.) *</Text>
+            <TextInput
+              style={styles.input}
+              value={ratePerDay}
+              onChangeText={setRatePerDay}
+              placeholder="e.g., 2500"
+              keyboardType="numeric"
             />
           </View>
 
@@ -179,7 +154,7 @@ export default function ClientProfileScreen() {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Saving...' : hasProfile ? 'Update Profile' : 'Post My Availability'}
+              {loading ? 'Posting...' : 'Post Job'}
             </Text>
           </TouchableOpacity>
         </View>
