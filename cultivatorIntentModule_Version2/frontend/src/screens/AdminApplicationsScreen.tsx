@@ -1,8 +1,8 @@
 /**
- * Admin Applications Screen - Manage job applications
+ * Admin Applications Screen - View all job posts from clients
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,24 +12,27 @@ import {
   RefreshControl,
   SafeAreaView,
   Alert,
-  Linking,
   Platform,
 } from 'react-native';
-import { api, Application } from '../services/api';
+import { useFocusEffect } from '@react-navigation/native';
+import { api, Job } from '../services/api';
 
-type FilterStatus = 'all' | 'new' | 'contacted' | 'accepted' | 'rejected';
+type FilterStatus = 'all' | 'new' | 'contacted' | 'closed';
 
 export default function AdminApplicationsScreen() {
-  const [applications, setApplications] = useState<Application[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterStatus>('all');
 
-  const loadApplications = useCallback(async () => {
+  const loadJobs = useCallback(async () => {
     try {
-      const statusParam = filter === 'all' ? undefined : filter;
-      const result = await api.getApplications(statusParam);
-      setApplications(result.applications);
+      const result = await api.getJobs();
+      // Filter based on selected filter
+      const filteredJobs = filter === 'all' 
+        ? result.jobs 
+        : result.jobs.filter((job: Job) => job.status === filter);
+      setJobs(filteredJobs);
     } catch (e: any) {
       Alert.alert('Error', e.message);
     } finally {
@@ -37,36 +40,59 @@ export default function AdminApplicationsScreen() {
     }
   }, [filter]);
 
-  useEffect(() => {
-    loadApplications();
-  }, [loadApplications]);
+  // Reload jobs every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadJobs();
+    }, [loadJobs])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadApplications();
+    await loadJobs();
     setRefreshing(false);
   };
 
-  const handleStatusUpdate = async (app: Application, newStatus: string) => {
-    try {
-      await api.updateApplicationStatus(app.id, { status: newStatus });
-      Alert.alert('Success', `Application marked as ${newStatus}`);
-      loadApplications();
-    } catch (e: any) {
-      Alert.alert('Error', e.message);
-    }
-  };
-
-  const handleCallFarmer = (app: Application) => {
-    // In real app, would get phone from profile
+  const handleContactClient = async (job: Job) => {
     Alert.alert(
-      'Contact Farmer',
-      `Would you like to contact ${app.applicantName}?`,
+      'Contact Client',
+      `Mark this job as "Contacted"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Mark as Contacted',
-          onPress: () => handleStatusUpdate(app, 'contacted'),
+          text: 'Mark Contacted',
+          onPress: async () => {
+            try {
+              await api.updateJobStatus(job.id, 'contacted');
+              Alert.alert('Success', 'Job marked as contacted');
+              loadJobs();
+            } catch (e: any) {
+              Alert.alert('Error', e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCloseJob = async (job: Job) => {
+    Alert.alert(
+      'Close Job',
+      `Are you sure you want to close this job post?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Close Job',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.updateJobStatus(job.id, 'closed');
+              Alert.alert('Success', 'Job has been closed');
+              loadJobs();
+            } catch (e: any) {
+              Alert.alert('Error', e.message);
+            }
+          },
         },
       ]
     );
@@ -78,10 +104,8 @@ export default function AdminApplicationsScreen() {
         return '#4CAF50';
       case 'contacted':
         return '#2196F3';
-      case 'accepted':
-        return '#8BC34A';
-      case 'rejected':
-        return '#F44336';
+      case 'closed':
+        return '#9E9E9E';
       default:
         return '#666';
     }
@@ -91,70 +115,70 @@ export default function AdminApplicationsScreen() {
     { key: 'all', label: 'All' },
     { key: 'new', label: 'New' },
     { key: 'contacted', label: 'Contacted' },
-    { key: 'accepted', label: 'Verified' },
+    { key: 'closed', label: 'Closed' },
   ];
 
-  const renderApplication = ({ item }: { item: Application }) => (
-    <View style={styles.appCard}>
-      <View style={styles.appHeader}>
+  const renderJob = ({ item }: { item: Job }) => (
+    <View style={styles.jobCard}>
+      <View style={styles.jobHeader}>
         <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>{item.applicantName.charAt(0).toUpperCase()}</Text>
+          <Text style={styles.avatarText}>{item.title.charAt(0).toUpperCase()}</Text>
         </View>
-        <View style={styles.appInfo}>
-          <Text style={styles.appName}>{item.applicantName}</Text>
+        <View style={styles.jobInfo}>
+          <Text style={styles.jobTitle}>{item.title}</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
             <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.appDetails}>
+      <View style={styles.jobDetails}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>District:</Text>
-          <Text style={styles.detailValue}>{item.applicantDistrict}</Text>
+          <Text style={styles.detailLabel}>Posted By:</Text>
+          <Text style={styles.detailValue}>{item.createdByUsername}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Work Type:</Text>
-          <Text style={styles.detailValue}>{item.workType}</Text>
+          <Text style={styles.detailLabel}>Location:</Text>
+          <Text style={styles.detailValue}>{item.districtOrLocation}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Availability:</Text>
-          <Text style={styles.detailValue}>{item.availability}</Text>
+          <Text style={styles.detailLabel}>Starts On:</Text>
+          <Text style={styles.detailValue}>{item.startsOnText}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Rate/Day:</Text>
+          <Text style={styles.detailValue}>Rs. {item.ratePerDay}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Posted:</Text>
+          <Text style={styles.detailValue}>{new Date(item.createdAt).toLocaleDateString()}</Text>
         </View>
       </View>
 
-      <View style={styles.appActions}>
+      <View style={styles.jobActions}>
         {item.status === 'new' && (
           <>
             <TouchableOpacity
-              style={styles.callButton}
-              onPress={() => handleCallFarmer(item)}
+              style={styles.contactButton}
+              onPress={() => handleContactClient(item)}
             >
-              <Text style={styles.callButtonText}>📞 Call Farmer</Text>
+              <Text style={styles.contactButtonText}>📞 Contact Client</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.acceptButton}
-              onPress={() => handleStatusUpdate(item, 'accepted')}
+              style={styles.closeButton}
+              onPress={() => handleCloseJob(item)}
             >
-              <Text style={styles.acceptButtonText}>✓ Accept</Text>
+              <Text style={styles.closeButtonText}>✗ Close</Text>
             </TouchableOpacity>
           </>
         )}
         {item.status === 'contacted' && (
-          <>
-            <TouchableOpacity
-              style={styles.acceptButton}
-              onPress={() => handleStatusUpdate(item, 'accepted')}
-            >
-              <Text style={styles.acceptButtonText}>✓ Accept</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.rejectButton}
-              onPress={() => handleStatusUpdate(item, 'rejected')}
-            >
-              <Text style={styles.rejectButtonText}>✗ Reject</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => handleCloseJob(item)}
+          >
+            <Text style={styles.closeButtonText}>✗ Close Job</Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -163,9 +187,9 @@ export default function AdminApplicationsScreen() {
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyIcon}>📋</Text>
-      <Text style={styles.emptyText}>No applications found</Text>
+      <Text style={styles.emptyText}>No job posts found</Text>
       <Text style={styles.emptySubtext}>
-        {filter === 'all' ? 'No applications yet' : `No ${filter} applications`}
+        {filter === 'all' ? 'No job posts yet' : `No ${filter} job posts`}
       </Text>
     </View>
   );
@@ -174,8 +198,8 @@ export default function AdminApplicationsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Job Applications</Text>
-        <Text style={styles.headerSubtitle}>{applications.length} total applications</Text>
+        <Text style={styles.headerTitle}>Job Posts</Text>
+        <Text style={styles.headerSubtitle}>{jobs.length} total job posts</Text>
       </View>
 
       {/* Filter Tabs */}
@@ -196,10 +220,10 @@ export default function AdminApplicationsScreen() {
         ))}
       </View>
 
-      {/* Applications List */}
+      {/* Jobs List */}
       <FlatList
-        data={applications}
-        renderItem={renderApplication}
+        data={jobs}
+        renderItem={renderJob}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={!loading ? renderEmpty : null}
@@ -262,7 +286,7 @@ const styles = StyleSheet.create({
     padding: 15,
     paddingBottom: 20,
   },
-  appCard: {
+  jobCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
@@ -280,7 +304,7 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  appHeader: {
+  jobHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
@@ -299,13 +323,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-  appInfo: {
+  jobInfo: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  appName: {
+  jobTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
@@ -320,7 +344,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  appDetails: {
+  jobDetails: {
     backgroundColor: '#f9f9f9',
     borderRadius: 8,
     padding: 12,
@@ -341,42 +365,30 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
-  appActions: {
+  jobActions: {
     flexDirection: 'row',
     gap: 10,
   },
-  callButton: {
+  contactButton: {
     flex: 1,
     backgroundColor: '#5C9A9A',
     borderRadius: 20,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  callButtonText: {
+  contactButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
-  acceptButton: {
+  closeButton: {
     flex: 1,
-    backgroundColor: '#8BC34A',
+    backgroundColor: '#e74c3c',
     borderRadius: 20,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  acceptButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  rejectButton: {
-    flex: 1,
-    backgroundColor: '#F44336',
-    borderRadius: 20,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  rejectButtonText: {
+  closeButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
