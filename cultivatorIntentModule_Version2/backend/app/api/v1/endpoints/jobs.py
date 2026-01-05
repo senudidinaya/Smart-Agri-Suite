@@ -36,6 +36,7 @@ def job_to_response(job: dict) -> JobResponse:
     return JobResponse(
         id=str(job["_id"]),
         createdByUserId=job["createdByUserId"],
+        createdByUsername=job.get("createdByUsername", "Unknown"),
         title=job["title"],
         districtOrLocation=job["districtOrLocation"],
         startsOnText=job.get("startsOnText", "Immediate"),
@@ -97,6 +98,7 @@ async def create_job(data: JobCreate, authorization: str = Header(...)):
     
     job_doc = {
         "createdByUserId": user["sub"],
+        "createdByUsername": user["username"],
         "title": data.title,
         "districtOrLocation": data.districtOrLocation,
         "startsOnText": data.startsOnText or "Immediate",
