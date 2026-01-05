@@ -19,6 +19,7 @@ class JobResponse(BaseModel):
     """Job response."""
     id: str
     createdByUserId: str
+    createdByUsername: str
     title: str
     districtOrLocation: str
     startsOnText: str
