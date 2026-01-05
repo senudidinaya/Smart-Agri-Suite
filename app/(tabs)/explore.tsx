@@ -1,112 +1,162 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { COLORS, RADIUS, SPACING } from "../theme";
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+export default function MarketScreen() {
+  const router = useRouter();
 
-export default function TabTwoScreen() {
+  const [spice, setSpice] = useState("Cinnamon");
+  const [quantity, setQuantity] = useState("50");
+  const [location, setLocation] = useState("Matale District");
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <View style={styles.container}>
+      <Text style={styles.title}>Market Analysis</Text>
+      <Text style={styles.subtitle}>
+        Enter harvest details to optimize your profit
+      </Text>
+
+      {/* Spice */}
+      <View style={styles.card}>
+        <Text style={styles.label}>Spice</Text>
+        <TextInput
+          value={spice}
+          onChangeText={setSpice}
+          placeholder="Enter spice (e.g. Cinnamon)"
+          style={styles.input}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
+      </View>
+
+      {/* Quantity */}
+      <View style={styles.card}>
+        <Text style={styles.label}>Quantity (kg)</Text>
+        <TextInput
+          value={quantity}
+          onChangeText={setQuantity}
+          keyboardType="numeric"
+          placeholder="Enter quantity"
+          style={styles.input}
         />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      </View>
+
+      {/* Location */}
+      <View style={styles.card}>
+        <Text style={styles.label}>Location</Text>
+        <TextInput
+          value={location}
+          onChangeText={setLocation}
+          placeholder="Enter your district"
+          style={styles.input}
+        />
+      </View>
+
+      {/* Demand Hint */}
+      <View style={styles.infoCard}>
+        <Text style={styles.infoTitle}>📊 Market Hint</Text>
+        <Text style={styles.infoText}>
+          Cinnamon demand is currently <Text style={styles.bold}>High</Text> in
+          Central Province markets.
+        </Text>
+      </View>
+
+      {/* CTA */}
+      <Pressable
+        style={styles.primaryButton}
+        onPress={() =>
+          router.push({
+            pathname: "/insights",
+            params: {
+              spice,
+              quantity,
+              region: location,
+            },
+          })
+        }
+      >
+        <Text style={styles.primaryButtonText}>Generate Insights</Text>
+      </Pressable>
+    </View>
   );
 }
 
+/* =========================
+   STYLES
+   ========================= */
+
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.softBg,
+    padding: SPACING.screen,
   },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
+
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: COLORS.textMain,
+    marginBottom: 4,
+  },
+
+  subtitle: {
+    color: COLORS.textSub,
+    marginBottom: 20,
+  },
+
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.card,
+    padding: SPACING.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 14,
+  },
+
+  label: {
+    fontSize: 12,
+    color: COLORS.textSub,
+    marginBottom: 6,
+  },
+
+  input: {
+    fontSize: 15,
+    paddingVertical: 6,
+    color: COLORS.textMain,
+  },
+
+  infoCard: {
+    backgroundColor: "#E8F5E9",
+    padding: 14,
+    borderRadius: RADIUS.card,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+
+  infoTitle: {
+    fontWeight: "600",
+    marginBottom: 4,
+    color: COLORS.primary,
+  },
+
+  infoText: {
+    color: COLORS.textMain,
+    fontSize: 14,
+  },
+
+  bold: {
+    fontWeight: "700",
+  },
+
+  primaryButton: {
+    backgroundColor: COLORS.accent,
+    paddingVertical: 16,
+    borderRadius: RADIUS.button,
+  },
+
+  primaryButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    textAlign: "center",
+    fontSize: 16,
   },
 });
