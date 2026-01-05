@@ -11,10 +11,10 @@ import MapView, {
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 
-// ✅ IMPORTANT: backend base URL
+
 const API_URL = "http://10.0.2.2:8000";
 
-// ✅ Malabe raster bounds (still useful to reduce tile requests)
+
 const MALABE_BOUNDS = {
   minLng: 79.94143645990987,
   minLat: 6.882981538452185,
@@ -44,7 +44,7 @@ function regionIntersectsBounds(r: Region) {
   );
 }
 
-// ✅ point-in-polygon (ray casting) for LatLng[]
+
 function pointInPolygon(pt: LatLng, poly: LatLng[]) {
   if (poly.length < 3) return false;
   const x = pt.longitude;
@@ -93,7 +93,7 @@ export default function MapScreen() {
 
   const [region, setRegion] = useState<Region>(initialRegion);
 
-  // ✅ AOI coords now come from backend (/aoi)
+  
   const [AOI_COORDS, setAOI_COORDS] = useState<LatLng[]>([]);
   const [aoiLoaded, setAoiLoaded] = useState(false);
 
@@ -125,17 +125,17 @@ export default function MapScreen() {
     };
   }, []);
 
-  // ✅ Selected point
+  
   const [selected, setSelected] = useState<{
     latitude: number;
     longitude: number;
     inside: boolean;
   } | null>(null);
 
-  // ✅ Only request tiles near bounds (performance)
+  
   const showOverlayNow = showClassifiedOverlay && regionIntersectsBounds(region);
 
-  // ✅ Get user location
+  
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -149,7 +149,7 @@ export default function MapScreen() {
     })();
   }, []);
 
-  // ✅ When user turns ON GEE → zoom to AOI polygon
+  
   useEffect(() => {
     if (!showClassifiedOverlay) return;
     if (!mapRef.current) return;
@@ -157,14 +157,14 @@ export default function MapScreen() {
 
     setTimeout(() => {
       mapRef.current?.fitToCoordinates(AOI_COORDS, {
-        // ✅ slightly smaller padding => shows the full AOI like your reference
+        
         edgePadding: { top: 90, right: 40, bottom: 220, left: 40 },
         animated: true,
       });
     }, 150);
   }, [showClassifiedOverlay, AOI_COORDS]);
 
-  // ✅ Zoom controls
+  
   const zoomIn = () => {
     const next: Region = {
       ...region,
@@ -200,7 +200,7 @@ export default function MapScreen() {
   const onMapPress = (e: MapPressEvent) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
 
-    // If AOI not loaded yet => treat as outside
+    
     const inside =
       AOI_COORDS.length > 2
         ? pointInPolygon({ latitude, longitude }, AOI_COORDS)
@@ -220,7 +220,7 @@ export default function MapScreen() {
     });
   };
 
-  // Legend bottom offset so it never sits under the bottom sheet
+  
   const legendBottom = selected ? 170 : 18;
 
   return (
@@ -239,7 +239,7 @@ export default function MapScreen() {
         onRegionChangeComplete={(r) => setRegion(r)}
         onPress={onMapPress}
       >
-        {/* ✅ GeoTIFF overlay tiles */}
+        {/*  GeoTIFF overlay tiles */}
         {showOverlayNow && (
           <UrlTile
             urlTemplate={`${API_URL}/tiles/classified/{z}/{x}/{y}.png`}
@@ -250,7 +250,7 @@ export default function MapScreen() {
           />
         )}
 
-        {/* ✅ AOI outline (blue) */}
+        {/*  AOI outline (blue) */}
         {showClassifiedOverlay && AOI_COORDS.length > 2 && (
           <Polygon
             coordinates={AOI_COORDS}
@@ -262,7 +262,7 @@ export default function MapScreen() {
         )}
       </MapView>
 
-      {/* ✅ Overlay UI */}
+      {/*  Overlay UI */}
       <View pointerEvents="box-none" style={styles.overlay}>
         {/* Layer buttons */}
         <View style={styles.layerRow} pointerEvents="auto">
