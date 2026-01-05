@@ -80,8 +80,8 @@ function ClientNavigator() {
         name="Profile"
         component={ClientProfileScreen}
         options={{
-          title: 'My Profile',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text>,
+          title: 'My Job Posting',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📝</Text>,
         }}
       />
       <ClientTab.Screen
