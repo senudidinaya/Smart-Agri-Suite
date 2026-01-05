@@ -75,18 +75,18 @@ async def apply_to_job(data: ApplicationCreate, authorization: str = Header(...)
     if existing:
         raise HTTPException(status_code=400, detail="Already applied to this job")
     
-    # Get user profile for additional info
-    profile = await db.client_profiles.find_one({"userId": user["sub"]})
+    # Get user info from users collection
+    user_doc = await db.users.find_one({"_id": ObjectId(user["sub"])})
     
     now = datetime.now(timezone.utc)
     
     app_doc = {
         "jobId": data.jobId,
         "applicantUserId": user["sub"],
-        "applicantName": profile["fullName"] if profile else user["username"],
-        "applicantDistrict": profile.get("villageOrDistrict") if profile else None,
-        "workType": profile.get("typeOfWork") if profile else None,
-        "availability": profile.get("availableFrom") if profile else None,
+        "applicantName": user_doc["fullName"] if user_doc else user["username"],
+        "applicantDistrict": user_doc.get("address") if user_doc else None,
+        "workType": job.get("title"),  # Use job title as work type
+        "availability": job.get("startsOnText"),  # Use job start date as availability
         "status": "new",
         "createdAt": now,
         "updatedAt": now,
