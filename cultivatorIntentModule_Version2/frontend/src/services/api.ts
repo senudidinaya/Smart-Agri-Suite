@@ -25,21 +25,10 @@ export interface User {
   createdAt: string;
 }
 
-export interface Profile {
-  id: string;
-  userId: string;
-  fullName: string;
-  villageOrDistrict: string;
-  contactNumber?: string;
-  typeOfWork: string;
-  availableFrom?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface Job {
   id: string;
   createdByUserId: string;
+  createdByUsername: string;
   title: string;
   districtOrLocation: string;
   startsOnText: string;
@@ -143,25 +132,6 @@ class ApiService {
 
   async getCurrentUser(): Promise<User> {
     return this.request('GET', '/auth/me');
-  }
-
-  // Profiles
-  async getMyProfile(): Promise<Profile | null> {
-    try {
-      return await this.request('GET', '/profiles/me');
-    } catch {
-      return null;
-    }
-  }
-
-  async saveProfile(data: {
-    fullName: string;
-    villageOrDistrict: string;
-    contactNumber?: string;
-    typeOfWork: string;
-    availableFrom?: string;
-  }): Promise<Profile> {
-    return this.request('POST', '/profiles/', data);
   }
 
   // Jobs
