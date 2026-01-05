@@ -27,6 +27,8 @@ Solving the issues in Sri Lanka's spice industry is critical for enhancing agric
 
 <br/>Built as part of our final year research initiative, Smart Agri-Suite aims to bridge the gap between data science and rural accessibility—bringing powerful tools to the hands of farmers through an intuitive interface.
 
+This research is aligned to Expo SDK 54 toolchain expectations.
+
 start backend:
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
