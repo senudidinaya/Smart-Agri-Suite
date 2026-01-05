@@ -1,8 +1,8 @@
 /**
- * Client Jobs Screen - View available farming opportunities
+ * Client Jobs Screen - View my posted jobs
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { api, Job } from '../services/api';
 
 export default function ClientJobsScreen() {
@@ -23,7 +24,7 @@ export default function ClientJobsScreen() {
 
   const loadJobs = useCallback(async () => {
     try {
-      const result = await api.getJobs();
+      const result = await api.getMyJobs();
       setJobs(result.jobs);
     } catch (e: any) {
       Alert.alert('Error', e.message);
@@ -32,9 +33,12 @@ export default function ClientJobsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
+  // Reload jobs every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadJobs();
+    }, [loadJobs])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -42,18 +46,20 @@ export default function ClientJobsScreen() {
     setRefreshing(false);
   };
 
-  const handleApply = async (job: Job) => {
+  const handleCloseJob = async (job: Job) => {
     Alert.alert(
-      'Apply for Job',
-      `Do you want to apply for "${job.title}"?`,
+      'Close Job',
+      `Are you sure you want to close "${job.title}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Apply',
+          text: 'Close Job',
+          style: 'destructive',
           onPress: async () => {
             try {
-              await api.applyForJob({ jobId: job.id });
-              Alert.alert('Success', 'Your application has been submitted!');
+              await api.updateJobStatus(job.id, 'closed');
+              Alert.alert('Success', 'Job has been closed');
+              loadJobs();
             } catch (e: any) {
               Alert.alert('Error', e.message);
             }
@@ -102,9 +108,9 @@ export default function ClientJobsScreen() {
         </View>
       </View>
 
-      {item.status === 'new' && (
-        <TouchableOpacity style={styles.applyButton} onPress={() => handleApply(item)}>
-          <Text style={styles.applyButtonText}>Apply Now</Text>
+      {item.status !== 'closed' && (
+        <TouchableOpacity style={styles.closeButton} onPress={() => handleCloseJob(item)}>
+          <Text style={styles.closeButtonText}>Close Job</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -112,9 +118,9 @@ export default function ClientJobsScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>🌾</Text>
-      <Text style={styles.emptyText}>No farming opportunities available</Text>
-      <Text style={styles.emptySubtext}>Pull down to refresh</Text>
+      <Text style={styles.emptyIcon}>📋</Text>
+      <Text style={styles.emptyText}>You haven't posted any jobs yet</Text>
+      <Text style={styles.emptySubtext}>Go to "My Job Posting" to create a job post</Text>
     </View>
   );
 
@@ -122,12 +128,12 @@ export default function ClientJobsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Farming Opportunities</Text>
-        <Text style={styles.headerSubtitle}>Near You</Text>
+        <Text style={styles.headerTitle}>My Job Posts</Text>
+        <Text style={styles.headerSubtitle}>Your Posted Opportunities</Text>
       </View>
 
       {/* Section Title */}
-      <Text style={styles.sectionTitle}>Recent Postings</Text>
+      <Text style={styles.sectionTitle}>Your Job Postings</Text>
 
       {/* Jobs List */}
       <FlatList
@@ -240,6 +246,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   applyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  closeButton: {
+    backgroundColor: '#e74c3c',
+    borderRadius: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  closeButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
