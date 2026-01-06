@@ -14,12 +14,13 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { api, Job } from '../services/api';
 
 type FilterStatus = 'all' | 'new' | 'contacted' | 'closed';
 
 export default function AdminApplicationsScreen() {
+  const navigation = useNavigation<any>();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,6 +99,25 @@ export default function AdminApplicationsScreen() {
     );
   };
 
+  const handleCallClient = async (job: Job) => {
+    try {
+      // Initiate call via API
+      const response = await api.initiateCall(job.id);
+      
+      // Navigate to AdminCallScreen with call details
+      navigation.navigate('AdminCall', {
+        callId: response.callId,
+        roomName: response.roomName,
+        livekitUrl: response.livekitUrl,
+        token: response.token,
+        clientUsername: job.createdByUsername,
+        jobTitle: job.title,
+      });
+    } catch (e: any) {
+      Alert.alert('Call Failed', e.message);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'new':
@@ -159,10 +179,16 @@ export default function AdminApplicationsScreen() {
         {item.status === 'new' && (
           <>
             <TouchableOpacity
+              style={styles.callClientButton}
+              onPress={() => handleCallClient(item)}
+            >
+              <Text style={styles.callClientButtonText}>📞 Call</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.contactButton}
               onPress={() => handleContactClient(item)}
             >
-              <Text style={styles.contactButtonText}>📞 Contact Client</Text>
+              <Text style={styles.contactButtonText}>✓ Mark Contacted</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.closeButton}
@@ -173,12 +199,20 @@ export default function AdminApplicationsScreen() {
           </>
         )}
         {item.status === 'contacted' && (
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => handleCloseJob(item)}
-          >
-            <Text style={styles.closeButtonText}>✗ Close Job</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.callClientButton}
+              onPress={() => handleCallClient(item)}
+            >
+              <Text style={styles.callClientButtonText}>📞 Call</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => handleCloseJob(item)}
+            >
+              <Text style={styles.closeButtonText}>✗ Close Job</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </View>
@@ -368,6 +402,18 @@ const styles = StyleSheet.create({
   jobActions: {
     flexDirection: 'row',
     gap: 10,
+  },
+  callClientButton: {
+    backgroundColor: '#27ae60',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+  },
+  callClientButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   contactButton: {
     flex: 1,
