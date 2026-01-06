@@ -23,6 +23,7 @@ export default function ClientProfileScreen() {
   const [districtOrLocation, setDistrictOrLocation] = useState('');
   const [startsOnText, setStartsOnText] = useState('');
   const [ratePerDay, setRatePerDay] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Work type options
@@ -42,10 +43,11 @@ export default function ClientProfileScreen() {
     setDistrictOrLocation('');
     setStartsOnText('');
     setRatePerDay('');
+    setPhoneNumber('');
   };
 
   const handleSubmit = async () => {
-    if (!title.trim() || !districtOrLocation.trim() || !startsOnText.trim() || !ratePerDay.trim()) {
+    if (!title.trim() || !districtOrLocation.trim() || !startsOnText.trim() || !ratePerDay.trim() || !phoneNumber.trim()) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
@@ -56,6 +58,13 @@ export default function ClientProfileScreen() {
       return;
     }
 
+    // Validate phone number (Sri Lankan format)
+    const phoneRegex = /^(\+94|0)?[0-9]{9,10}$/;
+    if (!phoneRegex.test(phoneNumber.replace(/\s/g, ''))) {
+      Alert.alert('Error', 'Please enter a valid phone number');
+      return;
+    }
+
     setLoading(true);
     try {
       await api.createJob({
@@ -63,6 +72,7 @@ export default function ClientProfileScreen() {
         districtOrLocation,
         startsOnText,
         ratePerDay: rate,
+        phoneNumber: phoneNumber.trim(),
       });
 
       Alert.alert('Success', 'Your job post has been created!', [
@@ -144,6 +154,17 @@ export default function ClientProfileScreen() {
               onChangeText={setRatePerDay}
               placeholder="e.g., 2500"
               keyboardType="numeric"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone Number *</Text>
+            <TextInput
+              style={styles.input}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              placeholder="e.g., 0771234567"
+              keyboardType="phone-pad"
             />
           </View>
 
