@@ -84,6 +84,26 @@ class Settings(BaseSettings):
     )
     sample_rate: int = Field(default=16000, description="Target audio sample rate")
 
+    # LiveKit settings for audio calling
+    livekit_url: str = Field(
+        default="wss://your-app.livekit.cloud",
+        description="LiveKit server WebSocket URL",
+    )
+    livekit_api_key: str = Field(
+        default="",
+        description="LiveKit API key",
+    )
+    livekit_api_secret: str = Field(
+        default="",
+        description="LiveKit API secret",
+    )
+    
+    # Recordings storage
+    recordings_dir: Path = Field(
+        default=Path("recordings"),
+        description="Directory to store call recordings",
+    )
+
     # Logging settings
     log_level: str = Field(default="INFO", description="Logging level")
     log_json_format: bool = Field(
