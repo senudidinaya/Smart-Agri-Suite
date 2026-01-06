@@ -33,6 +33,7 @@ export interface Job {
   districtOrLocation: string;
   startsOnText: string;
   ratePerDay: number;
+  phoneNumber?: string;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -49,6 +50,51 @@ export interface Application {
   status: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Call-related interfaces
+export interface CallInitiateResponse {
+  callId: string;
+  roomName: string;
+  livekitUrl: string;
+  token: string;
+}
+
+export interface IncomingCallResponse {
+  hasIncomingCall: boolean;
+  callId?: string;
+  jobId?: string;
+  jobTitle?: string;
+  roomName?: string;
+  livekitUrl?: string;
+  adminUsername?: string;
+}
+
+export interface CallAcceptResponse {
+  roomName: string;
+  livekitUrl: string;
+  token: string;
+}
+
+export interface RecordingUploadResponse {
+  success: boolean;
+  intentLabel: string;
+  confidence: number;
+  scores?: Record<string, number>;
+  message: string;
+}
+
+export interface AnalysisResult {
+  intentLabel: string;
+  confidence: number;
+  scores?: Record<string, number>;
+}
+
+export interface CallStatusResponse {
+  id: string;
+  jobId: string;
+  status: 'ringing' | 'accepted' | 'rejected' | 'ended' | 'missed';
+  analysis?: AnalysisResult;
 }
 
 class ApiService {
@@ -169,6 +215,61 @@ class ApiService {
 
   async updateApplicationStatus(applicationId: string, status: string): Promise<void> {
     return this.request('PATCH', `/applications/${applicationId}/status`, { status });
+  }
+
+  // Calls
+  async initiateCall(jobId: string): Promise<CallInitiateResponse> {
+    return this.request('POST', '/calls/initiate', { jobId });
+  }
+
+  async checkIncomingCall(): Promise<IncomingCallResponse> {
+    return this.request('GET', `/calls/incoming`);
+  }
+
+  async acceptCall(callId: string): Promise<CallAcceptResponse> {
+    return this.request('POST', `/calls/${callId}/accept`);
+  }
+
+  async rejectCall(callId: string): Promise<{ success: boolean; message: string }> {
+    return this.request('POST', `/calls/${callId}/reject`);
+  }
+
+  async endCall(callId: string): Promise<{ success: boolean; message: string }> {
+    return this.request('POST', `/calls/${callId}/end`);
+  }
+
+  async getCallStatus(callId: string): Promise<CallStatusResponse> {
+    return this.request('GET', `/calls/${callId}`);
+  }
+
+  async uploadRecording(callId: string, audioUri: string): Promise<RecordingUploadResponse> {
+    const formData = new FormData();
+    
+    // Get file name from URI
+    const fileName = audioUri.split('/').pop() || 'recording.wav';
+    
+    // Append the file to FormData
+    formData.append('file', {
+      uri: audioUri,
+      name: fileName,
+      type: 'audio/wav',
+    } as any);
+
+    const response = await fetch(`${API_BASE_URL}/calls/${callId}/recording`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Upload failed');
+    }
+
+    return data;
   }
 }
 
