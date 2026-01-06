@@ -5,18 +5,25 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#5C9A9A"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartagri.mobile",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone for recording calls."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#5C9A9A"
-      }
+      },
+      "package": "com.smartagri.mobile",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -24,6 +31,11 @@
     "plugins": [
       "expo-asset",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "66237b3e-3f4e-42b8-8d55-2d5cb2cbd0e6"
+      }
+    }
   }
 }
