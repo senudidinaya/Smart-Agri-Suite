@@ -2,7 +2,7 @@
  * Main App Component - Navigation and routing
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -14,6 +14,10 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import ClientProfileScreen from './src/screens/ClientProfileScreen';
 import ClientJobsScreen from './src/screens/ClientJobsScreen';
 import AdminApplicationsScreen from './src/screens/AdminApplicationsScreen';
+import AdminCallScreen from './src/screens/AdminCallScreen';
+import ClientCallScreen from './src/screens/ClientCallScreen';
+import IncomingCallScreen from './src/screens/IncomingCallScreen';
+import { api } from './src/services/api';
 
 // Navigation types
 type AuthStackParamList = {
@@ -30,9 +34,40 @@ type AdminTabParamList = {
   Applications: undefined;
 };
 
+type ClientStackParamList = {
+  ClientTabs: undefined;
+  IncomingCall: {
+    callId: string;
+    roomName: string;
+    adminUsername: string;
+    jobTitle: string;
+  };
+  ClientCall: {
+    callId: string;
+    roomName: string;
+    livekitUrl: string;
+    token: string;
+    jobTitle?: string;
+  };
+};
+
+type AdminStackParamList = {
+  AdminTabs: undefined;
+  AdminCall: {
+    callId: string;
+    roomName: string;
+    livekitUrl: string;
+    token: string;
+    clientUsername: string;
+    jobTitle: string;
+  };
+};
+
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const ClientTab = createBottomTabNavigator<ClientTabParamList>();
 const AdminTab = createBottomTabNavigator<AdminTabParamList>();
+const ClientStack = createNativeStackNavigator<ClientStackParamList>();
+const AdminStack = createNativeStackNavigator<AdminStackParamList>();
 
 // Auth Navigator (Login & Register)
 function AuthNavigator() {
@@ -59,7 +94,7 @@ function AuthNavigator() {
 }
 
 // Client Tab Navigator (Profile & Jobs)
-function ClientNavigator() {
+function ClientTabNavigator() {
   const { logout } = useAuth();
 
   return (
@@ -97,8 +132,62 @@ function ClientNavigator() {
   );
 }
 
+// Client Stack Navigator (includes call screens)
+function ClientNavigator({ navigationRef }: { navigationRef: any }) {
+  const { user } = useAuth();
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+
+  // Poll for incoming calls every 3 seconds
+  useEffect(() => {
+    if (!user) return;
+
+    const checkForCalls = async () => {
+      try {
+        const response = await api.checkIncomingCall();
+        if (response.hasIncomingCall && response.callId && navigationRef.current) {
+          // Navigate to incoming call screen
+          navigationRef.current.navigate('IncomingCall', {
+            callId: response.callId,
+            roomName: response.roomName,
+            adminUsername: response.adminUsername || 'Admin',
+            jobTitle: response.jobTitle || 'Job Application',
+          });
+        }
+      } catch (error) {
+        // Silently ignore polling errors
+        console.debug('Call polling error:', error);
+      }
+    };
+
+    // Start polling
+    pollingInterval.current = setInterval(checkForCalls, 3000);
+
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+    };
+  }, [user, navigationRef]);
+
+  return (
+    <ClientStack.Navigator screenOptions={{ headerShown: false }}>
+      <ClientStack.Screen name="ClientTabs" component={ClientTabNavigator} />
+      <ClientStack.Screen
+        name="IncomingCall"
+        component={IncomingCallScreen}
+        options={{ presentation: 'fullScreenModal' }}
+      />
+      <ClientStack.Screen
+        name="ClientCall"
+        component={ClientCallScreen}
+        options={{ presentation: 'fullScreenModal' }}
+      />
+    </ClientStack.Navigator>
+  );
+}
+
 // Admin Tab Navigator (Applications management)
-function AdminNavigator() {
+function AdminTabNavigator() {
   const { logout } = useAuth();
 
   return (
@@ -119,12 +208,26 @@ function AdminNavigator() {
         name="Applications"
         component={AdminApplicationsScreen}
         options={{
-          headerShown: false,
-          title: 'Applications',
+          headerShown: true,
+          title: 'Job Posts',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📋</Text>,
         }}
       />
     </AdminTab.Navigator>
+  );
+}
+
+// Admin Stack Navigator (includes call screens)
+function AdminNavigator() {
+  return (
+    <AdminStack.Navigator screenOptions={{ headerShown: false }}>
+      <AdminStack.Screen name="AdminTabs" component={AdminTabNavigator} />
+      <AdminStack.Screen
+        name="AdminCall"
+        component={AdminCallScreen}
+        options={{ presentation: 'fullScreenModal' }}
+      />
+    </AdminStack.Navigator>
   );
 }
 
@@ -139,7 +242,7 @@ function LoadingScreen() {
 }
 
 // Main App Content - handles auth state routing
-function AppContent() {
+function AppContent({ navigationRef }: { navigationRef: any }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -157,15 +260,17 @@ function AppContent() {
   }
 
   // Default to client
-  return <ClientNavigator />;
+  return <ClientNavigator navigationRef={navigationRef} />;
 }
 
 // Root App Component
 export default function App() {
+  const navigationRef = useRef<any>(null);
+
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <AppContent />
+      <NavigationContainer ref={navigationRef}>
+        <AppContent navigationRef={navigationRef} />
       </NavigationContainer>
     </AuthProvider>
   );
