@@ -1,30 +1,86 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { COLORS, RADIUS, SPACING } from "./theme";
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 export default function InsightsScreen() {
   const router = useRouter();
-  const { spice, region } = useLocalSearchParams();
 
-  // Mocked optimization result (PP1-safe)
+  /* ---------------- Mocked Optimization Result (PP1-safe) ---------------- */
   const data = {
-    spice: spice ?? "Cinnamon",
+    spice: "Cinnamon (Kurundu)",
     quantity: 50,
-    bestMarket: "Dambulla Economic Center",
-    pricePerKg: 2450,
-    distanceKm: 12.4,
-    transportCost: 450,
-    profitPercent: 12,
-    demand: "High",
-    otherMarkets: [
-      { name: "Kandy Market", price: 2380, note: "Lower transport cost" },
-      { name: "Colombo Market", price: 2600, note: "High distance impact" },
+    farmerLocation: "Matale District",
+
+    bestMarket: {
+      name: "Dambulla Economic Center",
+      pricePerKg: 2450,
+      distanceKm: 12.4,
+      transportCost: 450,
+      demand: "High",
+      netProfit: 98000,
+    },
+
+    comparisons: [
+      {
+        name: "Colombo Market",
+        pricePerKg: 2600,
+        transportCost: 1800,
+        netProfit: 82000,
+      },
+      {
+        name: "Kandy Market",
+        pricePerKg: 2380,
+        transportCost: 300,
+        netProfit: 89000,
+      },
     ],
   };
 
+  /* ---------------- Animations ---------------- */
+  const fade = useRef(new Animated.Value(0)).current;
+  const slide = useRef(new Animated.Value(30)).current;
+  const profitAnim = useRef(new Animated.Value(0)).current;
+
+  const [displayProfit, setDisplayProfit] = useState(0);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fade, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slide, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(profitAnim, {
+        toValue: 1,
+        duration: 900,
+        useNativeDriver: false,
+      }),
+    ]).start();
+
+    const listener = profitAnim.addListener(({ value }) => {
+      setDisplayProfit(Math.round(value * data.bestMarket.netProfit));
+    });
+
+    return () => {
+      profitAnim.removeListener(listener);
+    };
+  }, []);
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* HEADER */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.back}>← Back</Text>
@@ -32,241 +88,185 @@ export default function InsightsScreen() {
 
         <Text style={styles.title}>Market Insights</Text>
         <Text style={styles.subtitle}>
-          Based on {data.quantity}kg of {data.spice}
+          Optimized for profit • {data.quantity}kg of {data.spice}
         </Text>
       </View>
 
-      {/* Best Market */}
-      <View style={styles.cardHighlight}>
-        <Text style={styles.cardTag}>Recommended Market</Text>
+      {/* BEST MARKET */}
+      <Animated.View
+        style={[
+          styles.heroCard,
+          { opacity: fade, transform: [{ translateY: slide }] },
+        ]}
+      >
+        <Text style={styles.heroTag}>Best Market Today</Text>
+        <Text style={styles.marketName}>{data.bestMarket.name}</Text>
 
-        <Text style={styles.marketName}>{data.bestMarket}</Text>
-        <Text style={styles.meta}>
-          {data.distanceKm} km away • Best net profit
-        </Text>
+        <View style={styles.heroRow}>
+          <Text>Price /kg</Text>
+          <Text style={styles.bold}>LKR {data.bestMarket.pricePerKg}</Text>
+        </View>
 
-        <Text style={styles.price}>
-          LKR {data.pricePerKg}
-          <Text style={styles.perKg}> /kg</Text>
-        </Text>
+        <View style={styles.heroRow}>
+          <Text>Transport Cost</Text>
+          <Text>LKR {data.bestMarket.transportCost}</Text>
+        </View>
 
-        <View style={styles.metricsRow}>
-          <View style={styles.metric}>
-            <Text style={styles.metricLabel}>Profit</Text>
-            <Text style={styles.metricPositive}>+{data.profitPercent}%</Text>
-          </View>
+        <View style={styles.heroRow}>
+          <Text>Distance</Text>
+          <Text>{data.bestMarket.distanceKm} km</Text>
+        </View>
 
-          <View style={styles.metric}>
-            <Text style={styles.metricLabel}>Demand</Text>
-            <Text style={styles.metricWarning}>{data.demand}</Text>
-          </View>
-
-          <View style={styles.metric}>
-            <Text style={styles.metricLabel}>Transport</Text>
-            <Text style={styles.metricValue}>LKR {data.transportCost}</Text>
-          </View>
+        <View style={styles.profitBox}>
+          <Text style={styles.profitLabel}>Estimated Net Profit</Text>
+          <Animated.Text style={styles.profitValue}>
+            LKR {displayProfit.toLocaleString()}
+          </Animated.Text>
         </View>
 
         <Pressable
-          style={styles.secondaryButton}
+          style={styles.outlineButton}
           onPress={() => router.push("/logistics")}
         >
-          <Text style={styles.secondaryButtonText}>
-            Check Route & Logistics
-          </Text>
+          <Text style={styles.outlineButtonText}>Check Route & Logistics</Text>
         </Pressable>
-      </View>
+      </Animated.View>
 
-      {/* Other Markets */}
-      <Text style={styles.sectionTitle}>Other Markets</Text>
+      {/* WHY THIS MARKET */}
+      <Text style={styles.sectionTitle}>Why This Market?</Text>
 
-      <View style={styles.otherMarkets}>
-        {data.otherMarkets.map((m) => (
-          <View key={m.name} style={styles.otherCard}>
-            <Text style={styles.otherName}>{m.name}</Text>
-            <Text style={styles.otherPrice}>LKR {m.price} /kg</Text>
-            <Text style={styles.otherNote}>{m.note}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Insight Explanation */}
-      <View style={styles.insightCard}>
-        <Text style={styles.sectionTitle}>Why this market?</Text>
-        <Text style={styles.explanation}>
-          Although Colombo offers a higher price per kg, increased distance and
-          transport costs reduce overall profit. Dambulla provides the best
-          balance between price, demand, and logistics efficiency.
+      <View style={styles.reasonCard}>
+        <Text style={styles.reason}>✔ High demand increases selling speed</Text>
+        <Text style={styles.reason}>
+          ✔ Lower transport cost despite moderate distance
+        </Text>
+        <Text style={styles.reason}>
+          ✔ Better net profit than higher-priced markets
         </Text>
       </View>
+
+      {/* COMPARISON */}
+      <Text style={styles.sectionTitle}>Market Comparison</Text>
+
+      {data.comparisons.map((m) => (
+        <View key={m.name} style={styles.compareCard}>
+          <Text style={styles.compareName}>{m.name}</Text>
+
+          <View style={styles.compareRow}>
+            <Text>Price /kg</Text>
+            <Text>LKR {m.pricePerKg}</Text>
+          </View>
+
+          <View style={styles.compareRow}>
+            <Text>Transport</Text>
+            <Text>LKR {m.transportCost}</Text>
+          </View>
+
+          <View style={styles.compareRow}>
+            <Text style={styles.compareLoss}>Net Profit</Text>
+            <Text style={styles.compareLoss}>
+              LKR {m.netProfit.toLocaleString()}
+            </Text>
+          </View>
+        </View>
+      ))}
+
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
-/* =========================
-   STYLES (FULLY DEFINED)
-   ========================= */
+/* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.softBg,
-  },
+  container: { flex: 1, backgroundColor: "#f6f8f7" },
 
   header: {
-    backgroundColor: COLORS.primary,
-    padding: SPACING.screen,
+    backgroundColor: "#4CAF50",
+    padding: 24,
     paddingTop: 56,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
+  back: { color: "#fff" },
+  title: { fontSize: 24, fontWeight: "700", color: "#fff", marginTop: 8 },
+  subtitle: { color: "#e0f2e9", marginTop: 4 },
 
-  back: {
-    color: "#E8F5E9",
-    marginBottom: 8,
-    fontWeight: "500",
-  },
-
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#fff",
-  },
-
-  subtitle: {
-    marginTop: 6,
-    color: "#E8F5E9",
-  },
-
-  cardHighlight: {
-    backgroundColor: COLORS.card,
+  heroCard: {
+    backgroundColor: "#fff",
     margin: 16,
     padding: 18,
-    borderRadius: RADIUS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: 18,
+    elevation: 3,
   },
-
-  cardTag: {
-    color: COLORS.accent,
-    fontWeight: "600",
+  heroTag: {
+    color: "#2e7d32",
+    fontWeight: "700",
     marginBottom: 6,
   },
-
-  marketName: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.textMain,
-  },
-
-  meta: {
-    color: COLORS.textSub,
-    marginBottom: 10,
-  },
-
-  price: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
-
-  perKg: {
-    fontSize: 14,
-    color: COLORS.textSub,
-  },
-
-  metricsRow: {
+  marketName: { fontSize: 20, fontWeight: "700", marginBottom: 12 },
+  heroRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 16,
+    marginBottom: 6,
   },
+  bold: { fontWeight: "700" },
 
-  metric: {
+  profitBox: {
+    backgroundColor: "#e8f5e9",
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 14,
     alignItems: "center",
   },
-
-  metricLabel: {
-    fontSize: 12,
-    color: COLORS.textSub,
+  profitLabel: { color: "#2e7d32", fontSize: 12 },
+  profitValue: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#2e7d32",
+    marginTop: 4,
   },
 
-  metricPositive: {
-    fontWeight: "700",
-    color: COLORS.accent,
-  },
-
-  metricWarning: {
-    fontWeight: "700",
-    color: COLORS.warning,
-  },
-
-  metricValue: {
-    fontWeight: "700",
-    color: COLORS.textMain,
-  },
-
-  secondaryButton: {
-    marginTop: 20,
+  outlineButton: {
+    marginTop: 16,
     padding: 14,
-    borderRadius: RADIUS.button,
+    borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: COLORS.accent,
+    borderColor: "#4CAF50",
   },
-
-  secondaryButtonText: {
+  outlineButtonText: {
     textAlign: "center",
-    color: COLORS.accent,
+    color: "#4CAF50",
     fontWeight: "700",
   },
 
   sectionTitle: {
-    marginLeft: 16,
-    marginTop: 20,
-    marginBottom: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
     fontSize: 16,
     fontWeight: "700",
-    color: COLORS.textMain,
   },
 
-  otherMarkets: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-  },
-
-  otherCard: {
-    backgroundColor: "#F1F8F4",
-    padding: 14,
-    borderRadius: RADIUS.card,
-    minWidth: 160,
-  },
-
-  otherName: {
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-
-  otherPrice: {
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-
-  otherNote: {
-    fontSize: 12,
-    color: COLORS.textSub,
-  },
-
-  insightCard: {
-    backgroundColor: COLORS.card,
+  reasonCard: {
+    backgroundColor: "#fff",
     margin: 16,
     padding: 16,
-    borderRadius: RADIUS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: 16,
   },
+  reason: { marginBottom: 6 },
 
-  explanation: {
-    color: COLORS.textSub,
-    lineHeight: 20,
+  compareCard: {
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 14,
   },
+  compareName: { fontWeight: "700", marginBottom: 8 },
+  compareRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  compareLoss: { color: "#c62828", fontWeight: "700" },
 });
