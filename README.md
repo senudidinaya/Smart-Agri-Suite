@@ -3,7 +3,6 @@
 This cross-platform mobile application empowers farmers with intelligent, real-time insights to support smarter agricultural decision-making. Designed with usability, localization, and offline capability in mind, the app delivers:<br/>
 
 📈 Live Crop Price Tracking – Stay updated with dynamic market prices.<br/>
-🔮 Demand Forecasting – Anticipate crop demand trends using predictive analytics.<br/>
 🗣️ Customer Voice Intention Analysis – Enhance negotiation outcomes during land sales calls through voice-based sentiment prediction.<br/>
 📊 Stock Prediction - Automatically predict upcoming spice demand/sales and alert warehouse or shop owners to restock before shortages or overstock happen.<br/>
 🛰️ Idle Land Detection - Detect idle lands/manual listing of lands and lease lands for a better income for residences 
