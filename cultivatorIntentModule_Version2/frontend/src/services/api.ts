@@ -7,9 +7,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Use localhost for web, IP address for mobile devices
+// Backend runs on port 8001
 const API_BASE_URL = Platform.OS === 'web' 
-  ? 'http://localhost:8000/api/v1' 
-  : 'http://192.168.1.9:8000/api/v1';
+  ? 'http://localhost:8001/api/v1' 
+  : 'http://192.168.1.9:8001/api/v1';
 
 const TOKEN_KEY = 'smartagri_token';
 const USER_KEY = 'smartagri_user';
@@ -95,6 +96,77 @@ export interface CallStatusResponse {
   jobId: string;
   status: 'ringing' | 'accepted' | 'rejected' | 'ended' | 'missed';
   analysis?: AnalysisResult;
+}
+
+// Interview-related interfaces
+export interface InterviewInviteResponse {
+  success: boolean;
+  message: string;
+  interviewId: string;
+  applicationStatus: string;
+}
+
+export interface InterviewAnalyzeResponse {
+  success: boolean;
+  interviewId: string;
+  decision: 'APPROVE' | 'VERIFY' | 'REJECT';
+  confidence: number;
+  reasons: string[];
+  applicationStatus: string;
+  message: string;
+}
+
+export interface CallAssessment {
+  id: string;
+  jobId: string;
+  clientId: string;
+  adminId: string;
+  callStartedAt?: string;
+  callEndedAt?: string;
+  decision: string;
+  confidence: number;
+  reasons: string[];
+  createdAt: string;
+}
+
+export interface Interview {
+  id: string;
+  jobId: string;
+  clientId: string;
+  adminId: string;
+  interviewScheduledAt?: string;
+  interviewCompletedAt?: string;
+  videoDurationSeconds?: number;
+  analysisDecision?: 'APPROVE' | 'VERIFY' | 'REJECT';
+  confidence?: number;
+  reasons: string[];
+  status: string;
+  createdAt: string;
+}
+
+export interface InterviewStatusResponse {
+  hasInterview: boolean;
+  interview?: Interview;
+  callAssessment?: CallAssessment;
+}
+
+// Notification interfaces
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  jobId?: string;
+  jobTitle?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[];
+  unreadCount: number;
+  total: number;
 }
 
 class ApiService {
@@ -195,6 +267,7 @@ class ApiService {
     districtOrLocation: string;
     startsOnText?: string;
     ratePerDay: number;
+    phoneNumber?: string;
   }): Promise<Job> {
     return this.request('POST', '/jobs/', data);
   }
@@ -270,6 +343,84 @@ class ApiService {
     }
 
     return data;
+  }
+
+  // Interview methods
+  async inviteForInterview(
+    jobId: string, 
+    clientId: string, 
+    scheduledAt?: string
+  ): Promise<InterviewInviteResponse> {
+    const body = scheduledAt ? { scheduledAt } : {};
+    return this.request('POST', `/admin/interviews/${jobId}/${clientId}/invite`, body);
+  }
+
+  async analyzeInterviewVideo(
+    jobId: string,
+    clientId: string,
+    videoUri: string,
+    durationSeconds: number
+  ): Promise<InterviewAnalyzeResponse> {
+    const formData = new FormData();
+    
+    const fileName = videoUri.split('/').pop() || 'interview.mp4';
+    
+    formData.append('file', {
+      uri: videoUri,
+      name: fileName,
+      type: 'video/mp4',
+    } as any);
+    
+    formData.append('duration_seconds', durationSeconds.toString());
+
+    const response = await fetch(
+      `${API_BASE_URL}/admin/interviews/${jobId}/${clientId}/analyze-video`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+        },
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Analysis failed');
+    }
+
+    return data;
+  }
+
+  async getInterviewStatus(
+    jobId: string, 
+    clientId: string
+  ): Promise<InterviewStatusResponse> {
+    return this.request('GET', `/admin/interviews/${jobId}/${clientId}`);
+  }
+
+  async rejectApplication(
+    jobId: string, 
+    clientId: string
+  ): Promise<{ success: boolean; message: string; applicationStatus: string }> {
+    return this.request('POST', `/admin/interviews/${jobId}/${clientId}/reject`);
+  }
+
+  // ==================== NOTIFICATIONS ====================
+
+  async getNotifications(unreadOnly: boolean = false): Promise<NotificationListResponse> {
+    const query = unreadOnly ? '?unread_only=true' : '';
+    return this.request('GET', `/notifications/${query}`);
+  }
+
+  async markNotificationsRead(notificationIds?: string[]): Promise<{ success: boolean; markedCount: number }> {
+    const body = notificationIds ? { notificationIds } : {};
+    return this.request('POST', '/notifications/mark-read', body);
+  }
+
+  async getUnreadNotificationCount(): Promise<{ unreadCount: number }> {
+    return this.request('GET', '/notifications/unread-count');
   }
 }
 
