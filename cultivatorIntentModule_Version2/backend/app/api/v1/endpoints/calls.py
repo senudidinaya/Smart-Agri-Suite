@@ -1,19 +1,25 @@
 """
-Audio calling endpoints using LiveKit.
+Audio calling endpoints.
 Allows admin to initiate calls to clients with recording support.
+
+Note: LiveKit has been removed. Calls are coordinated through the app,
+and users make regular phone calls for audio. The app records locally
+and uploads for analysis.
 """
 
 import os
 import time
 import uuid
 import asyncio
+import base64
+import hashlib
+import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Header, UploadFile, File, BackgroundTasks
-from livekit import api
 
 from app.core.database import get_db
 from app.core.config import get_settings
@@ -50,34 +56,28 @@ def get_user_from_token(authorization: str) -> dict:
     return payload
 
 
-def generate_livekit_token(room_name: str, participant_identity: str, participant_name: str) -> str:
-    """Generate a LiveKit access token for a participant."""
+def generate_room_token(room_name: str, participant_identity: str, participant_name: str) -> str:
+    """
+    Generate a simple room token for call coordination.
+    
+    Note: LiveKit has been removed. This generates a simple JWT-like token
+    for room identification, but actual audio is via regular phone call.
+    """
     settings = get_settings()
     
-    if not settings.livekit_api_key or not settings.livekit_api_secret:
-        raise HTTPException(
-            status_code=500, 
-            detail="LiveKit not configured. Please set LIVEKIT_API_KEY and LIVEKIT_API_SECRET."
-        )
+    # Create a simple token payload
+    payload = {
+        "room": room_name,
+        "identity": participant_identity,
+        "name": participant_name,
+        "exp": int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp()),
+    }
     
-    # Create access token
-    token = api.AccessToken(settings.livekit_api_key, settings.livekit_api_secret)
-    token.with_identity(participant_identity)
-    token.with_name(participant_name)
+    # Encode as base64 (simple token, not for security)
+    payload_json = json.dumps(payload)
+    token = base64.urlsafe_b64encode(payload_json.encode()).decode()
     
-    # Grant permissions for the room
-    grant = api.VideoGrants(
-        room_join=True,
-        room=room_name,
-        can_publish=True,
-        can_subscribe=True,
-    )
-    token.with_grants(grant)
-    
-    # Set token TTL (1 hour) - must be timedelta
-    token.with_ttl(timedelta(hours=1))
-    
-    return token.to_jwt()
+    return token
 
 
 async def check_missed_calls():
@@ -149,12 +149,12 @@ async def initiate_call(
     room_name = f"job-{data.jobId}-call-{call_id}"
     
     # Generate tokens for both participants
-    admin_token = generate_livekit_token(
+    admin_token = generate_room_token(
         room_name=room_name,
         participant_identity=f"admin-{user['sub']}",
         participant_name="Admin"
     )
-    client_token = generate_livekit_token(
+    client_token = generate_room_token(
         room_name=room_name,
         participant_identity=f"client-{client_user_id}",
         participant_name=job.get("createdByUsername", "Client")
@@ -462,6 +462,26 @@ async def upload_recording(
                 "updatedAt": now,
             }
         }
+    )
+    
+    # Also save to call_assessments collection for interview workflow
+    call_assessment = {
+        "jobId": call["jobId"],
+        "clientId": call["clientUserId"],
+        "adminId": call["adminUserId"],
+        "callStartedAt": call.get("startedAt"),
+        "callEndedAt": call.get("endedAt"),
+        "decision": analysis["intentLabel"],
+        "confidence": analysis["confidence"],
+        "reasons": list(analysis.get("scores", {}).keys()),
+        "createdAt": now,
+    }
+    
+    # Upsert call assessment
+    await db.call_assessments.update_one(
+        {"jobId": call["jobId"], "clientId": call["clientUserId"]},
+        {"$set": call_assessment},
+        upsert=True
     )
     
     return RecordingUploadResponse(
