@@ -1,5 +1,6 @@
 /**
  * Admin Applications Screen - View all job posts from clients
+ * Extended with interview workflow: Invite, Record, Analyze
  */
 
 import React, { useState, useCallback } from 'react';
@@ -13,15 +14,22 @@ import {
   SafeAreaView,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { api, Job } from '../services/api';
+import { api, Job, InterviewStatusResponse } from '../services/api';
 
-type FilterStatus = 'all' | 'new' | 'contacted' | 'closed';
+type FilterStatus = 'all' | 'new' | 'contacted' | 'invited_interview' | 'approved' | 'rejected' | 'closed';
+
+// Extended Job interface with interview status
+interface ExtendedJob extends Job {
+  interviewStatus?: InterviewStatusResponse;
+  applicationStatus?: string;
+}
 
 export default function AdminApplicationsScreen() {
   const navigation = useNavigation<any>();
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<ExtendedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterStatus>('all');
@@ -124,6 +132,16 @@ export default function AdminApplicationsScreen() {
         return '#4CAF50';
       case 'contacted':
         return '#2196F3';
+      case 'invited_interview':
+        return '#9C27B0';
+      case 'interview_done':
+        return '#FF9800';
+      case 'approved':
+        return '#27ae60';
+      case 'rejected':
+        return '#e74c3c';
+      case 'verify_required':
+        return '#f39c12';
       case 'closed':
         return '#9E9E9E';
       default:
@@ -131,14 +149,91 @@ export default function AdminApplicationsScreen() {
     }
   };
 
+  const handleInviteForInterview = async (job: ExtendedJob) => {
+    Alert.alert(
+      'Invite for Interview',
+      `Invite ${job.createdByUsername} for an in-person interview?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Invite',
+          onPress: async () => {
+            try {
+              await api.inviteForInterview(job.id, job.createdByUserId);
+              Alert.alert('Success', 'Client invited for interview');
+              loadJobs();
+            } catch (e: any) {
+              Alert.alert('Error', e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleStartInterview = (job: ExtendedJob) => {
+    navigation.navigate('InPersonInterview', {
+      jobId: job.id,
+      clientId: job.createdByUserId,
+      clientName: job.createdByUsername,
+      jobTitle: job.title,
+    });
+  };
+
+  const handleRejectApplication = async (job: ExtendedJob) => {
+    Alert.alert(
+      'Reject Application',
+      `Are you sure you want to reject this application from ${job.createdByUsername}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.rejectApplication(job.id, job.createdByUserId);
+              Alert.alert('Success', 'Application rejected');
+              loadJobs();
+            } catch (e: any) {
+              Alert.alert('Error', e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleViewCallAssessment = (job: ExtendedJob) => {
+    const assessment = job.interviewStatus?.callAssessment;
+    if (!assessment) {
+      Alert.alert('No Assessment', 'No call assessment available for this job.');
+      return;
+    }
+    
+    Alert.alert(
+      'Call Assessment',
+      `Decision: ${assessment.decision}\nConfidence: ${(assessment.confidence * 100).toFixed(1)}%\n\nReasons:\n${assessment.reasons.join('\n') || 'None recorded'}`,
+      [{ text: 'OK' }]
+    );
+  };
+
   const filters: { key: FilterStatus; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'new', label: 'New' },
     { key: 'contacted', label: 'Contacted' },
+    { key: 'invited_interview', label: 'Invited' },
+    { key: 'approved', label: 'Approved' },
+    { key: 'rejected', label: 'Rejected' },
     { key: 'closed', label: 'Closed' },
   ];
 
-  const renderJob = ({ item }: { item: Job }) => (
+  const renderJob = ({ item }: { item: ExtendedJob }) => {
+    const status = item.applicationStatus || item.status;
+    const hasCallAssessment = item.interviewStatus?.callAssessment != null;
+    const hasInterview = item.interviewStatus?.hasInterview;
+    const interviewCompleted = item.interviewStatus?.interview?.status === 'completed';
+    
+    return (
     <View style={styles.jobCard}>
       <View style={styles.jobHeader}>
         <View style={styles.avatarContainer}>
@@ -146,8 +241,8 @@ export default function AdminApplicationsScreen() {
         </View>
         <View style={styles.jobInfo}>
           <Text style={styles.jobTitle}>{item.title}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) }]}>
+            <Text style={styles.statusText}>{status.toUpperCase().replace('_', ' ')}</Text>
           </View>
         </View>
       </View>
@@ -173,10 +268,51 @@ export default function AdminApplicationsScreen() {
           <Text style={styles.detailLabel}>Posted:</Text>
           <Text style={styles.detailValue}>{new Date(item.createdAt).toLocaleDateString()}</Text>
         </View>
+        
+        {/* Show call assessment result if available */}
+        {hasCallAssessment && (
+          <TouchableOpacity 
+            style={styles.assessmentRow}
+            onPress={() => handleViewCallAssessment(item)}
+          >
+            <Text style={styles.detailLabel}>Call Assessment:</Text>
+            <View style={[
+              styles.assessmentBadge, 
+              { backgroundColor: 
+                item.interviewStatus?.callAssessment?.decision === 'PROCEED' ? '#27ae60' :
+                item.interviewStatus?.callAssessment?.decision === 'REJECT' ? '#e74c3c' : '#f39c12'
+              }
+            ]}>
+              <Text style={styles.assessmentText}>
+                {item.interviewStatus?.callAssessment?.decision} 
+                ({((item.interviewStatus?.callAssessment?.confidence ?? 0) * 100).toFixed(0)}%)
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+        
+        {/* Show interview result if completed */}
+        {interviewCompleted && item.interviewStatus?.interview && (
+          <View style={styles.interviewResultRow}>
+            <Text style={styles.detailLabel}>Interview Result:</Text>
+            <View style={[
+              styles.assessmentBadge,
+              { backgroundColor: 
+                item.interviewStatus.interview.analysisDecision === 'APPROVE' ? '#27ae60' :
+                item.interviewStatus.interview.analysisDecision === 'REJECT' ? '#e74c3c' : '#f39c12'
+              }
+            ]}>
+              <Text style={styles.assessmentText}>
+                {item.interviewStatus.interview.analysisDecision}
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={styles.jobActions}>
-        {item.status === 'new' && (
+        {/* NEW status: Call, Mark Contacted, Close */}
+        {status === 'new' && (
           <>
             <TouchableOpacity
               style={styles.callClientButton}
@@ -198,7 +334,9 @@ export default function AdminApplicationsScreen() {
             </TouchableOpacity>
           </>
         )}
-        {item.status === 'contacted' && (
+        
+        {/* CONTACTED status: Call, Invite Interview, Reject */}
+        {status === 'contacted' && (
           <>
             <TouchableOpacity
               style={styles.callClientButton}
@@ -207,16 +345,77 @@ export default function AdminApplicationsScreen() {
               <Text style={styles.callClientButtonText}>📞 Call</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => handleCloseJob(item)}
+              style={styles.inviteButton}
+              onPress={() => handleInviteForInterview(item)}
             >
-              <Text style={styles.closeButtonText}>✗ Close Job</Text>
+              <Text style={styles.inviteButtonText}>🎥 Invite Interview</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.rejectButton}
+              onPress={() => handleRejectApplication(item)}
+            >
+              <Text style={styles.rejectButtonText}>✗ Reject</Text>
             </TouchableOpacity>
           </>
         )}
+        
+        {/* INVITED_INTERVIEW status: Start Interview, Reject */}
+        {status === 'invited_interview' && (
+          <>
+            <TouchableOpacity
+              style={styles.startInterviewButton}
+              onPress={() => handleStartInterview(item)}
+            >
+              <Text style={styles.startInterviewButtonText}>🎬 Start Interview</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.rejectButton}
+              onPress={() => handleRejectApplication(item)}
+            >
+              <Text style={styles.rejectButtonText}>✗ Reject</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        
+        {/* VERIFY_REQUIRED status: Re-interview option */}
+        {status === 'verify_required' && (
+          <>
+            <TouchableOpacity
+              style={styles.startInterviewButton}
+              onPress={() => handleStartInterview(item)}
+            >
+              <Text style={styles.startInterviewButtonText}>🎬 Re-Interview</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.rejectButton}
+              onPress={() => handleRejectApplication(item)}
+            >
+              <Text style={styles.rejectButtonText}>✗ Reject</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        
+        {/* APPROVED/REJECTED status: View only */}
+        {(status === 'approved' || status === 'rejected') && (
+          <View style={styles.finalStatusContainer}>
+            <Text style={[
+              styles.finalStatusText,
+              { color: status === 'approved' ? '#27ae60' : '#e74c3c' }
+            ]}>
+              {status === 'approved' ? '✅ Application Approved' : '❌ Application Rejected'}
+            </Text>
+          </View>
+        )}
+        
+        {/* CLOSED status */}
+        {status === 'closed' && (
+          <View style={styles.finalStatusContainer}>
+            <Text style={styles.closedStatusText}>Job Closed</Text>
+          </View>
+        )}
       </View>
     </View>
-  );
+  )};
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -230,12 +429,6 @@ export default function AdminApplicationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Job Posts</Text>
-        <Text style={styles.headerSubtitle}>{jobs.length} total job posts</Text>
-      </View>
-
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
         {filters.map((f) => (
@@ -325,6 +518,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    position: 'relative',
     ...Platform.select({
       web: {
         boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.1)',
@@ -337,6 +531,26 @@ const styles = StyleSheet.create({
         elevation: 2,
       },
     }),
+  },
+  recordIconButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#5C9A9A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  recordIconText: {
+    fontSize: 22,
   },
   jobHeader: {
     flexDirection: 'row',
@@ -457,5 +671,80 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: '#999',
+  },
+  // Interview workflow styles
+  assessmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  assessmentBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 10,
+  },
+  assessmentText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  interviewResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  inviteButton: {
+    flex: 1,
+    backgroundColor: '#9C27B0',
+    borderRadius: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  inviteButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  rejectButton: {
+    flex: 1,
+    backgroundColor: '#e74c3c',
+    borderRadius: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  rejectButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  startInterviewButton: {
+    flex: 2,
+    backgroundColor: '#FF9800',
+    borderRadius: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  startInterviewButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  finalStatusContainer: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  finalStatusText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  closedStatusText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#9E9E9E',
   },
 });
