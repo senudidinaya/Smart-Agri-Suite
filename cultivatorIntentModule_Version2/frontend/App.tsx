@@ -13,10 +13,12 @@ import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import ClientProfileScreen from './src/screens/ClientProfileScreen';
 import ClientJobsScreen from './src/screens/ClientJobsScreen';
+import ClientNotificationsScreen from './src/screens/ClientNotificationsScreen';
 import AdminApplicationsScreen from './src/screens/AdminApplicationsScreen';
 import AdminCallScreen from './src/screens/AdminCallScreen';
 import ClientCallScreen from './src/screens/ClientCallScreen';
 import IncomingCallScreen from './src/screens/IncomingCallScreen';
+import InPersonInterviewScreen from './src/screens/InPersonInterviewScreen';
 import { api } from './src/services/api';
 
 // Navigation types
@@ -28,6 +30,7 @@ type AuthStackParamList = {
 type ClientTabParamList = {
   Profile: undefined;
   Jobs: undefined;
+  Notifications: undefined;
 };
 
 type AdminTabParamList = {
@@ -59,6 +62,12 @@ type AdminStackParamList = {
     livekitUrl: string;
     token: string;
     clientUsername: string;
+    jobTitle: string;
+  };
+  InPersonInterview: {
+    jobId: string;
+    clientId: string;
+    clientName: string;
     jobTitle: string;
   };
 };
@@ -126,6 +135,15 @@ function ClientTabNavigator() {
           headerShown: false,
           title: 'Jobs',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🌾</Text>,
+        }}
+      />
+      <ClientTab.Screen
+        name="Notifications"
+        component={ClientNotificationsScreen}
+        options={{
+          headerShown: false,
+          title: 'Notifications',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🔔</Text>,
         }}
       />
     </ClientTab.Navigator>
@@ -225,6 +243,11 @@ function AdminNavigator() {
       <AdminStack.Screen
         name="AdminCall"
         component={AdminCallScreen}
+        options={{ presentation: 'fullScreenModal' }}
+      />
+      <AdminStack.Screen
+        name="InPersonInterview"
+        component={InPersonInterviewScreen}
         options={{ presentation: 'fullScreenModal' }}
       />
     </AdminStack.Navigator>
