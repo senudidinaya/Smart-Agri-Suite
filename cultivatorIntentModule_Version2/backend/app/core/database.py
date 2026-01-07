@@ -1,8 +1,21 @@
 """
 MongoDB database connection and management.
 Simple connection handling for the Smart Agri-Suite.
+
+TROUBLESHOOTING SSL ERRORS ON WINDOWS:
+--------------------------------------
+If you see "TLSV1_ALERT_INTERNAL_ERROR", it means MongoDB Atlas is rejecting the connection.
+This is usually caused by:
+
+1. YOUR IP IS NOT WHITELISTED in MongoDB Atlas
+   - Go to: https://cloud.mongodb.com
+   - Select your cluster > Network Access > Add IP Address
+   - Add your current IP or use 0.0.0.0/0 for development
+
+2. OR set SKIP_MONGODB=true in .env to develop without database
 """
 
+import os
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from typing import Optional
 
@@ -14,23 +27,36 @@ logger = get_logger(__name__)
 # Global database instance
 _client: Optional[AsyncIOMotorClient] = None
 _db: Optional[AsyncIOMotorDatabase] = None
+_connection_failed: bool = False
 
 
 async def connect_db() -> None:
     """Connect to MongoDB on application startup."""
-    global _client, _db
+    global _client, _db, _connection_failed
     
     settings = get_settings()
-    logger.info(f"Connecting to MongoDB: {settings.mongodb_url}")
+    
+    # Check if we should skip MongoDB entirely (for development without DB)
+    skip_mongodb = os.environ.get("SKIP_MONGODB", "").lower() == "true"
+    if skip_mongodb:
+        _connection_failed = True
+        logger.warning("SKIP_MONGODB=true - Running without database connection")
+        return
+    
+    logger.info("Connecting to MongoDB...")
     
     try:
+        # Create client with SSL configured for Windows compatibility
         _client = AsyncIOMotorClient(
             settings.mongodb_url,
-            serverSelectionTimeoutMS=5000,
+            serverSelectionTimeoutMS=10000,
+            tlsAllowInvalidCertificates=True,
         )
+        
         # Verify connection
         await _client.admin.command("ping")
         _db = _client[settings.mongodb_database]
+        _connection_failed = False
         
         logger.info(f"Connected to database: {settings.mongodb_database}")
         
@@ -38,9 +64,26 @@ async def connect_db() -> None:
         await _create_indexes()
         
     except Exception as e:
-        logger.error(f"MongoDB connection failed: {e}")
-        logger.error("Make sure MongoDB is running on localhost:27017")
-        raise
+        _connection_failed = True
+        error_msg = str(e)
+        
+        if "SSL" in error_msg or "TLS" in error_msg:
+            logger.error("MongoDB SSL connection failed!")
+            logger.error("=" * 60)
+            logger.error("MOST LIKELY CAUSE: Your IP is not whitelisted in MongoDB Atlas")
+            logger.error("")
+            logger.error("TO FIX:")
+            logger.error("1. Go to https://cloud.mongodb.com")
+            logger.error("2. Select your cluster > Network Access")
+            logger.error("3. Click 'Add IP Address' and add your current IP")
+            logger.error("   Or use 0.0.0.0/0 to allow all IPs (for development only)")
+            logger.error("")
+            logger.error("OR set SKIP_MONGODB=true in .env to develop without database")
+            logger.error("=" * 60)
+        else:
+            logger.error(f"MongoDB connection failed: {e}")
+            
+        logger.warning("App will continue without database. Some features won't work.")
 
 
 async def close_db() -> None:
@@ -53,16 +96,22 @@ async def close_db() -> None:
         logger.info("MongoDB connection closed")
 
 
-def get_db() -> AsyncIOMotorDatabase:
-    """Get the database instance."""
-    if _db is None:
-        raise RuntimeError("Database not connected")
+def get_db() -> Optional[AsyncIOMotorDatabase]:
+    """Get the database instance. Returns None if not connected."""
     return _db
+
+
+def is_db_connected() -> bool:
+    """Check if database is connected."""
+    return _db is not None and not _connection_failed
 
 
 async def _create_indexes() -> None:
     """Create required database indexes."""
     db = get_db()
+    if db is None:
+        logger.warning("Cannot create indexes - database not connected")
+        return
     
     # Users indexes
     await db.users.create_index("username", unique=True)
@@ -78,5 +127,21 @@ async def _create_indexes() -> None:
     # Job applications indexes
     await db.job_applications.create_index("jobId")
     await db.job_applications.create_index("applicantUserId")
+    await db.job_applications.create_index([("jobId", 1), ("applicantUserId", 1)], unique=True)
+    
+    # Call assessments indexes
+    await db.call_assessments.create_index("jobId")
+    await db.call_assessments.create_index("clientId")
+    await db.call_assessments.create_index([("jobId", 1), ("clientId", 1)])
+    
+    # In-person interviews indexes
+    await db.inperson_interviews.create_index("jobId")
+    await db.inperson_interviews.create_index("clientId")
+    await db.inperson_interviews.create_index([("jobId", 1), ("clientId", 1)])
+    
+    # Notifications indexes
+    await db.notifications.create_index("userId")
+    await db.notifications.create_index([("userId", 1), ("isRead", 1)])
+    await db.notifications.create_index([("userId", 1), ("createdAt", -1)])
     
     logger.info("Database indexes created")
