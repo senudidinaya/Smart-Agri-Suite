@@ -1,0 +1,52 @@
+{
+  "model_type": "logistic_regression",
+  "feature_names": [
+    "duration_seconds",
+    "rms_mean",
+    "rms_std",
+    "f0_mean",
+    "f0_std",
+    "zcr_mean",
+    "spectral_centroid_mean",
+    "tempo_proxy",
+    "transcript_char_len",
+    "transcript_word_count",
+    "urgency_count",
+    "money_count",
+    "secrecy_count",
+    "pressure_count",
+    "id_avoidance_count",
+    "otp_pin_count"
+  ],
+  "audio_features": [
+    "duration_seconds",
+    "rms_mean",
+    "rms_std",
+    "f0_mean",
+    "f0_std",
+    "zcr_mean",
+    "spectral_centroid_mean",
+    "tempo_proxy"
+  ],
+  "text_features": [
+    "transcript_char_len",
+    "transcript_word_count",
+    "urgency_count",
+    "money_count",
+    "secrecy_count",
+    "pressure_count",
+    "id_avoidance_count",
+    "otp_pin_count"
+  ],
+  "decision_labels": [
+    "PROCEED",
+    "VERIFY",
+    "REJECT"
+  ],
+  "training_samples": 655,
+  "test_accuracy": 0.9847,
+  "cv_accuracy": 0.9962,
+  "data_path": "C:\\Senudi's University\\Research Project\\Smart-Agri-Suite\\cultivatorIntentModule_Version2\\backend\\data\\labeled_call_features.csv",
+  "trained_at": "2026-01-07T14:36:21.114689",
+  "version": "2.0.0"
+}
