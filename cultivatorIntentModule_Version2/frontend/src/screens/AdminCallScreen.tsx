@@ -152,22 +152,42 @@ export default function AdminCallScreen() {
   };
 
   const getIntentColor = (intent: string): string => {
-    switch (intent) {
-      case 'high_intent': return '#27ae60';
-      case 'medium_intent': return '#f39c12';
-      case 'low_intent': return '#e67e22';
-      case 'no_intent': return '#e74c3c';
-      default: return '#95a5a6';
+    const normalized = intent.toUpperCase();
+    switch (normalized) {
+      case 'PROCEED':
+      case 'HIGH_INTENT':
+        return '#27ae60'; // Green - positive
+      case 'VERIFY':
+      case 'MEDIUM_INTENT':
+        return '#f39c12'; // Orange - needs verification
+      case 'REJECT':
+      case 'LOW_INTENT':
+      case 'NO_INTENT':
+        return '#e74c3c'; // Red - negative
+      default:
+        return '#95a5a6'; // Gray - unknown
     }
   };
 
   const getIntentLabel = (intent: string): string => {
-    switch (intent) {
-      case 'high_intent': return 'High Interest';
-      case 'medium_intent': return 'Moderate Interest';
-      case 'low_intent': return 'Low Interest';
-      case 'no_intent': return 'No Interest';
-      default: return 'Unknown';
+    const normalized = intent.toUpperCase();
+    switch (normalized) {
+      case 'PROCEED':
+        return 'Proceed';
+      case 'VERIFY':
+        return 'Verify';
+      case 'REJECT':
+        return 'Reject';
+      case 'HIGH_INTENT':
+        return 'High Interest';
+      case 'MEDIUM_INTENT':
+        return 'Moderate Interest';
+      case 'LOW_INTENT':
+        return 'Low Interest';
+      case 'NO_INTENT':
+        return 'No Interest';
+      default:
+        return intent; // Return original if not mapped
     }
   };
 
