@@ -17,6 +17,7 @@ from app.schemas.application import (
     ApplicationResponse,
     ApplicationListResponse,
 )
+from app.services.admin_assignment import get_today_colombo_date_str, assign_or_queue_call_task
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/applications", tags=["Applications"])
@@ -95,7 +96,25 @@ async def apply_to_job(data: ApplicationCreate, authorization: str = Header(...)
     result = await db.job_applications.insert_one(app_doc)
     app_doc["_id"] = result.inserted_id
     
-    logger.info(f"Application created for job {data.jobId} by user {user['username']}")
+    # Create CallTask for automated follow-up
+    scheduled_date = get_today_colombo_date_str()
+    call_task_doc = {
+        "jobId": data.jobId,
+        "clientId": user["sub"],
+        "applicationId": str(result.inserted_id),
+        "status": "NEW",
+        "assignedAdminId": None,
+        "scheduledDate": scheduled_date,
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    
+    call_task_result = await db.call_tasks.insert_one(call_task_doc)
+    
+    # Assign or queue the task
+    await assign_or_queue_call_task(str(call_task_result.inserted_id), scheduled_date)
+    
+    logger.info(f"Application created for job {data.jobId} by user {user['username']} - CallTask scheduled for {scheduled_date}")
     
     return application_to_response(app_doc)
 
