@@ -1,10 +1,11 @@
 """
-Audio calling endpoints.
-Allows admin to initiate calls to clients with recording support.
+Audio calling endpoints with Agora RTC integration.
+Allows admin to initiate calls to clients with cloud recording support.
 
-Note: LiveKit has been removed. Calls are coordinated through the app,
-and users make regular phone calls for audio. The app records locally
-and uploads for analysis.
+Agora Integration:
+- Uses Agora RTC for real-time voice communication
+- Supports cloud recording for automated analysis
+- Client-side local recording as fallback
 """
 
 import os
@@ -32,14 +33,29 @@ from app.schemas.call import (
     CallAcceptResponse,
     RecordingUploadResponse,
     CallResponse,
+    AgoraTokenInfo,
+    StartRecordingRequest,
+    StartRecordingResponse,
+    StopRecordingResponse,
 )
 from app.services.inference import get_classifier
+from app.services.agora import (
+    generate_agora_token,
+    get_agora_app_id,
+    get_cloud_recording,
+    RtcTokenRole,
+)
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/calls", tags=["Calls"])
 
-# Timeout for missed calls (seconds)
-CALL_TIMEOUT_SECONDS = 30
+# Timeout for missed calls (seconds) - increased to 2 minutes to allow time for legal notice
+CALL_TIMEOUT_SECONDS = 120
+
+# UID ranges for Agora (to distinguish admin, client, recording bot)
+ADMIN_UID_BASE = 1000
+CLIENT_UID_BASE = 2000
+RECORDING_UID_BASE = 9000
 
 
 def get_user_from_token(authorization: str) -> dict:
@@ -56,28 +72,11 @@ def get_user_from_token(authorization: str) -> dict:
     return payload
 
 
-def generate_room_token(room_name: str, participant_identity: str, participant_name: str) -> str:
-    """
-    Generate a simple room token for call coordination.
-    
-    Note: LiveKit has been removed. This generates a simple JWT-like token
-    for room identification, but actual audio is via regular phone call.
-    """
-    settings = get_settings()
-    
-    # Create a simple token payload
-    payload = {
-        "room": room_name,
-        "identity": participant_identity,
-        "name": participant_name,
-        "exp": int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp()),
-    }
-    
-    # Encode as base64 (simple token, not for security)
-    payload_json = json.dumps(payload)
-    token = base64.urlsafe_b64encode(payload_json.encode()).decode()
-    
-    return token
+def generate_uid_from_user_id(user_id: str, base: int) -> int:
+    """Generate a consistent Agora UID from a user ID string."""
+    # Create a hash of the user_id and take last 8 digits
+    hash_val = int(hashlib.md5(user_id.encode()).hexdigest()[:8], 16)
+    return base + (hash_val % 1000)
 
 
 async def check_missed_calls():
@@ -115,7 +114,7 @@ async def initiate_call(
     authorization: str = Header(...)
 ):
     """
-    Initiate a call to a client.
+    Initiate a call to a client using Agora RTC.
     Only admin can initiate calls.
     """
     user = get_user_from_token(authorization)
@@ -144,21 +143,30 @@ async def initiate_call(
     
     now = datetime.now(timezone.utc)
     
-    # Create unique room name
+    # Create unique channel name for Agora
     call_id = str(ObjectId())
-    room_name = f"job-{data.jobId}-call-{call_id}"
+    channel_name = f"job_{data.jobId[:8]}_{call_id[:8]}"
     
-    # Generate tokens for both participants
-    admin_token = generate_room_token(
-        room_name=room_name,
-        participant_identity=f"admin-{user['sub']}",
-        participant_name="Admin"
+    # Generate UIDs for participants
+    admin_uid = generate_uid_from_user_id(user["sub"], ADMIN_UID_BASE)
+    client_uid = generate_uid_from_user_id(client_user_id, CLIENT_UID_BASE)
+    recording_uid = generate_uid_from_user_id(call_id, RECORDING_UID_BASE)
+    
+    # Generate Agora RTC tokens
+    admin_token = generate_agora_token(
+        channel_name=channel_name,
+        uid=admin_uid,
+        role=RtcTokenRole.PUBLISHER,
+        expire_seconds=3600
     )
-    client_token = generate_room_token(
-        room_name=room_name,
-        participant_identity=f"client-{client_user_id}",
-        participant_name=job.get("createdByUsername", "Client")
+    client_token = generate_agora_token(
+        channel_name=channel_name,
+        uid=client_uid,
+        role=RtcTokenRole.PUBLISHER,
+        expire_seconds=3600
     )
+    
+    agora_app_id = get_agora_app_id()
     
     # Create call record
     call_doc = {
@@ -166,7 +174,11 @@ async def initiate_call(
         "jobId": data.jobId,
         "adminUserId": user["sub"],
         "clientUserId": client_user_id,
-        "roomName": room_name,
+        "channelName": channel_name,
+        "roomName": channel_name,  # Legacy field
+        "adminUid": admin_uid,
+        "clientUid": client_uid,
+        "recordingUid": recording_uid,
         "clientToken": client_token,  # Store for client to retrieve
         "status": "ringing",
         "createdAt": now,
@@ -174,6 +186,7 @@ async def initiate_call(
         "startedAt": None,
         "endedAt": None,
         "recording": None,
+        "cloudRecording": None,
         "analysis": None,
     }
     
@@ -182,12 +195,19 @@ async def initiate_call(
     # Schedule background task to check for missed calls
     background_tasks.add_task(check_missed_calls)
     
-    logger.info(f"Call initiated: {call_id} for job {data.jobId}")
+    logger.info(f"Call initiated: {call_id} for job {data.jobId} via Agora channel {channel_name}")
     
     return CallInitiateResponse(
         callId=call_id,
-        roomName=room_name,
-        livekitUrl=settings.livekit_url,
+        agora=AgoraTokenInfo(
+            appId=agora_app_id,
+            channelName=channel_name,
+            token=admin_token,
+            uid=admin_uid,
+        ),
+        # Legacy fields
+        roomName=channel_name,
+        livekitUrl="",  # Deprecated
         token=admin_token,
     )
 
@@ -204,7 +224,6 @@ async def check_incoming_call(
     client_user_id = user["sub"]
     
     db = get_db()
-    settings = get_settings()
     
     # Find a ringing call for this client
     call = await db.calls.find_one({
@@ -223,14 +242,26 @@ async def check_incoming_call(
     admin_user = await db.users.find_one({"_id": ObjectId(call["adminUserId"])})
     admin_username = admin_user.get("username", "Admin") if admin_user else "Admin"
     
+    # Get Agora connection info
+    channel_name = call.get("channelName", call.get("roomName", ""))
+    client_uid = call.get("clientUid", 0)
+    agora_app_id = get_agora_app_id()
+    
     return IncomingCallResponse(
         hasIncomingCall=True,
         callId=str(call["_id"]),
         jobId=call["jobId"],
         jobTitle=job_title,
-        roomName=call["roomName"],
-        livekitUrl=settings.livekit_url,
         adminUsername=admin_username,
+        agora=AgoraTokenInfo(
+            appId=agora_app_id,
+            channelName=channel_name,
+            token=call.get("clientToken", ""),
+            uid=client_uid,
+        ),
+        # Legacy fields
+        roomName=channel_name,
+        livekitUrl="",
     )
 
 
@@ -240,13 +271,12 @@ async def accept_call(
     authorization: str = Header(...)
 ):
     """
-    Accept an incoming call.
+    Accept an incoming call and join the Agora channel.
     Only the target client can accept.
     """
     user = get_user_from_token(authorization)
     
     db = get_db()
-    settings = get_settings()
     
     # Find the call
     call = await db.calls.find_one({"_id": ObjectId(call_id)})
@@ -277,10 +307,22 @@ async def accept_call(
     
     logger.info(f"Call accepted: {call_id}")
     
+    # Get Agora connection info
+    channel_name = call.get("channelName", call.get("roomName", ""))
+    client_uid = call.get("clientUid", 0)
+    agora_app_id = get_agora_app_id()
+    
     return CallAcceptResponse(
-        roomName=call["roomName"],
-        livekitUrl=settings.livekit_url,
-        token=call["clientToken"],
+        agora=AgoraTokenInfo(
+            appId=agora_app_id,
+            channelName=channel_name,
+            token=call.get("clientToken", ""),
+            uid=client_uid,
+        ),
+        # Legacy fields
+        roomName=channel_name,
+        livekitUrl="",
+        token=call.get("clientToken", ""),
     )
 
 
@@ -511,17 +553,192 @@ async def get_call(
     if call["clientUserId"] != user["sub"] and call["adminUserId"] != user["sub"]:
         raise HTTPException(status_code=403, detail="You are not part of this call")
     
+    channel_name = call.get("channelName", call.get("roomName", ""))
+    
     return CallResponse(
         id=str(call["_id"]),
         jobId=call["jobId"],
         adminUserId=call["adminUserId"],
         clientUserId=call["clientUserId"],
-        roomName=call["roomName"],
+        channelName=channel_name,
         status=call["status"],
         createdAt=call["createdAt"],
         updatedAt=call["updatedAt"],
         startedAt=call.get("startedAt"),
         endedAt=call.get("endedAt"),
         recording=call.get("recording"),
+        cloudRecording=call.get("cloudRecording"),
         analysis=call.get("analysis"),
+        roomName=channel_name,  # Legacy
     )
+
+
+@router.post("/{call_id}/recording/start", response_model=StartRecordingResponse)
+async def start_cloud_recording(
+    call_id: str,
+    authorization: str = Header(...)
+):
+    """
+    Start Agora cloud recording for a call.
+    This records the audio stream server-side.
+    Only admin can start cloud recording.
+    """
+    user = get_user_from_token(authorization)
+    
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can start cloud recording")
+    
+    db = get_db()
+    
+    call = await db.calls.find_one({"_id": ObjectId(call_id)})
+    if not call:
+        raise HTTPException(status_code=404, detail="Call not found")
+    
+    if call["status"] != "accepted":
+        raise HTTPException(status_code=400, detail="Can only record active calls")
+    
+    if call.get("cloudRecording"):
+        return StartRecordingResponse(
+            success=True,
+            resourceId=call["cloudRecording"].get("resourceId"),
+            sid=call["cloudRecording"].get("sid"),
+            message="Cloud recording already active"
+        )
+    
+    channel_name = call.get("channelName", call.get("roomName", ""))
+    recording_uid = call.get("recordingUid", RECORDING_UID_BASE)
+    
+    # Generate token for recording bot
+    recording_token = generate_agora_token(
+        channel_name=channel_name,
+        uid=recording_uid,
+        role=RtcTokenRole.SUBSCRIBER,
+        expire_seconds=7200
+    )
+    
+    cloud_recording = get_cloud_recording()
+    
+    # Acquire resource
+    resource_id = await cloud_recording.acquire_resource(
+        channel_name=channel_name,
+        uid=recording_uid
+    )
+    
+    if not resource_id:
+        return StartRecordingResponse(
+            success=False,
+            message="Failed to acquire recording resource"
+        )
+    
+    # Start recording
+    result = await cloud_recording.start_recording(
+        resource_id=resource_id,
+        channel_name=channel_name,
+        uid=recording_uid,
+        token=recording_token
+    )
+    
+    if not result:
+        return StartRecordingResponse(
+            success=False,
+            resourceId=resource_id,
+            message="Failed to start cloud recording"
+        )
+    
+    resource_id, sid = result
+    now = datetime.now(timezone.utc)
+    
+    # Update call with recording info
+    await db.calls.update_one(
+        {"_id": ObjectId(call_id)},
+        {
+            "$set": {
+                "cloudRecording": {
+                    "resourceId": resource_id,
+                    "sid": sid,
+                    "recordingUid": recording_uid,
+                    "status": "recording",
+                    "startedAt": now,
+                },
+                "updatedAt": now,
+            }
+        }
+    )
+    
+    logger.info(f"Cloud recording started for call {call_id}: sid={sid}")
+    
+    return StartRecordingResponse(
+        success=True,
+        resourceId=resource_id,
+        sid=sid,
+        message="Cloud recording started"
+    )
+
+
+@router.post("/{call_id}/recording/stop", response_model=StopRecordingResponse)
+async def stop_cloud_recording(
+    call_id: str,
+    authorization: str = Header(...)
+):
+    """
+    Stop Agora cloud recording for a call.
+    Returns information about the recorded files.
+    """
+    user = get_user_from_token(authorization)
+    
+    db = get_db()
+    
+    call = await db.calls.find_one({"_id": ObjectId(call_id)})
+    if not call:
+        raise HTTPException(status_code=404, detail="Call not found")
+    
+    # Verify user is part of this call
+    if call["clientUserId"] != user["sub"] and call["adminUserId"] != user["sub"]:
+        raise HTTPException(status_code=403, detail="You are not part of this call")
+    
+    cloud_recording_info = call.get("cloudRecording")
+    if not cloud_recording_info:
+        return StopRecordingResponse(
+            success=False,
+            message="No cloud recording active for this call"
+        )
+    
+    channel_name = call.get("channelName", call.get("roomName", ""))
+    recording_uid = cloud_recording_info.get("recordingUid", RECORDING_UID_BASE)
+    resource_id = cloud_recording_info.get("resourceId")
+    sid = cloud_recording_info.get("sid")
+    
+    cloud_recording = get_cloud_recording()
+    
+    result = await cloud_recording.stop_recording(
+        resource_id=resource_id,
+        sid=sid,
+        channel_name=channel_name,
+        uid=recording_uid
+    )
+    
+    now = datetime.now(timezone.utc)
+    
+    file_list = result.get("fileList", []) if result else []
+    
+    # Update call with recording result
+    await db.calls.update_one(
+        {"_id": ObjectId(call_id)},
+        {
+            "$set": {
+                "cloudRecording.status": "stopped",
+                "cloudRecording.stoppedAt": now,
+                "cloudRecording.fileList": file_list,
+                "updatedAt": now,
+            }
+        }
+    )
+    
+    logger.info(f"Cloud recording stopped for call {call_id}")
+    
+    return StopRecordingResponse(
+        success=True,
+        fileList=file_list,
+        message="Cloud recording stopped"
+    )
+
