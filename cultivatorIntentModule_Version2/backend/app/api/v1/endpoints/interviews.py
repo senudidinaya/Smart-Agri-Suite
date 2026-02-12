@@ -1,9 +1,11 @@
 """
 In-person interview endpoints.
 Handles video interview recording, analysis, and status management.
+Uses Gate 2 ML model for facial expression analysis.
 """
 
 import os
+import shutil
 import tempfile
 import subprocess
 from datetime import datetime, timezone
@@ -23,8 +25,10 @@ from app.schemas.interview import (
     InterviewResponse,
     InterviewStatusResponse,
     CallAssessmentResponse,
+    Gate2AnalysisStats,
 )
 from app.services.inference import get_risk_classifier
+from app.services.gate2_inference import get_gate2_inference_service
 from app.api.v1.endpoints.notifications import create_notification
 
 logger = get_logger(__name__)
@@ -246,12 +250,12 @@ async def analyze_interview_video(
     authorization: str = Header(...),
 ):
     """
-    Analyze an uploaded interview video.
+    Analyze an uploaded interview video using Gate 2 ML model.
     
-    - Extracts audio from video
-    - Runs the same feature extraction as call-stage
-    - Returns APPROVE / VERIFY / REJECT decision
-    - Video file is NOT stored permanently
+    - Extracts frames from video
+    - Detects faces and analyzes facial expressions
+    - Returns APPROVE / VERIFY / REJECT decision with emotion signals
+    - Video file is NOT stored permanently (deleted after analysis)
     """
     admin = get_admin_from_token(authorization)
     db = get_db()
@@ -273,91 +277,52 @@ async def analyze_interview_video(
     
     now = datetime.now(timezone.utc)
     temp_video_path = None
-    temp_audio_path = None
+    
+    # Create temp directory for this interview
+    temp_dir = Path(__file__).parent.parent.parent.parent.parent / "tmp" / "interviews" / str(interview["_id"])
+    temp_dir.mkdir(parents=True, exist_ok=True)
     
     try:
         # Save uploaded video to temp file
-        with tempfile.NamedTemporaryFile(
-            suffix=".mp4", 
-            delete=False
-        ) as temp_video:
-            content = await file.read()
-            temp_video.write(content)
-            temp_video_path = temp_video.name
+        file_extension = Path(file.filename or "video.mp4").suffix or ".mp4"
+        temp_video_path = str(temp_dir / f"interview{file_extension}")
+        
+        content = await file.read()
+        with open(temp_video_path, "wb") as f:
+            f.write(content)
         
         logger.info(f"Saved temp video: {temp_video_path} ({len(content)} bytes)")
         
-        # Extract audio from video
-        temp_audio_path = temp_video_path.replace(".mp4", ".wav")
-        audio_extracted = extract_audio_from_video(temp_video_path, temp_audio_path)
+        # Get Gate 2 inference service
+        gate2_service = get_gate2_inference_service()
         
-        # Analyze using the classifier
-        classifier = get_risk_classifier()
+        # Run Gate 2 video analysis
+        result = gate2_service.predict(temp_video_path)
         
-        decision = "VERIFY"  # Default
-        confidence = 0.5
-        reasons = []
+        # Map Gate 2 decision labels to interview decisions
+        decision_mapping = {
+            "PROCEED": "APPROVE",
+            "VERIFY": "VERIFY",
+            "REJECT": "REJECT"
+        }
+        decision = decision_mapping.get(result.decision_label, result.decision_label)
         
-        if audio_extracted and os.path.exists(temp_audio_path):
-            # Read audio bytes
-            with open(temp_audio_path, "rb") as f:
-                audio_bytes = f.read()
-            
-            # Use the ML model for prediction
-            if classifier.is_loaded and classifier.use_ml_model:
-                try:
-                    features = classifier.extract_features(audio_data=audio_bytes)
-                    label, conf, all_scores = classifier.predict_with_ml(features)
-                    
-                    # Map call decisions to interview decisions
-                    if label == "PROCEED":
-                        decision = "APPROVE"
-                    elif label == "REJECT":
-                        decision = "REJECT"
-                    else:
-                        decision = "VERIFY"
-                    
-                    confidence = conf
-                    
-                    # Generate reasons based on features
-                    if decision == "APPROVE":
-                        reasons = ["No suspicious patterns detected", "Voice analysis within normal range"]
-                    elif decision == "REJECT":
-                        reasons = ["Suspicious patterns detected", "High-risk indicators found"]
-                    else:
-                        reasons = ["Manual review recommended", "Some uncertainty in analysis"]
-                    
-                    logger.info(f"ML prediction: {decision} ({confidence:.2%})")
-                    
-                except Exception as e:
-                    logger.error(f"ML prediction failed: {e}")
-                    reasons = ["Analysis completed with fallback method"]
-            else:
-                # Fallback: rule-based using audio properties
-                logger.info("Using rule-based analysis (ML model not loaded)")
-                
-                # Simple heuristics based on file size and duration
-                audio_size = len(audio_bytes)
-                
-                if audio_size > 100000 and duration_seconds > 30:
-                    decision = "APPROVE"
-                    confidence = 0.75
-                    reasons = ["Sufficient interview duration", "Audio quality acceptable"]
-                elif duration_seconds < 10:
-                    decision = "VERIFY"
-                    confidence = 0.6
-                    reasons = ["Interview too short", "Manual review needed"]
-                else:
-                    decision = "VERIFY"
-                    confidence = 0.65
-                    reasons = ["Standard interview", "Manual verification recommended"]
-        else:
-            logger.warning("Audio extraction failed, using fallback")
+        # Ensure valid decision format
+        if decision not in ["APPROVE", "VERIFY", "REJECT"]:
             decision = "VERIFY"
-            confidence = 0.5
-            reasons = ["Audio extraction failed", "Manual review required"]
         
-        # Update interview record with results
+        confidence = result.confidence
+        
+        # Combine signals as reasons
+        reasons = result.top_signals.copy() if result.top_signals else []
+        
+        if result.dominant_emotion and result.dominant_emotion != "unknown":
+            reasons.insert(0, f"Dominant emotion: {result.dominant_emotion}")
+        
+        logger.info(f"Gate 2 analysis: {decision} ({confidence:.2%}), "
+                   f"dominant={result.dominant_emotion}")
+        
+        # Update interview record with Gate 2 results
         await db.inperson_interviews.update_one(
             {"_id": interview["_id"]},
             {
@@ -369,6 +334,12 @@ async def analyze_interview_video(
                     "reasons": reasons,
                     "status": "completed",
                     "updatedAt": now,
+                    # Gate 2 specific fields
+                    "gate2_emotion_distribution": result.emotion_distribution,
+                    "gate2_dominant_emotion": result.dominant_emotion,
+                    "gate2_top_signals": result.top_signals,
+                    "gate2_stats": result.stats,
+                    "gate2_model_version": result.model_version,
                 }
             }
         )
@@ -395,11 +366,17 @@ async def analyze_interview_video(
             confidence=confidence,
             reasons=reasons,
             applicationStatus=new_status,
-            message=f"Interview analysis complete: {decision}",
+            message=f"Gate 2 analysis complete: {decision}",
+            # Gate 2 specific response fields
+            emotion_distribution=result.emotion_distribution,
+            dominant_emotion=result.dominant_emotion,
+            top_signals=result.top_signals,
+            stats=Gate2AnalysisStats(**result.stats) if result.stats else None,
+            model_version=result.model_version,
         )
         
     finally:
-        # Clean up temp files (video is NOT stored permanently)
+        # ALWAYS clean up temp files (privacy rule)
         if temp_video_path and os.path.exists(temp_video_path):
             try:
                 os.unlink(temp_video_path)
@@ -407,12 +384,13 @@ async def analyze_interview_video(
             except Exception as e:
                 logger.warning(f"Failed to delete temp video: {e}")
         
-        if temp_audio_path and os.path.exists(temp_audio_path):
+        # Clean up temp directory
+        if temp_dir.exists():
             try:
-                os.unlink(temp_audio_path)
-                logger.debug(f"Deleted temp audio: {temp_audio_path}")
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                logger.debug(f"Cleaned up temp dir: {temp_dir}")
             except Exception as e:
-                logger.warning(f"Failed to delete temp audio: {e}")
+                logger.warning(f"Failed to clean temp dir: {e}")
 
 
 @router.get("/{job_id}/{client_id}", response_model=InterviewStatusResponse)
