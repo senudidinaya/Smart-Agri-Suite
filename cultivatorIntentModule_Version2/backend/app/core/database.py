@@ -139,6 +139,10 @@ async def _create_indexes() -> None:
     await db.inperson_interviews.create_index("clientId")
     await db.inperson_interviews.create_index([("jobId", 1), ("clientId", 1)])
     
+    # Call Tasks indexes
+    await db.call_tasks.create_index([("assignedAdminId", 1), ("scheduledDate", 1), ("status", 1)])
+    await db.call_tasks.create_index([("status", 1), ("scheduledDate", 1)])
+    
     # Notifications indexes
     await db.notifications.create_index("userId")
     await db.notifications.create_index([("userId", 1), ("isRead", 1)])
