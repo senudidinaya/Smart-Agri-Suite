@@ -55,7 +55,7 @@ def auto_label_row(row: pd.Series) -> str:
     
     # Weighted scoring (some red flags are more serious)
     critical_flags = (
-        row.get("otp_pin_count", 0) * 3 +      # OTP/PIN requests are very suspicious
+        row.get("otp_pin_count", 0) * 3 +       # OTP/PIN requests are very suspicious
         row.get("id_avoidance_count", 0) * 2 +  # Avoiding ID is suspicious
         row.get("secrecy_count", 0) * 2 +       # Secrecy is suspicious
         row.get("pressure_count", 0) * 1.5 +    # Pressure tactics
