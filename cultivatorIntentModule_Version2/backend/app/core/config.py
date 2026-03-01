@@ -84,18 +84,44 @@ class Settings(BaseSettings):
     )
     sample_rate: int = Field(default=16000, description="Target audio sample rate")
 
-    # LiveKit settings for audio calling
-    livekit_url: str = Field(
-        default="wss://your-app.livekit.cloud",
-        description="LiveKit server WebSocket URL",
-    )
-    livekit_api_key: str = Field(
+    # Agora settings for audio/video calling
+    agora_app_id: str = Field(
         default="",
-        description="LiveKit API key",
+        description="Agora App ID from console.agora.io",
     )
-    livekit_api_secret: str = Field(
+    agora_app_certificate: str = Field(
         default="",
-        description="LiveKit API secret",
+        description="Agora App Certificate for token generation",
+    )
+    agora_customer_id: str = Field(
+        default="",
+        description="Agora Customer ID for RESTful API (cloud recording)",
+    )
+    agora_customer_secret: str = Field(
+        default="",
+        description="Agora Customer Secret for RESTful API (cloud recording)",
+    )
+    
+    # Cloud Recording Storage (S3-compatible or Agora cloud)
+    agora_recording_vendor: int = Field(
+        default=0,
+        description="Cloud storage vendor: 0=Agora, 1=AWS S3, 2=Azure, 3=GCP, 5=Alibaba, 6=Tencent",
+    )
+    agora_recording_bucket: str = Field(
+        default="",
+        description="Cloud storage bucket name for recordings",
+    )
+    agora_recording_access_key: str = Field(
+        default="",
+        description="Cloud storage access key",
+    )
+    agora_recording_secret_key: str = Field(
+        default="",
+        description="Cloud storage secret key",
+    )
+    agora_recording_region: int = Field(
+        default=0,
+        description="Cloud storage region code",
     )
     
     # Recordings storage
