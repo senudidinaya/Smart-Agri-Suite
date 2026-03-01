@@ -7,29 +7,33 @@ This document explains how to set up and test the in-app audio calling feature f
 The audio calling feature allows:
 - **Admin** to call clients directly from job postings
 - **Client** to receive calls with a legal notice about recording
-- **Recording** of calls on the client's device
+- **Real-time Voice** using Agora RTC SDK for actual voice communication
+- **Recording** of calls (client-side + optional cloud recording)
 - **ML Analysis** of recordings to determine cultivator intent
 
 ## 🔧 Prerequisites
 
-### 1. LiveKit Account (Free Tier)
+### 1. Agora Account (Free Tier - 10,000 minutes/month)
 
-1. Go to [LiveKit Cloud](https://cloud.livekit.io/) and create a free account
-2. Create a new project
+1. Go to [Agora Console](https://console.agora.io/) and create a free account
+2. Create a new project with **App ID + App Certificate** authentication
 3. Note down your:
-   - **LiveKit URL** (e.g., `wss://your-project.livekit.cloud`)
-   - **API Key** 
-   - **API Secret**
+   - **App ID** (required)
+   - **App Certificate** (required for token authentication)
+   - **Customer ID** and **Customer Secret** (optional, for cloud recording)
 
 ### 2. Environment Variables
 
 Add these to your backend `.env` file:
 
 ```env
-# LiveKit Configuration
-LIVEKIT_URL=wss://your-project.livekit.cloud
-LIVEKIT_API_KEY=your-api-key-here
-LIVEKIT_API_SECRET=your-api-secret-here
+# Agora RTC Configuration (Required)
+AGORA_APP_ID=your_agora_app_id
+AGORA_APP_CERTIFICATE=your_agora_app_certificate
+
+# Agora Cloud Recording (Optional - for server-side recording)
+AGORA_CUSTOMER_ID=your_customer_id
+AGORA_CUSTOMER_SECRET=your_customer_secret
 ```
 
 ## 🚀 Installation
@@ -38,15 +42,29 @@ LIVEKIT_API_SECRET=your-api-secret-here
 
 ```bash
 cd cultivatorIntentModule_Version2/backend
-pip install livekit-api
+
+# Install Python dependencies including Agora token builder
+pip install -r requirements.txt
+# or
+pip install agora-token-builder aiohttp
 ```
 
 ### Frontend
 
 ```bash
 cd cultivatorIntentModule_Version2/frontend
-npx expo install expo-av
+
+# Install Agora React Native SDK
+npm install react-native-agora
+
+# For Expo managed workflow, you need to use development build
+npx expo install expo-dev-client
+npx expo prebuild  # Generate native projects
+npx expo run:android  # or run:ios
 ```
+
+> **Note**: `react-native-agora` requires native code, so you cannot use Expo Go. 
+> You must use a development build or eject to bare workflow.
 
 ## 📱 Testing the Calling Flow
 
@@ -63,14 +81,14 @@ For a complete test, you need two devices/simulators:
 
 ```bash
 cd cultivatorIntentModule_Version2/backend
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-#### 2. Start the Frontend (Expo)
+#### 2. Start the Frontend (Development Build)
 
 ```bash
 cd cultivatorIntentModule_Version2/frontend
-npx expo start
+npx expo run:android  # or run:ios
 ```
 
 #### 3. Test as Client (Device B)
@@ -89,28 +107,38 @@ npx expo start
 | Step | Admin (Device A) | Client (Device B) |
 |------|------------------|-------------------|
 | 1 | Taps "Call" button | - |
-| 2 | Sees "Ringing..." status | Receives incoming call screen |
+| 2 | Joins Agora channel, shows "Ringing..." | Receives incoming call screen |
 | 3 | - | Sees legal notice before accepting |
 | 4 | - | Taps "I Agree & Accept" |
-| 5 | Status changes to "Connected" | Connected, recording starts |
-| 6 | Can mute/unmute | Can see recording indicator |
-| 7 | Taps "End Call" | - |
-| 8 | - | Recording uploads, ML analysis runs |
-| 9 | - | Sees intent analysis results |
+| 5 | Remote user count updates | Connected, recording starts |
+| 6 | Real voice communication active | Can see mute button, recording indicator |
+| 7 | Can mute/unmute | Can mute/unmute |
+| 8 | Taps "End Call" | - |
+| 9 | Shows analysis results | Recording uploads, sees success message |
 
 ## 🔴 Recording & Analysis
 
 ### How Recording Works
 
-1. Recording starts automatically when client accepts the call
-2. Audio is saved locally using `expo-av`
-3. When call ends, recording uploads to backend
-4. Backend runs ML analysis using `IntentClassifier`
-5. Results shown to client with intent labels:
-   - **High Interest** - Strong buying/engagement signals
-   - **Moderate Interest** - Some interest shown
-   - **Low Interest** - Minimal engagement
-   - **No Interest** - Not interested
+The system supports two recording modes:
+
+#### 1. Client-Side Recording (Default)
+- Recording starts automatically when client accepts the call
+- Uses `expo-av` to record local microphone audio
+- When call ends, recording uploads to backend
+- Backend runs ML analysis using `IntentClassifier`
+
+#### 2. Cloud Recording (Optional - Requires Setup)
+- Uses Agora Cloud Recording service
+- Records audio server-side in the cloud
+- Captures all participants' audio
+- Requires Agora Customer ID/Secret and cloud storage setup
+
+### Intent Analysis Results
+Analysis categorizes caller intent into:
+- **Proceed** - Strong positive intent, ready to proceed
+- **Verify** - Some interest, needs verification
+- **Reject** - Not interested or negative signals
 
 ### Recording Format
 - Format: WAV
@@ -123,12 +151,14 @@ npx expo start
 ```
 Backend:
   app/
-    api/v1/endpoints/calls.py    # All call endpoints
+    api/v1/endpoints/calls.py    # Call endpoints with Agora
+    services/agora.py            # Agora token & cloud recording
     schemas/call.py              # Pydantic models
-    core/config.py               # LiveKit settings
+    core/config.py               # Agora settings
 
 Frontend:
   src/
+    hooks/useAgora.ts            # Agora RTC engine hook
     screens/
       AdminCallScreen.tsx        # Admin in-call UI
       ClientCallScreen.tsx       # Client in-call UI with recording
@@ -147,19 +177,20 @@ Frontend:
 | POST | `/api/v1/calls/{id}/accept` | Client accepts call |
 | POST | `/api/v1/calls/{id}/reject` | Client rejects call |
 | POST | `/api/v1/calls/{id}/end` | Either party ends call |
-| POST | `/api/v1/calls/{id}/recording` | Upload recording |
+| POST | `/api/v1/calls/{id}/recording` | Upload local recording |
+| POST | `/api/v1/calls/{id}/recording/start` | Start cloud recording |
+| POST | `/api/v1/calls/{id}/recording/stop` | Stop cloud recording |
 
 ## ⚠️ Known Limitations
 
-1. **Demo Mode**: LiveKit SDK connection is simulated in the current implementation. 
-   Full WebRTC audio requires LiveKit client SDK integration on React Native.
+1. **Native Build Required**: `react-native-agora` requires native code. 
+   You cannot use Expo Go - must use development build or bare workflow.
 
 2. **Polling vs Push**: Incoming calls use 3-second polling instead of push notifications.
    This is intentional for simplicity in a final year project.
 
-3. **Single Device Testing**: For quick testing without two devices, you can:
-   - Use web browser for admin (expo web)
-   - Use phone/emulator for client
+3. **Cloud Recording**: Requires additional Agora Cloud Recording setup with
+   cloud storage (S3, Azure, GCS). Client-side recording works without this.
 
 ## 🔒 Legal Notice
 
@@ -178,17 +209,31 @@ This ensures ethical compliance for research purposes.
 - Check backend console for any errors
 - Verify polling is running (check console.debug logs)
 
+### Voice not working?
+- Ensure microphone permissions are granted
+- Check Agora App ID and Certificate are correct
+- Verify network connectivity (Agora requires internet)
+- Check Agora Console for usage/quota
+
 ### Recording upload failing?
 - Check backend `recordings/` folder exists
 - Verify file permissions
 - Check network connectivity
 
-### LiveKit token errors?
-- Verify `.env` has correct LIVEKIT_API_KEY and LIVEKIT_API_SECRET
-- Ensure LiveKit project is active
+### Agora token errors?
+- Verify `.env` has correct AGORA_APP_ID and AGORA_APP_CERTIFICATE
+- Ensure Agora project uses "Secured mode" with certificates
+- Check token expiration (default: 1 hour)
+
+### Build fails with Agora?
+- Run `npx expo prebuild` to generate native projects
+- For Android, ensure minSdkVersion >= 21
+- For iOS, ensure iOS deployment target >= 11.0
 
 ## 📚 Resources
 
-- [LiveKit Documentation](https://docs.livekit.io/)
-- [Expo AV Documentation](https://docs.expo.dev/versions/latest/sdk/av/)
+- [Agora Developer Documentation](https://docs.agora.io/)
+- [Agora React Native SDK](https://docs.agora.io/en/video-calling/get-started/get-started-sdk?platform=react-native)
+- [Agora Cloud Recording](https://docs.agora.io/en/cloud-recording/develop/get-started)
+- [Expo Development Builds](https://docs.expo.dev/develop/development-builds/introduction/)
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
