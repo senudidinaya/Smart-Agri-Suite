@@ -695,15 +695,16 @@ class IntentClassifier:
         if self._classifier.use_ml_model and self._classifier.is_loaded:
             label, confidence, all_scores = self._classifier.predict_with_ml(features)
             
+            # Convert tuples to IntentScore objects
+            intent_scores = [
+                IntentScore(label=str(lbl), score=round(float(sc), 4))
+                for lbl, sc in all_scores
+            ]
+            
             result = PredictionResult(
-                intent_label=label,
-                confidence=confidence,
-                intent_scores=dict(all_scores),
-                risk_level=RiskLevel.HIGH if label == "REJECT" else (
-                    RiskLevel.MEDIUM if label == "VERIFY" else RiskLevel.LOW
-                ),
-                is_suspicious=label in ("VERIFY", "REJECT"),
-                model_version=self._classifier.metadata.get("model_version", "1.0.0"),
+                predicted_intent=str(label),
+                confidence=float(confidence),
+                all_scores=intent_scores,
             )
             return result, audio_duration
         
