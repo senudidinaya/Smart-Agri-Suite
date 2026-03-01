@@ -16,6 +16,7 @@ import {
   Modal,
   ActivityIndicator,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
@@ -45,6 +46,7 @@ export default function InPersonInterviewScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<InterviewAnalyzeResponse | null>(null);
   const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -136,6 +138,7 @@ export default function InPersonInterviewScreen() {
 
   const analyzeVideo = async (uri: string) => {
     setIsAnalyzing(true);
+    setAnalysisError(null);
     
     try {
       const durationSeconds = recordingTime;
@@ -149,20 +152,42 @@ export default function InPersonInterviewScreen() {
       
       setAnalysisResult(result);
       
-      // Delete local video after successful analysis
+      // Delete local video after successful analysis (privacy rule)
       try {
         await FileSystem.deleteAsync(uri, { idempotent: true });
-        console.log('Local video deleted after analysis');
+        console.log('Local video deleted after successful analysis');
+        setVideoUri(null);
       } catch (e) {
         console.warn('Failed to delete local video:', e);
       }
       
     } catch (error: any) {
       console.error('Analysis error:', error);
-      Alert.alert('Analysis Error', error.message || 'Failed to analyze interview');
+      setAnalysisError(error.message || 'Failed to analyze interview');
+      // Keep videoUri for retry
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleRetry = async () => {
+    if (videoUri) {
+      await analyzeVideo(videoUri);
+    }
+  };
+
+  const handleDiscard = async () => {
+    if (videoUri) {
+      try {
+        await FileSystem.deleteAsync(videoUri, { idempotent: true });
+        console.log('Video discarded by user');
+      } catch (e) {
+        console.warn('Failed to delete discarded video:', e);
+      }
+    }
+    setVideoUri(null);
+    setAnalysisError(null);
+    navigation.goBack();
   };
 
   const formatTime = (seconds: number) => {
@@ -254,49 +279,133 @@ export default function InPersonInterviewScreen() {
   if (analysisResult) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.resultContainer}>
-          <Text style={styles.resultIcon}>
-            {getDecisionIcon(analysisResult.decision)}
-          </Text>
-          
-          <Text style={[
-            styles.resultDecision,
-            { color: getDecisionColor(analysisResult.decision) }
-          ]}>
-            {analysisResult.decision}
-          </Text>
-          
-          <View style={styles.confidenceContainer}>
-            <Text style={styles.confidenceLabel}>Confidence</Text>
-            <Text style={styles.confidenceValue}>
-              {(analysisResult.confidence * 100).toFixed(1)}%
+        <ScrollView 
+          contentContainerStyle={styles.resultScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.resultContainer}>
+            <Text style={styles.resultIcon}>
+              {getDecisionIcon(analysisResult.decision)}
             </Text>
-          </View>
-          
-          <View style={styles.reasonsContainer}>
-            <Text style={styles.reasonsTitle}>Analysis Reasons:</Text>
-            {analysisResult.reasons.map((reason, index) => (
-              <View key={index} style={styles.reasonItem}>
-                <Text style={styles.reasonBullet}>•</Text>
-                <Text style={styles.reasonText}>{reason}</Text>
+            
+            <Text style={[
+              styles.resultDecision,
+              { color: getDecisionColor(analysisResult.decision) }
+            ]}>
+              {analysisResult.decision}
+            </Text>
+            
+            <View style={styles.confidenceContainer}>
+              <Text style={styles.confidenceLabel}>Confidence</Text>
+              <Text style={styles.confidenceValue}>
+                {(analysisResult.confidence * 100).toFixed(1)}%
+              </Text>
+            </View>
+            
+            {/* Gate 2: Emotion Distribution */}
+            {analysisResult.emotion_distribution && Object.keys(analysisResult.emotion_distribution).length > 0 && (
+              <View style={styles.emotionContainer}>
+                <Text style={styles.emotionTitle}>Emotion Analysis</Text>
+                {analysisResult.dominant_emotion && (
+                  <Text style={styles.dominantEmotion}>
+                    Dominant: {analysisResult.dominant_emotion}
+                  </Text>
+                )}
+                <View style={styles.emotionBars}>
+                  {Object.entries(analysisResult.emotion_distribution)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([emotion, score]) => (
+                      <View key={emotion} style={styles.emotionBarRow}>
+                        <Text style={styles.emotionLabel}>{emotion}</Text>
+                        <View style={styles.emotionBarBg}>
+                          <View 
+                            style={[
+                              styles.emotionBarFill, 
+                              { width: `${Math.min(score * 100, 100)}%` }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={styles.emotionPercent}>
+                          {(score * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                    ))}
+                </View>
               </View>
-            ))}
+            )}
+            
+            {/* Gate 2: Top Signals */}
+            {analysisResult.top_signals && analysisResult.top_signals.length > 0 && (
+              <View style={styles.reasonsContainer}>
+                <Text style={styles.reasonsTitle}>Analysis Signals</Text>
+                {analysisResult.top_signals.map((signal, index) => (
+                  <View key={index} style={styles.reasonItem}>
+                    <Text style={styles.reasonBullet}>•</Text>
+                    <Text style={styles.reasonText}>{signal}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            
+            {/* Fallback to reasons if no top_signals */}
+            {(!analysisResult.top_signals || analysisResult.top_signals.length === 0) && 
+             analysisResult.reasons && analysisResult.reasons.length > 0 && (
+              <View style={styles.reasonsContainer}>
+                <Text style={styles.reasonsTitle}>Analysis Reasons</Text>
+                {analysisResult.reasons.map((reason, index) => (
+                  <View key={index} style={styles.reasonItem}>
+                    <Text style={styles.reasonBullet}>•</Text>
+                    <Text style={styles.reasonText}>{reason}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            
+            {/* Gate 2: Stats */}
+            {analysisResult.stats && (
+              <View style={styles.statsContainer}>
+                <Text style={styles.statsTitle}>Analysis Stats</Text>
+                <View style={styles.statsRow}>
+                  <Text style={styles.statsLabel}>Frames analyzed:</Text>
+                  <Text style={styles.statsValue}>{analysisResult.stats.frames_used}</Text>
+                </View>
+                <View style={styles.statsRow}>
+                  <Text style={styles.statsLabel}>Face detection:</Text>
+                  <Text style={styles.statsValue}>
+                    {(analysisResult.stats.face_detection_rate * 100).toFixed(0)}%
+                  </Text>
+                </View>
+                <View style={styles.statsRow}>
+                  <Text style={styles.statsLabel}>Stability:</Text>
+                  <Text style={styles.statsValue}>
+                    {(analysisResult.stats.stability * 100).toFixed(0)}%
+                  </Text>
+                </View>
+                {analysisResult.model_version && (
+                  <View style={styles.statsRow}>
+                    <Text style={styles.statsLabel}>Model:</Text>
+                    <Text style={styles.statsValue}>{analysisResult.model_version}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            
+            <View style={styles.statusContainer}>
+              <Text style={styles.statusLabel}>Application Status:</Text>
+              <Text style={styles.statusValue}>
+                {analysisResult.applicationStatus.toUpperCase().replace('_', ' ')}
+              </Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.doneButton}
+              onPress={handleDone}
+            >
+              <Text style={styles.doneButtonText}>Done</Text>
+            </TouchableOpacity>
           </View>
-          
-          <View style={styles.statusContainer}>
-            <Text style={styles.statusLabel}>Application Status:</Text>
-            <Text style={styles.statusValue}>
-              {analysisResult.applicationStatus.toUpperCase().replace('_', ' ')}
-            </Text>
-          </View>
-          
-          <TouchableOpacity 
-            style={styles.doneButton}
-            onPress={handleDone}
-          >
-            <Text style={styles.doneButtonText}>Done</Text>
-          </TouchableOpacity>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -309,8 +418,40 @@ export default function InPersonInterviewScreen() {
           <ActivityIndicator size="large" color="#5C9A9A" />
           <Text style={styles.analyzingText}>Analyzing Interview...</Text>
           <Text style={styles.analyzingSubtext}>
-            Please wait while we process the video
+            Processing video with Gate 2 AI
           </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Error Screen with Retry/Discard
+  if (analysisError && videoUri) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorTitle}>Analysis Failed</Text>
+          <Text style={styles.errorMessage}>{analysisError}</Text>
+          <Text style={styles.errorSubtext}>
+            The video is still saved. You can retry the analysis or discard it.
+          </Text>
+          
+          <View style={styles.errorButtons}>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={handleRetry}
+            >
+              <Text style={styles.retryButtonText}>Retry Analysis</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.discardButton}
+              onPress={handleDiscard}
+            >
+              <Text style={styles.discardButtonText}>Discard & Exit</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -645,13 +786,76 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 10,
   },
+  // Error Screen
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  errorIcon: {
+    fontSize: 60,
+    marginBottom: 20,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#e74c3c',
+    marginBottom: 10,
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  errorButtons: {
+    width: '100%',
+    gap: 12,
+  },
+  retryButton: {
+    backgroundColor: '#5C9A9A',
+    paddingVertical: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  discardButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e74c3c',
+    paddingVertical: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  discardButtonText: {
+    color: '#e74c3c',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   // Result Screen
+  resultScrollContent: {
+    flexGrow: 1,
+    backgroundColor: '#f5f5f5',
+  },
   resultContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
     padding: 20,
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   resultIcon: {
     fontSize: 80,
@@ -735,5 +939,86 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  // Gate 2: Emotion Analysis Styles
+  emotionContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    width: '100%',
+    marginBottom: 15,
+  },
+  emotionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  dominantEmotion: {
+    fontSize: 14,
+    color: '#5C9A9A',
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+  emotionBars: {
+    gap: 8,
+  },
+  emotionBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  emotionLabel: {
+    width: 80,
+    fontSize: 13,
+    color: '#666',
+    textTransform: 'capitalize',
+  },
+  emotionBarBg: {
+    flex: 1,
+    height: 12,
+    backgroundColor: '#e8e8e8',
+    borderRadius: 6,
+    marginHorizontal: 8,
+    overflow: 'hidden',
+  },
+  emotionBarFill: {
+    height: '100%',
+    backgroundColor: '#5C9A9A',
+    borderRadius: 6,
+  },
+  emotionPercent: {
+    width: 40,
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'right',
+  },
+  // Gate 2: Stats Styles
+  statsContainer: {
+    backgroundColor: '#f0f7f7',
+    borderRadius: 12,
+    padding: 15,
+    width: '100%',
+    marginBottom: 15,
+  },
+  statsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5C9A9A',
+    marginBottom: 10,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  statsLabel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  statsValue: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
   },
 });

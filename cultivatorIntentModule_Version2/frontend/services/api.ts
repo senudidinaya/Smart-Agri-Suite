@@ -7,10 +7,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Use localhost for web, IP address for mobile devices
-// Backend runs on port 8001
+// Backend runs on port 8000
 const API_BASE_URL = Platform.OS === 'web' 
-  ? 'http://localhost:8001/api/v1' 
-  : 'http://192.168.1.9:8001/api/v1';
+  ? 'http://localhost:8000/api/v1' 
+  : 'http://10.25.81.219:8000/api/v1';
 
 const TOKEN_KEY = 'smartagri_token';
 const USER_KEY = 'smartagri_user';
@@ -54,8 +54,17 @@ export interface Application {
 }
 
 // Call-related interfaces
+export interface AgoraTokenInfo {
+  appId: string;
+  channelName: string;
+  token: string;
+  uid: number;
+}
+
 export interface CallInitiateResponse {
   callId: string;
+  agora: AgoraTokenInfo;
+  // Legacy fields
   roomName: string;
   livekitUrl: string;
   token: string;
@@ -66,12 +75,16 @@ export interface IncomingCallResponse {
   callId?: string;
   jobId?: string;
   jobTitle?: string;
+  adminUsername?: string;
+  agora?: AgoraTokenInfo;
+  // Legacy fields
   roomName?: string;
   livekitUrl?: string;
-  adminUsername?: string;
 }
 
 export interface CallAcceptResponse {
+  agora: AgoraTokenInfo;
+  // Legacy fields
   roomName: string;
   livekitUrl: string;
   token: string;
@@ -91,11 +104,35 @@ export interface AnalysisResult {
   scores?: Record<string, number>;
 }
 
+export interface CloudRecordingInfo {
+  resourceId: string;
+  sid: string;
+  recordingUid: number;
+  status: string;
+}
+
 export interface CallStatusResponse {
   id: string;
   jobId: string;
+  channelName?: string;
   status: 'ringing' | 'accepted' | 'rejected' | 'ended' | 'missed';
   analysis?: AnalysisResult;
+  cloudRecording?: CloudRecordingInfo;
+  // Legacy
+  roomName?: string;
+}
+
+export interface StartRecordingResponse {
+  success: boolean;
+  resourceId?: string;
+  sid?: string;
+  message: string;
+}
+
+export interface StopRecordingResponse {
+  success: boolean;
+  fileList?: any[];
+  message: string;
 }
 
 // Interview-related interfaces
@@ -106,6 +143,16 @@ export interface InterviewInviteResponse {
   applicationStatus: string;
 }
 
+// Gate 2 Analysis Stats
+export interface Gate2AnalysisStats {
+  frames_used: number;
+  faces_detected: number;
+  face_detection_rate: number;
+  stability: number;
+  avg_model_confidence: number;
+  predictions_count: number;
+}
+
 export interface InterviewAnalyzeResponse {
   success: boolean;
   interviewId: string;
@@ -114,6 +161,12 @@ export interface InterviewAnalyzeResponse {
   reasons: string[];
   applicationStatus: string;
   message: string;
+  // Gate 2 specific fields
+  emotion_distribution?: Record<string, number>;
+  dominant_emotion?: string;
+  top_signals?: string[];
+  stats?: Gate2AnalysisStats;
+  model_version?: string;
 }
 
 export interface CallAssessment {
@@ -199,16 +252,32 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const url = `${API_BASE_URL}${path}`;
+    console.log(`API Request: ${method} ${url}`);
+    
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (networkError: any) {
+      console.error('Network error:', networkError);
+      throw new Error(`Network error: ${networkError.message || 'Unable to connect to server'}`);
+    }
 
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      throw new Error(`Server error (status ${response.status})`);
+    }
 
     if (!response.ok) {
-      throw new Error(data.detail || 'Request failed');
+      console.error('API error:', response.status, data);
+      throw new Error(data.detail || `Request failed (status ${response.status})`);
     }
 
     return data;
@@ -315,34 +384,71 @@ class ApiService {
     return this.request('GET', `/calls/${callId}`);
   }
 
-  async uploadRecording(callId: string, audioUri: string): Promise<RecordingUploadResponse> {
+  async startCloudRecording(callId: string): Promise<StartRecordingResponse> {
+    return this.request('POST', `/calls/${callId}/recording/start`);
+  }
+
+  async stopCloudRecording(callId: string): Promise<StopRecordingResponse> {
+    return this.request('POST', `/calls/${callId}/recording/stop`);
+  }
+
+  async uploadRecording(callId: string, audioUri: string, retryCount: number = 0): Promise<RecordingUploadResponse> {
     const formData = new FormData();
     
     // Get file name from URI
     const fileName = audioUri.split('/').pop() || 'recording.wav';
     
+    // Ensure URI has file:// prefix for React Native
+    const fileUri = audioUri.startsWith('file://') ? audioUri : `file://${audioUri}`;
+    
+    console.log(`Uploading recording (attempt ${retryCount + 1}):`, { callId, fileUri, fileName });
+    
     // Append the file to FormData
     formData.append('file', {
-      uri: audioUri,
+      uri: fileUri,
       name: fileName,
       type: 'audio/wav',
     } as any);
 
-    const response = await fetch(`${API_BASE_URL}/calls/${callId}/recording`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-      },
-      body: formData,
-    });
+    // Create abort controller for timeout - 60 seconds for slow networks
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-    const data = await response.json();
+    try {
+      const response = await fetch(`${API_BASE_URL}/calls/${callId}/recording`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+        },
+        body: formData,
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      throw new Error(data.detail || 'Upload failed');
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Upload failed');
+      }
+
+      console.log('Upload successful:', data);
+      return data;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      // Retry logic for network errors (max 2 retries)
+      if (retryCount < 2 && (error.name === 'AbortError' || error.message?.includes('Network') || error.message?.includes('Failed to fetch'))) {
+        console.log(`Upload failed, retrying in ${(retryCount + 1) * 2} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+        return this.uploadRecording(callId, audioUri, retryCount + 1);
+      }
+      
+      if (error.name === 'AbortError') {
+        throw new Error('Upload timeout after 60 seconds. Your network may be blocking file uploads. Try connecting to a different network.');
+      }
+      throw error;
     }
-
-    return data;
   }
 
   // Interview methods

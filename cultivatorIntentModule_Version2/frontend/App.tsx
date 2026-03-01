@@ -8,18 +8,18 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, ActivityIndicator, View, StyleSheet } from 'react-native';
 
-import { AuthProvider, useAuth } from './src/context/AuthContext';
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
-import ClientProfileScreen from './src/screens/ClientProfileScreen';
-import ClientJobsScreen from './src/screens/ClientJobsScreen';
-import ClientNotificationsScreen from './src/screens/ClientNotificationsScreen';
-import AdminApplicationsScreen from './src/screens/AdminApplicationsScreen';
-import AdminCallScreen from './src/screens/AdminCallScreen';
-import ClientCallScreen from './src/screens/ClientCallScreen';
-import IncomingCallScreen from './src/screens/IncomingCallScreen';
-import InPersonInterviewScreen from './src/screens/InPersonInterviewScreen';
-import { api } from './src/services/api';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginScreen from './screens/LoginScreen';
+import RegisterScreen from './screens/RegisterScreen';
+import ClientProfileScreen from './screens/ClientProfileScreen';
+import ClientJobsScreen from './screens/ClientJobsScreen';
+import ClientNotificationsScreen from './screens/ClientNotificationsScreen';
+import AdminApplicationsScreen from './screens/AdminApplicationsScreen';
+import AdminCallScreen from './screens/AdminCallScreen';
+import ClientCallScreen from './screens/ClientCallScreen';
+import IncomingCallScreen from './screens/IncomingCallScreen';
+import InPersonInterviewScreen from './screens/InPersonInterviewScreen';
+import { api } from './services/api';
 
 // Navigation types
 type AuthStackParamList = {

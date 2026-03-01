@@ -1,5 +1,5 @@
 /**
- * Client Call Screen - Audio call interface for client with recording
+ * Client Call Screen - Audio call interface with Agora RTC and recording
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -14,70 +14,76 @@ import {
   Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
-import { api, AnalysisResult } from '../services/api';
+import { api, AnalysisResult, AgoraTokenInfo } from '../services/api';
+import { useAgora, AgoraConfig } from '../hooks/useAgora';
 
 interface RouteParams {
   callId: string;
-  roomName: string;
-  livekitUrl: string;
-  token: string;
   jobTitle?: string;
+  // Agora connection info
+  agora?: AgoraTokenInfo;
+  // Legacy fields (kept for backwards compatibility)
+  roomName?: string;
+  livekitUrl?: string;
+  token?: string;
 }
 
 export default function ClientCallScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { callId, roomName, livekitUrl, token, jobTitle } = route.params as RouteParams;
+  const { callId, jobTitle, agora } = route.params as RouteParams;
 
   const [callStatus, setCallStatus] = useState<'connecting' | 'connected' | 'ended'>('connecting');
-  const [isRecording, setIsRecording] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [uploadFailed, setUploadFailed] = useState(false);
   const [endedByOther, setEndedByOther] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const recordingRef = useRef<Audio.Recording | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingAttemptedRef = useRef(false);
 
-  // Request audio permissions
+  // Configure Agora
+  const agoraConfig: AgoraConfig | null = agora ? {
+    appId: agora.appId,
+    channelName: agora.channelName,
+    token: agora.token,
+    uid: agora.uid,
+  } : null;
+
+  // Use Agora hook for voice calling
+  const {
+    state: agoraState,
+    joinChannel,
+    leaveChannel,
+    toggleMute,
+    isRecording,
+    startLocalRecording,
+    stopLocalRecording,
+  } = useAgora(agoraConfig);
+
+  // Join Agora channel on mount
   useEffect(() => {
     const setup = async () => {
-      try {
-        // Request audio permissions
-        const { status } = await Audio.requestPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Microphone permission is required for calls.');
-          navigation.goBack();
-          return;
-        }
-
-        // Set audio mode for recording
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-        });
-
-        console.log('Client connecting to room:', roomName);
-        console.log('LiveKit URL:', livekitUrl);
-        
-        // Immediately mark as connected and start recording
-        setCallStatus('connected');
-        startRecording();
-        startStatusPolling();
-
-      } catch (error) {
-        console.error('Setup error:', error);
-        Alert.alert('Error', 'Failed to set up call');
+      if (!agoraConfig) {
+        Alert.alert('Error', 'No call configuration received');
         navigation.goBack();
+        return;
       }
+
+      console.log('Client joining Agora channel:', agoraConfig.channelName);
+      
+      const joined = await joinChannel();
+      if (!joined) {
+        Alert.alert('Error', 'Failed to join the call. Please try again.');
+        navigation.goBack();
+        return;
+      }
+
+      // Recording will start after channel is actually joined (see isJoined effect below)
+      startStatusPolling();
     };
 
     setup();
@@ -86,6 +92,42 @@ export default function ClientCallScreen() {
       cleanup();
     };
   }, []);
+
+  // Start recording ONLY after the Agora channel is actually joined
+  // joinChannel() is async/non-blocking — isJoined becomes true when onJoinChannelSuccess fires
+  useEffect(() => {
+    if (agoraState.isJoined && !recordingAttemptedRef.current) {
+      recordingAttemptedRef.current = true;
+      
+      const tryStartRecording = async () => {
+        // Small delay to let audio engine fully stabilize after join
+        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('Channel joined, starting local recording...');
+        
+        let success = await startLocalRecording();
+        
+        // Retry up to 2 more times with increasing delays
+        for (let attempt = 1; !success && attempt <= 2; attempt++) {
+          console.log(`Recording start retry attempt ${attempt}...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          success = await startLocalRecording();
+        }
+        
+        if (!success) {
+          console.error('Failed to start recording after all retries');
+        }
+      };
+      
+      tryStartRecording();
+    }
+  }, [agoraState.isJoined]);
+
+  // Update call status based on Agora connection
+  useEffect(() => {
+    if (agoraState.isJoined && callStatus === 'connecting') {
+      setCallStatus('connected');
+    }
+  }, [agoraState.isJoined]);
 
   // Call duration timer
   useEffect(() => {
@@ -109,13 +151,7 @@ export default function ClientCallScreen() {
     if (pollRef.current) {
       clearInterval(pollRef.current);
     }
-    if (recordingRef.current) {
-      try {
-        await recordingRef.current.stopAndUnloadAsync();
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-    }
+    await leaveChannel();
   };
 
   // Poll for call status to detect if admin ends the call
@@ -140,66 +176,18 @@ export default function ClientCallScreen() {
     if (pollRef.current) clearInterval(pollRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
     
-    // Stop recording and upload
-    const uri = await stopRecording();
+    // Leave Agora channel and stop recording
+    console.log('Call ended by admin, stopping recording... isRecording:', isRecording);
+    const uri = await stopLocalRecording();
+    console.log('Recording stopped, URI:', uri);
+    await leaveChannel();
     setCallStatus('ended');
     
     if (uri) {
-      await uploadRecording(uri);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync({
-        android: {
-          extension: '.wav',
-          outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-          audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: '.wav',
-          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        web: {
-          mimeType: 'audio/webm',
-          bitsPerSecond: 128000,
-        },
-      });
-      
-      await recording.startAsync();
-      recordingRef.current = recording;
-      setIsRecording(true);
-      console.log('Recording started');
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-    }
-  };
-
-  const stopRecording = async (): Promise<string | null> => {
-    try {
-      if (!recordingRef.current) return null;
-
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      setIsRecording(false);
       setRecordingUri(uri);
-      console.log('Recording saved to:', uri);
-      return uri;
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-      return null;
+      await uploadRecording(uri);
+    } else {
+      console.warn('No recording URI available - recording may not have started');
     }
   };
 
@@ -208,6 +196,7 @@ export default function ClientCallScreen() {
     setUploadFailed(false);
 
     try {
+      console.log('Starting upload for URI:', uri);
       const result = await api.uploadRecording(callId, uri);
       setAnalysisResult({
         intentLabel: result.intentLabel,
@@ -217,7 +206,22 @@ export default function ClientCallScreen() {
       console.log('Upload and analysis complete:', result);
     } catch (error: any) {
       console.error('Upload failed:', error);
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
       setUploadFailed(true);
+      
+      // Show detailed error based on type
+      let errorMsg = error.message || 'Failed to upload recording. Please check your network connection.';
+      if (error.message?.includes('network may be blocking')) {
+        errorMsg += '\n\nTip: Try using mobile data instead of university Wi-Fi.';
+      }
+      Alert.alert('Upload Failed', errorMsg, [
+        { text: 'Retry', onPress: handleRetryUpload },
+        { text: 'Close', style: 'cancel' }
+      ]);
     } finally {
       setIsUploading(false);
     }
@@ -230,7 +234,7 @@ export default function ClientCallScreen() {
   };
 
   const handleMuteToggle = () => {
-    setIsMuted(!isMuted);
+    toggleMute();
   };
 
   const handleEndCall = async () => {
@@ -240,7 +244,13 @@ export default function ClientCallScreen() {
       if (timerRef.current) clearInterval(timerRef.current);
       
       // Stop recording first
-      const uri = await stopRecording();
+      console.log('Client ending call, stopping recording... isRecording:', isRecording);
+      const uri = await stopLocalRecording();
+      console.log('Recording stopped, URI:', uri);
+      setRecordingUri(uri);
+
+      // Leave Agora channel
+      await leaveChannel();
 
       // End the call on backend
       await api.endCall(callId);
@@ -249,6 +259,8 @@ export default function ClientCallScreen() {
       // Upload recording if we have one
       if (uri) {
         await uploadRecording(uri);
+      } else {
+        console.warn('No recording URI available - recording may not have started');
       }
     } catch (error: any) {
       Alert.alert('Error', error.message);
@@ -275,15 +287,16 @@ export default function ClientCallScreen() {
         }, 3000);
         return () => clearTimeout(timer);
       }
-      // If no upload is happening and no result, close after 5 seconds
-      if (!isUploading && !analysisResult && !uploadFailed) {
+      // If no upload is happening, no result, and no recording URI (recording never started),
+      // give user time to see the message before auto-closing
+      if (!isUploading && !analysisResult && !uploadFailed && !recordingUri) {
         const timer = setTimeout(() => {
           navigation.goBack();
-        }, 5000);
+        }, 8000);
         return () => clearTimeout(timer);
       }
     }
-  }, [analysisResult, isUploading, uploadFailed, callStatus]);
+  }, [analysisResult, isUploading, uploadFailed, callStatus, recordingUri]);
 
   // Render call ended screen - just show upload status (analysis goes to admin)
   if (callStatus === 'ended') {
@@ -320,7 +333,18 @@ export default function ClientCallScreen() {
             </View>
           )}
 
-          {!isUploading && !analysisResult && !uploadFailed && (
+          {!isUploading && !analysisResult && !uploadFailed && !recordingUri && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>Recording not available</Text>
+              <Text style={styles.endedInfoText}>
+                Voice recording could not be captured.{'\n'}
+                The admin will not receive voice analysis for this call.
+              </Text>
+              <Text style={styles.autoCloseText}>Closing automatically...</Text>
+            </View>
+          )}
+
+          {!isUploading && !analysisResult && !uploadFailed && recordingUri && (
             <View style={styles.endedInfoContainer}>
               <Text style={styles.endedInfoText}>Call has ended</Text>
               <Text style={styles.autoCloseText}>Closing automatically...</Text>
@@ -335,15 +359,37 @@ export default function ClientCallScreen() {
     );
   }
 
+  // Get connection status color
+  const getConnectionColor = () => {
+    switch (agoraState.connectionState) {
+      case 'connected': return '#27ae60';
+      case 'connecting': return '#f39c12';
+      case 'reconnecting': return '#f39c12';
+      case 'disconnected': return '#e74c3c';
+      case 'failed': return '#e74c3c';
+      default: return '#95a5a6';
+    }
+  };
+
   // Render active call screen
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
+        {/* Connection Indicator */}
+        <View style={styles.connectionIndicator}>
+          <Text style={[styles.connectionText, { color: getConnectionColor() }]}>
+            {agoraState.connectionState === 'connected' 
+              ? `● Connected${agoraState.remoteUsers.length > 0 ? ` (${agoraState.remoteUsers.length} in call)` : ''}`
+              : `● ${agoraState.connectionState.charAt(0).toUpperCase() + agoraState.connectionState.slice(1)}`
+            }
+          </Text>
+        </View>
+
         {/* Recording Indicator */}
         {isRecording && (
           <View style={styles.recordingIndicator}>
             <View style={styles.recordingDot} />
-            <Text style={styles.recordingText}>Recording Your Voice</Text>
+            <Text style={styles.recordingText}>Recording</Text>
           </View>
         )}
 
@@ -357,11 +403,11 @@ export default function ClientCallScreen() {
             {callStatus === 'connecting' ? 'Connecting...' : formatDuration(callDuration)}
           </Text>
           
-          {/* Instructions */}
+          {/* Status */}
           <View style={styles.instructionBox}>
-            <Text style={styles.instructionTitle}>📱 Voice Call Instructions</Text>
+            <Text style={styles.instructionTitle}>🎙️ Voice Call Active</Text>
             <Text style={styles.instructionText}>
-              The admin will call your phone for voice chat.{"\n"}
+              You are now connected via voice.{"\n"}
               Your voice is being recorded for analysis.{"\n"}
               Speak naturally during the conversation.
             </Text>
@@ -370,6 +416,16 @@ export default function ClientCallScreen() {
 
         {/* Call Controls */}
         <View style={styles.controls}>
+          {/* Mute Button */}
+          <TouchableOpacity
+            style={[styles.controlButton, agoraState.isMuted && styles.controlButtonActive]}
+            onPress={handleMuteToggle}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.controlIcon}>{agoraState.isMuted ? '🔇' : '🎤'}</Text>
+            <Text style={styles.controlLabel}>{agoraState.isMuted ? 'Unmute' : 'Mute'}</Text>
+          </TouchableOpacity>
+
           {/* End Call Button */}
           <TouchableOpacity
             style={[styles.controlButton, styles.endCallButton]}
@@ -377,7 +433,7 @@ export default function ClientCallScreen() {
             activeOpacity={0.7}
           >
             <Text style={styles.controlIcon}>📵</Text>
-            <Text style={[styles.controlLabel, styles.endCallLabel]}>End Session</Text>
+            <Text style={[styles.controlLabel, styles.endCallLabel]}>End Call</Text>
           </TouchableOpacity>
         </View>
 
@@ -387,6 +443,13 @@ export default function ClientCallScreen() {
             🔴 Your voice is being recorded for intent analysis
           </Text>
         </View>
+
+        {/* Error Display */}
+        {agoraState.error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{agoraState.error}</Text>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );

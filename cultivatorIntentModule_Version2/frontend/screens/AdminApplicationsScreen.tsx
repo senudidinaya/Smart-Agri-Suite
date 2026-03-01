@@ -112,14 +112,15 @@ export default function AdminApplicationsScreen() {
       // Initiate call via API
       const response = await api.initiateCall(job.id);
       
-      // Navigate to AdminCallScreen with call details
+      // Navigate to AdminCallScreen with Agora call details
       navigation.navigate('AdminCall', {
         callId: response.callId,
-        roomName: response.roomName,
-        livekitUrl: response.livekitUrl,
-        token: response.token,
+        agora: response.agora,
         clientUsername: job.createdByUsername,
         jobTitle: job.title,
+        // Legacy fields
+        roomName: response.roomName,
+        token: response.token,
       });
     } catch (e: any) {
       Alert.alert('Call Failed', e.message);
