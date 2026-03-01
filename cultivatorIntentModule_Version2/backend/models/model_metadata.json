@@ -43,10 +43,10 @@
     "VERIFY",
     "REJECT"
   ],
-  "training_samples": 655,
-  "test_accuracy": 0.9847,
-  "cv_accuracy": 0.9962,
+  "training_samples": 1155,
+  "test_accuracy": 0.9784,
+  "cv_accuracy": 0.9751,
   "data_path": "C:\\Senudi's University\\Research Project\\Smart-Agri-Suite\\cultivatorIntentModule_Version2\\backend\\data\\labeled_call_features.csv",
-  "trained_at": "2026-01-07T14:36:21.114689",
+  "trained_at": "2026-02-13T12:40:30.226896",
   "version": "2.0.0"
 }
