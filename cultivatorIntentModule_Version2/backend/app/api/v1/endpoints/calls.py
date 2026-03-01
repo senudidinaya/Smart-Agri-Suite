@@ -526,6 +526,15 @@ async def upload_recording(
         upsert=True
     )
     
+    # Delete the recording file after successful analysis and database update
+    try:
+        if recording_path.exists():
+            recording_path.unlink()
+            logger.info(f"Recording deleted after analysis: {recording_path}")
+    except Exception as e:
+        logger.error(f"Failed to delete recording file: {e}")
+        # Don't fail the request if deletion fails
+    
     return RecordingUploadResponse(
         success=True,
         intentLabel=analysis["intentLabel"],
