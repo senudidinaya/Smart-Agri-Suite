@@ -76,8 +76,18 @@ class InterviewAnalysisResult(BaseModel):
     reasons: List[str] = []
 
 
+class Gate2AnalysisStats(BaseModel):
+    """Statistics from Gate 2 video analysis."""
+    frames_used: int = 0
+    faces_detected: int = 0
+    face_detection_rate: float = 0.0
+    stability: float = 0.0
+    avg_model_confidence: float = 0.0
+    predictions_count: int = 0
+
+
 class InterviewAnalyzeResponse(BaseModel):
-    """Response after analyzing interview video."""
+    """Response after analyzing interview video with Gate 2."""
     success: bool
     interviewId: str
     decision: InterviewDecision
@@ -85,6 +95,12 @@ class InterviewAnalyzeResponse(BaseModel):
     reasons: List[str]
     applicationStatus: str
     message: str
+    # Gate 2 specific fields
+    emotion_distribution: Optional[dict] = None
+    dominant_emotion: Optional[str] = None
+    top_signals: Optional[List[str]] = None
+    stats: Optional[Gate2AnalysisStats] = None
+    model_version: Optional[str] = None
 
 
 class InterviewResponse(BaseModel):
