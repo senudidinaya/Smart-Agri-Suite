@@ -163,12 +163,14 @@ function ClientNavigator({ navigationRef }: { navigationRef: any }) {
       try {
         const response = await api.checkIncomingCall();
         if (response.hasIncomingCall && response.callId && navigationRef.current) {
-          // Navigate to incoming call screen
+          // Navigate to incoming call screen with Agora info
           navigationRef.current.navigate('IncomingCall', {
             callId: response.callId,
-            roomName: response.roomName,
+            agora: response.agora,
             adminUsername: response.adminUsername || 'Admin',
             jobTitle: response.jobTitle || 'Job Application',
+            // Legacy
+            roomName: response.roomName,
           });
         }
       } catch (error) {
