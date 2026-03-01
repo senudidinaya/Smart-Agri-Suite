@@ -299,13 +299,7 @@ async def analyze_interview_video(
         # Run Gate 2 video analysis
         result = gate2_service.predict(temp_video_path)
         
-        # Map Gate 2 decision labels to interview decisions
-        decision_mapping = {
-            "PROCEED": "APPROVE",
-            "VERIFY": "VERIFY",
-            "REJECT": "REJECT"
-        }
-        decision = decision_mapping.get(result.decision_label, result.decision_label)
+        decision = result.decision_label
         
         # Ensure valid decision format
         if decision not in ["APPROVE", "VERIFY", "REJECT"]:
