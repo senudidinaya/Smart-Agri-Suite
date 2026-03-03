@@ -296,8 +296,9 @@ async def analyze_interview_video(
         # Get Gate 2 inference service
         gate2_service = get_gate2_inference_service()
         
-        # Run Gate 2 video analysis
-        result = gate2_service.predict(temp_video_path)
+        # Run Gate 2 video analysis in a thread to avoid blocking the event loop
+        import asyncio
+        result = await asyncio.to_thread(gate2_service.predict, temp_video_path)
         
         decision = result.decision_label
         

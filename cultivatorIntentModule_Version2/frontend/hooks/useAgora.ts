@@ -401,7 +401,7 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
       let filePath: string;
       if (Platform.OS === 'android') {
         // Use app's cache directory on Android
-        filePath = `/data/user/0/${require('../../app.json').expo.android?.package || 'com.smartagri.mobile'}/cache/${filename}`;
+        filePath = `/data/user/0/${require('../app.json').expo.android?.package || 'com.smartagri.mobile'}/cache/${filename}`;
       } else {
         // iOS uses Documents directory
         filePath = `${filename}`; // Agora will use default path on iOS

@@ -81,8 +81,8 @@ class Gate2InferenceService:
         self.metadata_path = self.model_dir / "gate2_model_metadata.json"
         
         # Configuration
-        self.target_fps = 1  # Extract 1 frame per second
-        self.max_frames = 60  # Maximum frames to process
+        self.target_fps = 0.5  # Extract 1 frame every 2 seconds
+        self.max_frames = 15  # Maximum frames to process (was 60)
         self.hog_size = (64, 64)
         self.pixel_size = (48, 48)
         

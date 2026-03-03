@@ -1,4 +1,4 @@
-# Paralinguistic Voice-Based Buyer Intent Prediction API
+# Cultivator Intention Prediction API
 # Dependencies for Smart Agri-Suite Backend
 
 # Web Framework

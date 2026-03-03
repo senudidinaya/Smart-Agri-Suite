@@ -130,6 +130,16 @@ class Settings(BaseSettings):
         description="Directory to store call recordings",
     )
 
+    # DeepSeek API settings (AI-powered explainability)
+    deepseek_api_key: str = Field(
+        default="",
+        description="DeepSeek API key for generating AI-powered insights",
+    )
+    deepseek_base_url: str = Field(
+        default="https://api.deepseek.com",
+        description="DeepSeek API base URL",
+    )
+
     # Logging settings
     log_level: str = Field(default="INFO", description="Logging level")
     log_json_format: bool = Field(

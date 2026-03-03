@@ -572,13 +572,28 @@ class IntentRiskClassifier:
         # Make prediction
         if self.use_ml_model and self.model is not None:
             logger.debug("Using ML model for prediction")
-            features = self.extract_features(
-                audio_data=audio_data,
-                transcript=transcript,
-                audio_features=audio_features if audio_features else None,
-                text_features=text_features if text_features else None,
-            )
-            predicted_label, confidence, all_scores = self.predict_with_ml(features)
+            try:
+                features = self.extract_features(
+                    audio_data=audio_data,
+                    transcript=transcript,
+                    audio_features=audio_features if audio_features else None,
+                    text_features=text_features if text_features else None,
+                )
+                predicted_label, confidence, all_scores = self.predict_with_ml(features)
+            except Exception as e:
+                # Fall back to rules-based if ML prediction fails
+                # (e.g., scikit-learn version incompatibility)
+                logger.warning(
+                    f"ML prediction failed ({type(e).__name__}: {e}), falling back to rules-based prediction"
+                )
+                self.use_ml_model = False
+                self.model_version = "rules-1.0.0"
+                if transcript and not text_features:
+                    text_features = self._extract_text_features(transcript)
+                predicted_label, confidence, all_scores = self.predict_with_rules(
+                    prosodic_features=audio_features,
+                    text_features=text_features,
+                )
         else:
             logger.debug("Using rules-based prediction")
             # Fallback: use text features from transcript if available

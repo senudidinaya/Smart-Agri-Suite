@@ -1,6 +1,6 @@
-# Paralinguistic Voice-Based Buyer Intent Prediction API
+# Cultivator Intention Prediction API
 
-> Smart Agri-Suite - Backend for Voice-Based Buyer Intent Classification
+> Smart Agri-Suite - Backend for Voice-Based Cultivator Intention Classification
 
 A FastAPI-based backend service that analyzes voice recordings to predict buyer intent using paralinguistic features (tone, pitch, pace, prosody, etc.).
 

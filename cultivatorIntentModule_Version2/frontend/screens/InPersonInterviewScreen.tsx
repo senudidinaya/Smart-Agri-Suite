@@ -47,6 +47,8 @@ export default function InPersonInterviewScreen() {
   const [analysisResult, setAnalysisResult] = useState<InterviewAnalyzeResponse | null>(null);
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [deepseekInsight, setDeepseekInsight] = useState<string | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
   
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -72,6 +74,51 @@ export default function InPersonInterviewScreen() {
   useEffect(() => {
     requestPermissions();
   }, []);
+
+  useEffect(() => {
+    if (!analysisResult) return;
+
+    const fetchInsight = async () => {
+      setInsightLoading(true);
+      try {
+        const distribution = analysisResult.emotion_distribution || {};
+        const distributionPercent: Record<string, number> = {};
+        for (const [emotion, score] of Object.entries(distribution)) {
+          distributionPercent[emotion] = score * 100;
+        }
+
+        const statsPayload = analysisResult.stats
+          ? {
+              frames_analyzed: analysisResult.stats.frames_used,
+              faces_detected_frames: analysisResult.stats.faces_detected,
+              face_detection_rate: analysisResult.stats.face_detection_rate,
+              stability: analysisResult.stats.stability,
+              avg_model_confidence: analysisResult.stats.avg_model_confidence,
+              predictions_count: analysisResult.stats.predictions_count,
+            }
+          : undefined;
+
+        const res = await api.getGate2Insight(
+          analysisResult.decision,
+          analysisResult.confidence * 100,
+          analysisResult.dominant_emotion || 'unknown',
+          distributionPercent,
+          analysisResult.top_signals || analysisResult.reasons || [],
+          statsPayload,
+        );
+
+        if (res.success) {
+          setDeepseekInsight(res.insight);
+        }
+      } catch (error) {
+        console.error('Failed to fetch DeepSeek Gate-2 insight:', error);
+      } finally {
+        setInsightLoading(false);
+      }
+    };
+
+    fetchInsight();
+  }, [analysisResult]);
 
   const handleConsentAgree = () => {
     if (!cameraPermission?.granted || !micPermission?.granted) {
@@ -390,6 +437,20 @@ export default function InPersonInterviewScreen() {
                 )}
               </View>
             )}
+
+            <View style={styles.insightContainer}>
+              <Text style={styles.insightTitle}>🧠 Deepseek Insight</Text>
+              {insightLoading ? (
+                <View style={styles.insightLoadingContainer}>
+                  <ActivityIndicator size="small" color="#8B5CF6" />
+                  <Text style={styles.insightLoadingText}>Generating AI insight...</Text>
+                </View>
+              ) : deepseekInsight ? (
+                <Text style={styles.insightText}>{deepseekInsight}</Text>
+              ) : (
+                <Text style={styles.insightErrorText}>Insight unavailable at the moment.</Text>
+              )}
+            </View>
             
             <View style={styles.statusContainer}>
               <Text style={styles.statusLabel}>Application Status:</Text>
@@ -1020,5 +1081,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#333',
     fontWeight: '500',
+  },
+  insightContainer: {
+    backgroundColor: '#f3efff',
+    borderRadius: 12,
+    padding: 15,
+    width: '100%',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#ddd4ff',
+  },
+  insightTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6D5BD0',
+    marginBottom: 10,
+  },
+  insightText: {
+    fontSize: 14,
+    color: '#4B4B4B',
+    lineHeight: 21,
+  },
+  insightLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  insightLoadingText: {
+    fontSize: 13,
+    color: '#6D5BD0',
+    marginLeft: 10,
+  },
+  insightErrorText: {
+    fontSize: 13,
+    color: '#7B7B7B',
+    fontStyle: 'italic',
   },
 });

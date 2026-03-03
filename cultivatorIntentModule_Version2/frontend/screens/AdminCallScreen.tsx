@@ -11,9 +11,10 @@ import {
   SafeAreaView,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { api, AnalysisResult, AgoraTokenInfo } from '../services/api';
+import { api, AnalysisResult, AgoraTokenInfo, InsightResponse } from '../services/api';
 import { useAgora, AgoraConfig } from '../hooks/useAgora';
 
 interface RouteParams {
@@ -38,6 +39,8 @@ export default function AdminCallScreen() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [waitingForAnalysis, setWaitingForAnalysis] = useState(false);
   const [isCloudRecording, setIsCloudRecording] = useState(false);
+  const [deepseekInsight, setDeepseekInsight] = useState<string | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
@@ -110,6 +113,35 @@ export default function AdminCallScreen() {
       }
     };
   }, [callStatus]);
+
+  // Fetch DeepSeek insight when analysis results arrive
+  useEffect(() => {
+    if (!analysisResult) return;
+    const fetchInsight = async () => {
+      setInsightLoading(true);
+      try {
+        const scores: Record<string, number> = {};
+        if (analysisResult.scores) {
+          for (const [label, score] of Object.entries(analysisResult.scores)) {
+            scores[label] = score * 100;
+          }
+        }
+        const res = await api.getGate1Insight(
+          analysisResult.intentLabel,
+          analysisResult.confidence * 100,
+          scores,
+        );
+        if (res.success) {
+          setDeepseekInsight(res.insight);
+        }
+      } catch (err) {
+        console.error('Failed to fetch DeepSeek insight:', err);
+      } finally {
+        setInsightLoading(false);
+      }
+    };
+    fetchInsight();
+  }, [analysisResult]);
 
   const cleanup = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -284,7 +316,7 @@ export default function AdminCallScreen() {
   if (callStatus === 'ended') {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.endedContent}>
+        <ScrollView contentContainerStyle={styles.endedContent}>
           <Text style={styles.endedTitle}>Call Ended</Text>
           <Text style={styles.callerInfo}>With: {clientUsername || 'Client'}</Text>
           <Text style={styles.durationText}>Duration: {formatDuration(callDuration)}</Text>
@@ -323,6 +355,23 @@ export default function AdminCallScreen() {
             </View>
           )}
 
+          {/* DeepSeek Insight Card */}
+          {analysisResult && (
+            <View style={styles.insightContainer}>
+              <Text style={styles.insightTitle}>🧠 Deepseek Insight</Text>
+              {insightLoading ? (
+                <View style={styles.insightLoadingContainer}>
+                  <ActivityIndicator size="small" color="#8B5CF6" />
+                  <Text style={styles.insightLoadingText}>Generating AI insight...</Text>
+                </View>
+              ) : deepseekInsight ? (
+                <Text style={styles.insightText}>{deepseekInsight}</Text>
+              ) : (
+                <Text style={styles.insightErrorText}>Insight unavailable. Tap to retry.</Text>
+              )}
+            </View>
+          )}
+
           {!waitingForAnalysis && !analysisResult && (
             <View style={styles.noAnalysisContainer}>
               <Text style={styles.noAnalysisText}>No analysis available</Text>
@@ -333,7 +382,7 @@ export default function AdminCallScreen() {
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -708,6 +757,44 @@ const styles = StyleSheet.create({
   errorNoticeText: {
     color: '#e74c3c',
     fontSize: 12,
+    textAlign: 'center',
+  },
+  // DeepSeek Insight styles
+  insightContainer: {
+    backgroundColor: 'rgba(139, 92, 246, 0.12)',
+    borderRadius: 15,
+    padding: 18,
+    width: '100%',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+  },
+  insightTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#C4B5FD',
+    marginBottom: 10,
+  },
+  insightText: {
+    fontSize: 14,
+    color: '#E0E0E0',
+    lineHeight: 22,
+  },
+  insightLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  insightLoadingText: {
+    color: '#C4B5FD',
+    fontSize: 13,
+    marginLeft: 10,
+  },
+  insightErrorText: {
+    color: '#999',
+    fontSize: 13,
+    fontStyle: 'italic',
     textAlign: 'center',
   },
 });

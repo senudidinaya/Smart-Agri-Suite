@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, predict, auth, jobs, applications, calls, interviews, notifications, call_tasks
+from app.api.v1.endpoints import health, predict, auth, jobs, applications, calls, interviews, notifications, call_tasks, explain
 
 # Create main v1 router
 router = APIRouter(prefix="/api/v1")
@@ -21,3 +21,4 @@ router.include_router(calls.router)
 router.include_router(interviews.router)
 router.include_router(notifications.router)
 router.include_router(call_tasks.router)
+router.include_router(explain.router)

@@ -1,5 +1,5 @@
 """
-Paralinguistic Voice-Based Buyer Intent Prediction System
+Cultivator Intention Prediction System
 Smart Agri-Suite - Backend Application
 """
 

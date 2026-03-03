@@ -10,7 +10,7 @@ import { Platform } from 'react-native';
 // Backend runs on port 8000
 const API_BASE_URL = Platform.OS === 'web' 
   ? 'http://localhost:8000/api/v1' 
-  : 'http://10.25.81.219:8000/api/v1';
+  : 'http://192.168.1.9:8000/api/v1';
 
 const TOKEN_KEY = 'smartagri_token';
 const USER_KEY = 'smartagri_user';
@@ -220,6 +220,12 @@ export interface NotificationListResponse {
   notifications: Notification[];
   unreadCount: number;
   total: number;
+}
+
+// DeepSeek Insight interfaces
+export interface InsightResponse {
+  success: boolean;
+  insight: string;
 }
 
 class ApiService {
@@ -527,6 +533,38 @@ class ApiService {
 
   async getUnreadNotificationCount(): Promise<{ unreadCount: number }> {
     return this.request('GET', '/notifications/unread-count');
+  }
+
+  // ==================== DEEPSEEK INSIGHTS ====================
+
+  async getGate1Insight(
+    intentLabel: string,
+    confidence: number,
+    scores: Record<string, number>
+  ): Promise<InsightResponse> {
+    return this.request('POST', '/explain/gate1', {
+      intent_label: intentLabel,
+      confidence,
+      scores,
+    });
+  }
+
+  async getGate2Insight(
+    decision: string,
+    confidence: number,
+    dominantEmotion: string,
+    emotionDistribution: Record<string, number>,
+    topSignals: string[],
+    stats?: Record<string, any>
+  ): Promise<InsightResponse> {
+    return this.request('POST', '/explain/gate2', {
+      decision,
+      confidence,
+      dominant_emotion: dominantEmotion,
+      emotion_distribution: emotionDistribution,
+      top_signals: topSignals,
+      stats,
+    });
   }
 }
 

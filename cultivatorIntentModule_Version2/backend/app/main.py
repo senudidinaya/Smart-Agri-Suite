@@ -1,7 +1,7 @@
 """
 FastAPI Application Entry Point.
 
-Paralinguistic Voice-Based Buyer Intent Prediction System
+Cultivator Intention Prediction System
 Smart Agri-Suite - Backend API
 """
 
@@ -80,8 +80,8 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         description=(
-            "Paralinguistic Voice-Based Buyer Intent Prediction API.\n\n"
-            "Analyzes voice recordings to predict buyer intent using "
+            "Cultivator Intention Prediction API.\n\n"
+            "Analyzes voice recordings to predict cultivator intentions using "
             "paralinguistic features (tone, pitch, pace, etc.)."
         ),
         docs_url="/docs",
