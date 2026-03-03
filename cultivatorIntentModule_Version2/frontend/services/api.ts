@@ -179,6 +179,7 @@ export interface CallAssessment {
   decision: string;
   confidence: number;
   reasons: string[];
+  scores?: Record<string, number>;
   createdAt: string;
 }
 
@@ -195,6 +196,12 @@ export interface Interview {
   reasons: string[];
   status: string;
   createdAt: string;
+  // Gate 2 detailed fields
+  emotion_distribution?: Record<string, number>;
+  dominant_emotion?: string;
+  top_signals?: string[];
+  stats?: Gate2AnalysisStats;
+  model_version?: string;
 }
 
 export interface InterviewStatusResponse {

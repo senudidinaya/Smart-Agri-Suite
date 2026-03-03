@@ -15,9 +15,11 @@ import {
   Alert,
   Platform,
   Modal,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { api, Job, InterviewStatusResponse } from '../services/api';
+import { api, Job, InterviewStatusResponse, InsightResponse } from '../services/api';
 
 type FilterStatus = 'all' | 'new' | 'contacted' | 'invited_interview' | 'approved' | 'rejected' | 'closed';
 
@@ -33,6 +35,14 @@ export default function AdminApplicationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterStatus>('all');
+  
+  // Analysis modal state
+  const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
+  const [analysisData, setAnalysisData] = useState<InterviewStatusResponse | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [gate1Insight, setGate1Insight] = useState<string | null>(null);
+  const [gate2Insight, setGate2Insight] = useState<string | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
 
   const loadJobs = useCallback(async () => {
     try {
@@ -204,18 +214,78 @@ export default function AdminApplicationsScreen() {
     );
   };
 
-  const handleViewCallAssessment = (job: ExtendedJob) => {
-    const assessment = job.interviewStatus?.callAssessment;
-    if (!assessment) {
-      Alert.alert('No Assessment', 'No call assessment available for this job.');
-      return;
+  const handleViewCallAssessment = async (job: ExtendedJob) => {
+    setAnalysisModalVisible(true);
+    setAnalysisLoading(true);
+    setAnalysisData(null);
+    setGate1Insight(null);
+    setGate2Insight(null);
+
+    try {
+      const status = await api.getInterviewStatus(job.id, job.createdByUserId);
+      setAnalysisData(status);
+
+      // Fetch DeepSeek insights in background
+      setInsightLoading(true);
+      const promises: Promise<void>[] = [];
+
+      if (status.callAssessment) {
+        const ca = status.callAssessment;
+        const scores: Record<string, number> = {};
+        if (ca.scores) {
+          for (const [label, score] of Object.entries(ca.scores)) {
+            scores[label] = score * 100;
+          }
+        }
+        promises.push(
+          api.getGate1Insight(ca.decision, ca.confidence * 100, scores)
+            .then(res => { if (res.success) setGate1Insight(res.insight); })
+            .catch(() => {})
+        );
+      }
+
+      if (status.interview?.analysisDecision) {
+        const iv = status.interview;
+        promises.push(
+          api.getGate2Insight(
+            iv.analysisDecision!,
+            (iv.confidence ?? 0) * 100,
+            iv.dominant_emotion || 'neutral',
+            iv.emotion_distribution || {},
+            iv.top_signals || [],
+            iv.stats,
+          )
+            .then(res => { if (res.success) setGate2Insight(res.insight); })
+            .catch(() => {})
+        );
+      }
+
+      await Promise.all(promises);
+      setInsightLoading(false);
+    } catch (e: any) {
+      Alert.alert('Error', 'Failed to load analysis data');
+      setAnalysisModalVisible(false);
+    } finally {
+      setAnalysisLoading(false);
     }
-    
-    Alert.alert(
-      'Call Assessment',
-      `Decision: ${assessment.decision}\nConfidence: ${(assessment.confidence * 100).toFixed(1)}%\n\nReasons:\n${assessment.reasons.join('\n') || 'None recorded'}`,
-      [{ text: 'OK' }]
-    );
+  };
+
+  const getIntentColor = (label: string) => {
+    switch (label) {
+      case 'PROCEED': return '#27ae60';
+      case 'REJECT': return '#e74c3c';
+      case 'VERIFY': return '#f39c12';
+      default: return '#666';
+    }
+  };
+
+  const getDecisionColor = (label: string) => {
+    switch (label) {
+      case 'APPROVE': return '#27ae60';
+      case 'REJECT': return '#e74c3c';
+      case 'VERIFY': return '#f39c12';
+      default: return '#666';
+    }
   };
 
   const filters: { key: FilterStatus; label: string }[] = [
@@ -294,7 +364,10 @@ export default function AdminApplicationsScreen() {
         
         {/* Show interview result if completed */}
         {interviewCompleted && item.interviewStatus?.interview && (
-          <View style={styles.interviewResultRow}>
+          <TouchableOpacity 
+            style={styles.interviewResultRow}
+            onPress={() => handleViewCallAssessment(item)}
+          >
             <Text style={styles.detailLabel}>Interview Result:</Text>
             <View style={[
               styles.assessmentBadge,
@@ -307,7 +380,17 @@ export default function AdminApplicationsScreen() {
                 {item.interviewStatus.interview.analysisDecision}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
+        )}
+
+        {/* View Full Analysis button */}
+        {(hasCallAssessment || interviewCompleted) && (
+          <TouchableOpacity
+            style={styles.viewAnalysisButton}
+            onPress={() => handleViewCallAssessment(item)}
+          >
+            <Text style={styles.viewAnalysisButtonText}>📊 View Full Analysis</Text>
+          </TouchableOpacity>
         )}
       </View>
 
