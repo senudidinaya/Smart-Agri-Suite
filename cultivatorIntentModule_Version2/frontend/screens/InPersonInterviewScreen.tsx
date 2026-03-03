@@ -21,7 +21,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
-import { api, InterviewAnalyzeResponse } from '../services/api';
+import { api, InterviewAnalyzeResponse, InsightResponse } from '../services/api';
 
 type RouteParams = {
   InPersonInterview: {
@@ -74,6 +74,32 @@ export default function InPersonInterviewScreen() {
   useEffect(() => {
     requestPermissions();
   }, []);
+
+  // Fetch DeepSeek insight when analysis results arrive
+  useEffect(() => {
+    if (!analysisResult) return;
+    const fetchInsight = async () => {
+      setInsightLoading(true);
+      try {
+        const res = await api.getGate2Insight(
+          analysisResult.decision,
+          analysisResult.confidence * 100,
+          analysisResult.dominant_emotion || 'neutral',
+          analysisResult.emotion_distribution || {},
+          analysisResult.top_signals || [],
+          analysisResult.stats,
+        );
+        if (res.success) {
+          setDeepseekInsight(res.insight);
+        }
+      } catch (err) {
+        console.error('Failed to fetch DeepSeek insight:', err);
+      } finally {
+        setInsightLoading(false);
+      }
+    };
+    fetchInsight();
+  }, [analysisResult]);
 
   useEffect(() => {
     if (!analysisResult) return;
