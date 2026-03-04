@@ -1,0 +1,164 @@
+from flask import Flask, request, jsonify
+from datetime import datetime
+import pandas as pd
+import joblib
+
+
+DF_PATH = "dataset.csv"           
+QTY_MODEL_PATH = "qty_pipeline.pkl"
+PRICE_MODEL_PATH = "price_pipeline.pkl"
+
+df_reference = pd.read_csv(DF_PATH, parse_dates=["date"])
+
+
+TARGET_QTY   = "qty_sold_kg"
+TARGET_PRICE = "market_price_LKR"
+
+cols_to_exclude = ["date", TARGET_QTY, TARGET_PRICE]
+if "festival_name" in df_reference.columns:
+    cols_to_exclude.append("festival_name")
+
+feature_cols = [c for c in df_reference.columns if c not in cols_to_exclude]
+
+qty_pipeline = joblib.load(QTY_MODEL_PATH)
+price_pipeline = joblib.load(PRICE_MODEL_PATH)
+
+# =========================
+# Helper functions
+# =========================
+
+def build_feature_row(date, region, spice, is_festival, df_reference, feature_cols):
+    """
+    Build a feature row for a given (date, region, spice, is_festival).
+
+    For now:
+      - find the closest historical week with same month & weekofyear, region, spice
+        and copy its numeric/lag features as a realistic proxy.
+    """
+    # Compute month and weekofyear for input date
+    weekofyear = int(date.strftime("%U")) + 1
+    month = date.month
+    year = date.year
+
+    # Try to find a similar historical row
+    mask = (
+        (df_reference["region"] == region) &
+        (df_reference["spice"] == spice) &
+        (df_reference["month"] == month) &
+        (df_reference["weekofyear"] == weekofyear) &
+        (df_reference["date"] <= date)
+    )
+
+    similar = df_reference.loc[mask]
+
+    # Fallback
+    if similar.empty:
+        similar = df_reference[
+            (df_reference["region"] == region) &
+            (df_reference["spice"] == spice)
+        ]
+
+    similar = similar.sort_values("date")
+    base_row = similar.iloc[-1].copy()
+
+    # Override with the requested time & festival flag
+    base_row["date"] = date
+    base_row["year"] = year
+    base_row["month"] = month
+    base_row["weekofyear"] = weekofyear
+    base_row["is_festival"] = int(bool(is_festival))
+
+    # Return only the features used by the model
+    return base_row[feature_cols]
+
+
+def predict_for_week(date_str, region, spice, is_festival):
+    """
+    Predicts expected kg to prepare and market price for a given week, region, spice.
+    If festival = True, also computes a 'counterfactual' non-festival prediction
+    and explains the difference.
+    """
+    date = pd.to_datetime(date_str)
+
+    # Build current feature row
+    x_row = build_feature_row(date, region, spice, is_festival, df_reference, feature_cols)
+    x_df = pd.DataFrame([x_row])
+
+    qty_pred   = float(qty_pipeline.predict(x_df)[0])
+    price_pred = float(price_pipeline.predict(x_df)[0])
+
+    message = ""
+    if is_festival:
+        # Counterfactual: same week but non-festival
+        x_row_cf = x_row.copy()
+        x_row_cf["is_festival"] = 0
+        x_df_cf = pd.DataFrame([x_row_cf])
+
+        qty_pred_cf   = float(qty_pipeline.predict(x_df_cf)[0])
+        price_pred_cf = float(price_pipeline.predict(x_df_cf)[0])
+
+        qty_diff   = qty_pred - qty_pred_cf
+        price_diff = price_pred - price_pred_cf
+
+        qty_pct = (qty_diff / qty_pred_cf * 100) if qty_pred_cf > 0 else 0.0
+        price_pct = (price_diff / price_pred_cf * 100) if price_pred_cf > 0 else 0.0
+
+        direction_qty   = "higher" if qty_diff >= 0 else "lower"
+        direction_price = "higher" if price_diff >= 0 else "lower"
+
+        message = (
+            f"Because this is a festival week, the model predicts "
+            f"{abs(qty_diff):.1f} kg ({abs(qty_pct):.1f}%) {direction_qty} demand "
+            f"and {abs(price_diff):.1f} LKR/kg ({abs(price_pct):.1f}%) {direction_price} price "
+            f"compared to a similar non-festival week."
+        )
+
+    return {
+        "date": str(date.date()),
+        "region": region,
+        "spice": spice,
+        "is_festival": bool(is_festival),
+        "predicted_qty_kg": round(qty_pred, 1),
+        #"predicted_price_LKR_per_kg": round(price_pred, 2),
+        "festival_effect_message": message
+    }
+
+# =========================
+# Flask app
+# =========================
+
+app = Flask(__name__)
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"}), 200
+
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    data = request.get_json(force=True)
+
+    # Expected JSON keys
+    date_str    = data.get("date")          
+    region      = data.get("region")        
+    spice       = data.get("spice")         
+    is_festival = data.get("is_festival", False)
+
+    if not date_str or not region or not spice:
+        return jsonify({"error": "Missing required fields: date, region, spice"}), 400
+
+    try:
+        result = predict_for_week(
+            date_str=date_str,
+            region=region,
+            spice=spice,
+            is_festival=bool(is_festival)
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    # Run on localhost:5000
+    app.run(host="0.0.0.0", port=5000, debug=True)
