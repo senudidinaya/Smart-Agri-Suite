@@ -1,64 +1,64 @@
-const OPEN_WEATHER_API_KEY = process.env.EXPO_PUBLIC_OPEN_WEATHER_KEY;
+const BASE_URL = "http://127.0.0.1:8000"; // Android emulator: change later
+
+export type PredictionPayload = {
+  month: number;
+  region: string;
+  spice: string;
+  qty_sold_kg: number;
+  temp_c: number;
+  rainfall_mm: number;
+  humidity_pct: number;
+  monsoon_sw_flag: number;
+  monsoon_ne_flag: number;
+  qty_sold_kg_4w_ma: number;
+  market_price_LKR_4w_ma: number;
+  rainfall_mm_4w_ma: number;
+  temp_c_4w_ma: number;
+};
+
+export async function predictPrice(payload: PredictionPayload) {
+  const response = await fetch(`${BASE_URL}/predict`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error("Prediction failed");
+  }
+
+  return response.json();
+}
+
+// services/api.ts
+
+export type WeatherData = {
+  temp: number;
+  humidity: number;
+  rainfall?: number;
+  source: string;
+};
+
 
 export async function fetchWeather(
-  city: string,
-  fallback: {
-    temp: number;
-    condition: string;
-    humidity: number;
-  }
+  latitude: number,
+  longitude: number
 ) {
   try {
-    const res = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${OPEN_WEATHER_API_KEY}`
-    );
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,precipitation`;
 
-    if (!res.ok) throw new Error("Weather API failed");
+    const response = await fetch(url);
 
-    const data = await res.json();
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("Weather API error:", text);
+      throw new Error("Weather API request failed");
+    }
 
-    return {
-      temp: Math.round(data.main.temp),
-      condition: data.weather[0].main,
-      humidity: data.main.humidity,
-      source: "api",
-    };
-  } catch (err) {
-    // Fallback for PP1 safety
-    return {
-      ...fallback,
-      source: "fallback",
-    };
+    return await response.json();
+  } catch (error) {
+    console.error("fetchWeather failed:", error);
+    throw error;
   }
 }
 
-export async function optimizeMarket(payload: {
-  spice: string;
-  quantity: number;
-  province: string;
-  city: string;
-}) {
-  try {
-    const res = await fetch("http://localhost:5000/optimize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) throw new Error("Optimize API failed");
-
-    return await res.json();
-  } catch (err) {
-    // PP1-safe fallback
-    return {
-      bestMarket: "Dambulla Economic Center",
-      pricePerKg: 2450,
-      transportCost: 450,
-      netProfit: payload.quantity * 2450 - 450,
-      profitPercent: 12,
-      demandLevel: "High",
-      distanceKm: 12.4,
-      source: "fallback",
-    };
-  }
-}

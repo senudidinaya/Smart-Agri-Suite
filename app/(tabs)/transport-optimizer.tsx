@@ -1,0 +1,404 @@
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { useMemo, useState } from "react";
+import {
+    Dimensions,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
+import { BarChart } from "react-native-chart-kit";
+import Animated, {
+    FadeInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring
+} from "react-native-reanimated";
+
+
+const screenWidth = Dimensions.get("window").width - 32;
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const useScaleAnimation = () => {
+  const scale = useSharedValue(1);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  const onPressIn = () => {
+    scale.value = withSpring(0.95);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+  const onPressOut = () => {
+    scale.value = withSpring(1);
+  };
+  return { style, onPressIn, onPressOut };
+};
+
+const TRANSPORT_MODES = [
+  { mode: "Bike", rate: 40, icon: "bicycle" },
+  { mode: "Threewheel", rate: 60, icon: "car-sport" },
+  { mode: "Van", rate: 80, icon: "bus" },
+  { mode: "Lorry", rate: 120, icon: "car" },
+] as const;
+
+const MARKETS = [
+  { name: "Colombo", distance: 140 },
+  { name: "Kandy", distance: 30 },
+  { name: "Dambulla", distance: 25 },
+  { name: "Kurunegala", distance: 80 },
+];
+
+export default function TransportOptimizer() {
+  const [selectedMarket, setSelectedMarket] = useState("Colombo");
+
+  const market = MARKETS.find((m) => m.name === selectedMarket)!;
+
+  const transportCosts = useMemo(() => {
+    return TRANSPORT_MODES.map((t) => ({
+      mode: t.mode,
+      icon: t.icon,
+      cost: market.distance * t.rate,
+    }));
+  }, [selectedMarket]);
+
+  const cheapest = transportCosts.reduce((a, b) => (a.cost < b.cost ? a : b));
+
+  const chartData = {
+    labels: transportCosts.map((t) => t.mode),
+    datasets: [
+      {
+        data: transportCosts.map((t) => t.cost),
+      },
+    ],
+  };
+
+  const staggerDelay = 100;
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <Animated.View entering={FadeInDown.delay(staggerDelay * 1).springify()}>
+            <Text style={styles.header}>Logistics Engine</Text>
+            <Text style={styles.sub}>
+              Optimize delivery routes & costs
+            </Text>
+        </Animated.View>
+
+        {/* MARKET INFO & SELECTION */}
+        <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 2).springify()}>
+          <View style={styles.marketRow}>
+              <View style={styles.routeBox}>
+                 <Ionicons name="location" size={16} color="#475569" style={{marginBottom: 4}}/>
+                 <Text style={styles.marketLabel}>Origin</Text>
+                 <Text style={styles.marketValue}>Matale</Text>
+              </View>
+              
+              <View style={styles.routeDivider}>
+                  <View style={styles.routeLine} />
+                  <View style={styles.distancePill}>
+                      <Text style={styles.distanceText}>{market.distance} km</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#CBD5E1" style={{position: 'absolute', right: -4, backgroundColor: '#fff'}} />
+              </View>
+
+              <View style={[styles.routeBox, {alignItems: 'flex-end'}]}>
+                 <Ionicons name="flag" size={16} color="#3B82F6" style={{marginBottom: 4}}/>
+                 <Text style={styles.marketLabel}>Destination</Text>
+                 <Text style={styles.marketValue}>{market.name}</Text>
+              </View>
+          </View>
+
+          <Text style={styles.sectionTitleWithoutMargin}>Select Destination</Text>
+          <View style={styles.chipRow}>
+             {MARKETS.map(m => {
+                 const active = selectedMarket === m.name;
+                 const { style, onPressIn, onPressOut } = useScaleAnimation();
+                 return (
+                    <AnimatedPressable
+                        key={m.name}
+                        style={[styles.chip, active && styles.activeChip, style]}
+                        onPress={() => setSelectedMarket(m.name)}
+                        onPressIn={onPressIn}
+                        onPressOut={onPressOut}
+                    >
+                        <Text style={[styles.chipText, active && styles.activeText]}>{m.name}</Text>
+                    </AnimatedPressable>
+                 )
+             })}
+          </View>
+        </Animated.View>
+
+        {/* COST CHART */}
+        <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 3).springify()}>
+          <Text style={styles.sectionTitle}>Mode Comparison</Text>
+
+          <View style={{marginLeft: -16, marginTop: 10}}>
+              <BarChart
+                data={chartData}
+                width={screenWidth - 8}
+                height={220}
+                yAxisLabel="LKR "
+                yAxisSuffix=""
+                showValuesOnTopOfBars
+                fromZero
+                chartConfig={{
+                  backgroundColor: "#ffffff",
+                  backgroundGradientFrom: "#ffffff",
+                  backgroundGradientTo: "#ffffff",
+                  decimalPlaces: 0,
+                  color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+                  barPercentage: 0.6,
+                }}
+                style={{ borderRadius: 16 }}
+              />
+          </View>
+        </Animated.View>
+
+        {/* COST BREAKDOWN */}
+        <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 4).springify()}>
+          <Text style={[styles.sectionTitle, {marginBottom: 16}]}>Cost Breakdown</Text>
+
+          {transportCosts.map((t, index) => (
+            <View key={t.mode} style={[styles.row, index === transportCosts.length - 1 && { borderBottomWidth: 0, paddingBottom: 0 }]}>
+              <View style={styles.modeIconWrap}>
+                  <Ionicons name={t.icon as any} size={18} color="#4338CA" />
+              </View>
+              
+              <Text style={styles.modeText}>{t.mode}</Text>
+
+              <Text style={styles.cost}>LKR {t.cost.toLocaleString()}</Text>
+            </View>
+          ))}
+        </Animated.View>
+
+        {/* RECOMMENDATION */}
+        <Animated.View style={styles.tipCard} entering={FadeInDown.delay(staggerDelay * 5).springify()}>
+          <View style={styles.tipHeaderRow}>
+              <Ionicons name="flash" size={20} color="#fff" />
+              <Text style={styles.tipTitle}>Smart Suggestion</Text>
+          </View>
+
+          <Text style={styles.tipLead}>Optimal Mode: {cheapest.mode}</Text>
+          <Text style={styles.tipText}>
+            Maximizes margin with an estimated cost of LKR {Math.round(cheapest.cost).toLocaleString()}
+          </Text>
+        </Animated.View>
+        
+        <View style={{height: 40}} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+    paddingTop: 24,
+  },
+
+  header: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 26,
+    color: "#0F172A",
+    letterSpacing: -0.5,
+  },
+
+  sub: {
+    color: "#64748B",
+    fontSize: 15,
+    fontFamily: "Poppins_400Regular",
+    marginBottom: 20
+  },
+
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#64748b",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+
+  marketRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 24,
+      backgroundColor: '#F8FAFC',
+      padding: 16,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: '#F1F5F9'
+  },
+  
+  routeBox: {
+      flex: 1,
+  },
+
+  marketLabel: {
+    fontSize: 11,
+    fontFamily: "Poppins_400Regular",
+    color: "#64748B",
+  },
+  
+  marketValue: {
+      fontSize: 15,
+      fontFamily: "Poppins_600SemiBold",
+      color: "#0F172A",
+      marginTop: 2
+  },
+
+  routeDivider: {
+      flex: 1.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: 40,
+  },
+  
+  routeLine: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      height: 1,
+      backgroundColor: '#CBD5E1',
+      top: 19
+  },
+
+  distancePill: {
+      backgroundColor: '#EFF6FF',
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#DBEAFE',
+      zIndex: 2,
+  },
+
+  distanceText: {
+      fontFamily: "Poppins_600SemiBold",
+      color: "#3B82F6",
+      fontSize: 11
+  },
+
+  sectionTitleWithoutMargin: {
+    fontSize: 14,
+    fontFamily: "Poppins_500Medium",
+    color: "#64748B",
+    marginBottom: 12,
+  },
+
+  chipRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+  },
+  
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#64748b",
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  activeChip: {
+    backgroundColor: "#1E293B",
+    borderColor: "#1E293B"
+  },
+  chipText: {
+      fontFamily: "Poppins_500Medium",
+      color: "#64748B",
+      fontSize: 14,
+  },
+  activeText: {
+    color: "#fff",
+    fontFamily: "Poppins_600SemiBold",
+  },
+
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: "Poppins_600SemiBold",
+    color: "#0F172A",
+  },
+
+  row: {
+    flexDirection: "row",
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderColor: "#F1F5F9"
+  },
+  
+  modeIconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: '#EEF2FF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 14
+  },
+  
+  modeText: {
+      flex: 1,
+      fontFamily: "Poppins_500Medium",
+      color: "#334155",
+      fontSize: 15
+  },
+
+  cost: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 16,
+    color: "#0F172A"
+  },
+
+  tipCard: {
+    backgroundColor: "#3B82F6", 
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#3B82F6",
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+  },
+
+  tipHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+  },
+
+  tipTitle: {
+    color: "white",
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  
+  tipLead: {
+      color: "white",
+      fontFamily: "Poppins_700Bold",
+      fontSize: 18,
+      marginBottom: 4
+  },
+
+  tipText: {
+    color: "rgba(255,255,255,0.9)",
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    lineHeight: 20
+  },
+});
