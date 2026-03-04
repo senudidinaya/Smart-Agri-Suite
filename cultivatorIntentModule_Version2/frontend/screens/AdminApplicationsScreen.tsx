@@ -51,7 +51,24 @@ export default function AdminApplicationsScreen() {
       const filteredJobs = filter === 'all' 
         ? result.jobs 
         : result.jobs.filter((job: Job) => job.status === filter);
-      setJobs(filteredJobs);
+
+      // Fetch interview status for each job in parallel
+      const enriched: ExtendedJob[] = await Promise.all(
+        filteredJobs.map(async (job: Job) => {
+          try {
+            const interviewStatus = await api.getInterviewStatus(job.id, job.createdByUserId);
+            return {
+              ...job,
+              interviewStatus,
+              applicationStatus: interviewStatus.applicationStatus || job.status,
+            } as ExtendedJob;
+          } catch {
+            return { ...job } as ExtendedJob;
+          }
+        })
+      );
+
+      setJobs(enriched);
     } catch (e: any) {
       Alert.alert('Error', e.message);
     } finally {
@@ -332,8 +349,8 @@ export default function AdminApplicationsScreen() {
           <Text style={styles.detailValue}>{item.startsOnText}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Rate/Day:</Text>
-          <Text style={styles.detailValue}>Rs. {item.ratePerDay}</Text>
+          <Text style={styles.detailLabel}>Experience:</Text>
+          <Text style={styles.detailValue}>{item.priorExperience}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Posted:</Text>
@@ -542,6 +559,188 @@ export default function AdminApplicationsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#5C9A9A']} />
         }
       />
+
+      {/* ── Full Analysis Modal ── */}
+      <Modal
+        visible={analysisModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setAnalysisModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {analysisLoading ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="large" color="#8B5CF6" />
+                <Text style={styles.modalLoadingText}>Loading analysis…</Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.modalTitle}>📊 Full Analysis</Text>
+
+                {/* ── Gate-1: Voice Analysis ── */}
+                {analysisData?.callAssessment && (() => {
+                  const ca = analysisData.callAssessment!;
+                  return (
+                    <View style={styles.modalSection}>
+                      <Text style={styles.sectionTitle}>🎙️ Gate-1 — Voice Analysis</Text>
+
+                      <View style={styles.decisionRow}>
+                        <View style={[styles.decisionBadge, { backgroundColor: getIntentColor(ca.decision) }]}>
+                          <Text style={styles.decisionBadgeText}>{ca.decision}</Text>
+                        </View>
+                        <Text style={styles.confidenceText}>
+                          {(ca.confidence * 100).toFixed(1)}% confidence
+                        </Text>
+                      </View>
+
+                      {/* Score bars */}
+                      {ca.scores && Object.keys(ca.scores).length > 0 && (
+                        <View style={styles.scoresContainer}>
+                          <Text style={styles.scoresHeading}>Score Breakdown</Text>
+                          {Object.entries(ca.scores)
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([label, score]) => (
+                              <View key={label} style={styles.scoreRow}>
+                                <Text style={styles.scoreLabel}>{label}</Text>
+                                <View style={styles.scoreBarBg}>
+                                  <View
+                                    style={[
+                                      styles.scoreBarFill,
+                                      {
+                                        width: `${Math.min(score * 100, 100)}%`,
+                                        backgroundColor: getIntentColor(label),
+                                      },
+                                    ]}
+                                  />
+                                </View>
+                                <Text style={styles.scoreValue}>{(score * 100).toFixed(1)}%</Text>
+                              </View>
+                            ))}
+                        </View>
+                      )}
+
+                      {/* DeepSeek Insight */}
+                      {insightLoading && !gate1Insight && (
+                        <ActivityIndicator size="small" color="#8B5CF6" style={{ marginTop: 8 }} />
+                      )}
+                      {gate1Insight && (
+                        <View style={styles.insightCard}>
+                          <Text style={styles.insightTitle}>🧠 AI Insight</Text>
+                          <Text style={styles.insightText}>{gate1Insight}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+
+                {/* ── Gate-2: Interview Analysis ── */}
+                {analysisData?.interview?.analysisDecision && (() => {
+                  const iv = analysisData.interview!;
+                  return (
+                    <View style={styles.modalSection}>
+                      <Text style={styles.sectionTitle}>🎥 Gate-2 — Interview Analysis</Text>
+
+                      <View style={styles.decisionRow}>
+                        <View style={[styles.decisionBadge, { backgroundColor: getDecisionColor(iv.analysisDecision!) }]}>
+                          <Text style={styles.decisionBadgeText}>{iv.analysisDecision}</Text>
+                        </View>
+                        <Text style={styles.confidenceText}>
+                          {((iv.confidence ?? 0) * 100).toFixed(1)}% confidence
+                        </Text>
+                      </View>
+
+                      {/* Dominant Emotion */}
+                      {iv.dominant_emotion && (
+                        <Text style={styles.dominantEmotion}>
+                          Dominant Emotion: <Text style={{ fontWeight: '700' }}>{iv.dominant_emotion}</Text>
+                        </Text>
+                      )}
+
+                      {/* Emotion distribution bars */}
+                      {iv.emotion_distribution && Object.keys(iv.emotion_distribution).length > 0 && (
+                        <View style={styles.scoresContainer}>
+                          <Text style={styles.scoresHeading}>Emotion Distribution</Text>
+                          {Object.entries(iv.emotion_distribution)
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([emotion, pct]) => (
+                              <View key={emotion} style={styles.scoreRow}>
+                                <Text style={styles.scoreLabel}>{emotion}</Text>
+                                <View style={styles.scoreBarBg}>
+                                  <View
+                                    style={[
+                                      styles.scoreBarFill,
+                                      {
+                                        width: `${Math.min(pct, 100)}%`,
+                                        backgroundColor: '#8B5CF6',
+                                      },
+                                    ]}
+                                  />
+                                </View>
+                                <Text style={styles.scoreValue}>{pct.toFixed(1)}%</Text>
+                              </View>
+                            ))}
+                        </View>
+                      )}
+
+                      {/* Top Signals */}
+                      {iv.top_signals && iv.top_signals.length > 0 && (
+                        <View style={styles.signalsContainer}>
+                          <Text style={styles.scoresHeading}>Top Signals</Text>
+                          {iv.top_signals.map((sig: string, idx: number) => (
+                            <Text key={idx} style={styles.signalItem}>• {sig}</Text>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Stats */}
+                      {iv.stats && (
+                        <View style={styles.statsRow}>
+                          <View style={styles.statBox}>
+                            <Text style={styles.statValue}>{iv.stats.framesAnalyzed ?? '-'}</Text>
+                            <Text style={styles.statLabel}>Frames</Text>
+                          </View>
+                          <View style={styles.statBox}>
+                            <Text style={styles.statValue}>{iv.stats.durationSeconds?.toFixed(0) ?? '-'}s</Text>
+                            <Text style={styles.statLabel}>Duration</Text>
+                          </View>
+                          <View style={styles.statBox}>
+                            <Text style={styles.statValue}>{iv.stats.facesDetected ?? '-'}</Text>
+                            <Text style={styles.statLabel}>Faces</Text>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* DeepSeek Insight */}
+                      {insightLoading && !gate2Insight && (
+                        <ActivityIndicator size="small" color="#8B5CF6" style={{ marginTop: 8 }} />
+                      )}
+                      {gate2Insight && (
+                        <View style={styles.insightCard}>
+                          <Text style={styles.insightTitle}>🧠 AI Insight</Text>
+                          <Text style={styles.insightText}>{gate2Insight}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+
+                {/* No data fallback */}
+                {!analysisData?.callAssessment && !analysisData?.interview?.analysisDecision && (
+                  <Text style={styles.noDataText}>No analysis data available for this application.</Text>
+                )}
+              </ScrollView>
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setAnalysisModalVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -830,5 +1029,186 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#9E9E9E',
+  },
+  // View Analysis button
+  viewAnalysisButton: {
+    marginTop: 10,
+    backgroundColor: '#8B5CF6',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  viewAnalysisButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // ── Modal styles ──
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    padding: 18,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    maxHeight: '90%',
+    padding: 20,
+  },
+  modalLoading: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  modalLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalSection: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#444',
+    marginBottom: 10,
+  },
+  decisionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  decisionBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  decisionBadgeText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  confidenceText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#555',
+  },
+  dominantEmotion: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 8,
+  },
+  scoresContainer: {
+    marginTop: 8,
+  },
+  scoresHeading: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 6,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  scoreLabel: {
+    width: 70,
+    fontSize: 12,
+    color: '#555',
+    textTransform: 'capitalize',
+  },
+  scoreBarBg: {
+    flex: 1,
+    height: 10,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginHorizontal: 6,
+  },
+  scoreBarFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  scoreValue: {
+    width: 48,
+    textAlign: 'right',
+    fontSize: 12,
+    color: '#555',
+    fontWeight: '600',
+  },
+  signalsContainer: {
+    marginTop: 8,
+  },
+  signalItem: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 3,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+  },
+  statBox: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#8B5CF6',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+  },
+  insightCard: {
+    marginTop: 10,
+    backgroundColor: '#EDE9FE',
+    borderRadius: 10,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#8B5CF6',
+  },
+  insightTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6D28D9',
+    marginBottom: 4,
+  },
+  insightText: {
+    fontSize: 13,
+    color: '#4C1D95',
+    lineHeight: 19,
+  },
+  noDataText: {
+    textAlign: 'center',
+    color: '#999',
+    fontSize: 14,
+    paddingVertical: 30,
+  },
+  modalCloseButton: {
+    marginTop: 12,
+    backgroundColor: '#8B5CF6',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

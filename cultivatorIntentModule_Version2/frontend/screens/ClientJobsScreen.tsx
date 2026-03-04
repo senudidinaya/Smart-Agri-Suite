@@ -103,8 +103,8 @@ export default function ClientJobsScreen() {
         </View>
         
         <View style={styles.detailRow}>
-          <Text style={styles.detailIcon}>💰</Text>
-          <Text style={styles.detailText}>Rs. {item.ratePerDay}/day</Text>
+          <Text style={styles.detailIcon}>🌿</Text>
+          <Text style={styles.detailText}>{item.priorExperience}</Text>
         </View>
       </View>
 

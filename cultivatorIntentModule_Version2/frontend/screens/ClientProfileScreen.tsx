@@ -13,6 +13,9 @@ import {
   Alert,
   SafeAreaView,
   Platform,
+  KeyboardAvoidingView,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -21,9 +24,11 @@ export default function ClientProfileScreen() {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [districtOrLocation, setDistrictOrLocation] = useState('');
-  const [startsOnText, setStartsOnText] = useState('');
-  const [ratePerDay, setRatePerDay] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [startsOnDate, setStartsOnDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
+  const [pickerMonth, setPickerMonth] = useState(new Date().getMonth());
+  const [priorExperience, setPriorExperience] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Work type options
@@ -36,32 +41,30 @@ export default function ClientProfileScreen() {
     'General Farm Work',
   ];
 
+  // Plantation experience options
+  const plantationOptions = [
+    'Cinnamon',
+    'Cardamom',
+    'Nutmeg',
+    'Pepper',
+    'Clove',
+    'Other',
+    'None',
+  ];
+
   const [showWorkDropdown, setShowWorkDropdown] = useState(false);
+  const [showPlantationDropdown, setShowPlantationDropdown] = useState(false);
 
   const resetForm = () => {
     setTitle('');
     setDistrictOrLocation('');
-    setStartsOnText('');
-    setRatePerDay('');
-    setPhoneNumber('');
+    setStartsOnDate(null);
+    setPriorExperience([]);
   };
 
   const handleSubmit = async () => {
-    if (!title.trim() || !districtOrLocation.trim() || !startsOnText.trim() || !ratePerDay.trim() || !phoneNumber.trim()) {
+    if (!title.trim() || !districtOrLocation.trim() || !startsOnDate || priorExperience.length === 0) {
       Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
-    const rate = parseFloat(ratePerDay);
-    if (isNaN(rate) || rate <= 0) {
-      Alert.alert('Error', 'Please enter a valid rate per day');
-      return;
-    }
-
-    // Validate phone number (Sri Lankan format)
-    const phoneRegex = /^(\+94|0)?[0-9]{9,10}$/;
-    if (!phoneRegex.test(phoneNumber.replace(/\s/g, ''))) {
-      Alert.alert('Error', 'Please enter a valid phone number');
       return;
     }
 
@@ -70,9 +73,8 @@ export default function ClientProfileScreen() {
       await api.createJob({
         title,
         districtOrLocation,
-        startsOnText,
-        ratePerDay: rate,
-        phoneNumber: phoneNumber.trim(),
+        startsOnText: startsOnDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+        priorExperience: priorExperience.join(', '),
       });
 
       Alert.alert('Success', 'Your job post has been created!', [
@@ -87,7 +89,15 @@ export default function ClientProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Create Job Post</Text>
@@ -138,34 +148,77 @@ export default function ClientProfileScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Starts From *</Text>
-            <TextInput
-              style={styles.input}
-              value={startsOnText}
-              onChangeText={setStartsOnText}
-              placeholder="e.g., January 2026 or Immediate"
-            />
+            <TouchableOpacity
+              style={styles.dropdown}
+              onPress={() => {
+                setShowDatePicker(true);
+                setShowWorkDropdown(false);
+                setShowPlantationDropdown(false);
+                const base = startsOnDate || new Date();
+                setPickerYear(base.getFullYear());
+                setPickerMonth(base.getMonth());
+              }}
+            >
+              <Text style={startsOnDate ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {startsOnDate
+                  ? startsOnDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : 'Select a start date'}
+              </Text>
+              <Text style={styles.dropdownArrow}>📅</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Rate Per Day (Rs.) *</Text>
-            <TextInput
-              style={styles.input}
-              value={ratePerDay}
-              onChangeText={setRatePerDay}
-              placeholder="e.g., 2500"
-              keyboardType="numeric"
-            />
-          </View>
+            <Text style={styles.label}>Plantations You Have Prior Experience *</Text>
+            <TouchableOpacity
+              style={styles.dropdown}
+              onPress={() => { setShowPlantationDropdown(!showPlantationDropdown); setShowWorkDropdown(false); }}
+            >
+              <Text style={priorExperience.length > 0 ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {priorExperience.length > 0 ? priorExperience.join(', ') : 'Select plantation experience'}
+              </Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
+            </TouchableOpacity>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number *</Text>
-            <TextInput
-              style={styles.input}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              placeholder="e.g., 0771234567"
-              keyboardType="phone-pad"
-            />
+            {showPlantationDropdown && (
+              <View style={styles.dropdownList}>
+                {plantationOptions.map((option) => {
+                  const isSelected = priorExperience.includes(option);
+                  return (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.dropdownItem,
+                        isSelected && styles.dropdownItemSelected,
+                      ]}
+                      onPress={() => {
+                        if (option === 'None') {
+                          setPriorExperience(['None']);
+                        } else {
+                          const withoutNone = priorExperience.filter(p => p !== 'None');
+                          if (isSelected) {
+                            setPriorExperience(withoutNone.filter(p => p !== option));
+                          } else {
+                            setPriorExperience([...withoutNone, option]);
+                          }
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        isSelected && styles.dropdownItemTextSelected,
+                      ]}>{isSelected ? '✓ ' : ''}{option}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={styles.dropdownDoneButton}
+                  onPress={() => setShowPlantationDropdown(false)}
+                >
+                  <Text style={styles.dropdownDoneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           {/* Submit Button */}
@@ -180,6 +233,86 @@ export default function ClientProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Date Picker Modal */}
+      <Modal visible={showDatePicker} transparent animationType="fade">
+        <View style={styles.dateModalOverlay}>
+          <View style={styles.dateModalContent}>
+            {/* Month/Year Navigation */}
+            <View style={styles.dateNavRow}>
+              <TouchableOpacity onPress={() => {
+                if (pickerMonth === 0) { setPickerMonth(11); setPickerYear(pickerYear - 1); }
+                else setPickerMonth(pickerMonth - 1);
+              }}>
+                <Text style={styles.dateNavArrow}>◀</Text>
+              </TouchableOpacity>
+              <Text style={styles.dateNavTitle}>
+                {new Date(pickerYear, pickerMonth).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+              </Text>
+              <TouchableOpacity onPress={() => {
+                if (pickerMonth === 11) { setPickerMonth(0); setPickerYear(pickerYear + 1); }
+                else setPickerMonth(pickerMonth + 1);
+              }}>
+                <Text style={styles.dateNavArrow}>▶</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Day-of-week headers */}
+            <View style={styles.dateWeekRow}>
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                <Text key={d} style={styles.dateWeekDay}>{d}</Text>
+              ))}
+            </View>
+
+            {/* Day Grid */}
+            <View style={styles.dateDayGrid}>
+              {(() => {
+                const firstDay = new Date(pickerYear, pickerMonth, 1).getDay();
+                const daysInMonth = new Date(pickerYear, pickerMonth + 1, 0).getDate();
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const cells = [];
+                for (let i = 0; i < firstDay; i++) {
+                  cells.push(<View key={`blank-${i}`} style={styles.dateDayCell} />);
+                }
+                for (let day = 1; day <= daysInMonth; day++) {
+                  const thisDate = new Date(pickerYear, pickerMonth, day);
+                  const isPast = thisDate < today;
+                  const isSelected = startsOnDate?.toDateString() === thisDate.toDateString();
+                  cells.push(
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.dateDayCell,
+                        isSelected && styles.dateDayCellSelected,
+                        isPast && styles.dateDayCellDisabled,
+                      ]}
+                      disabled={isPast}
+                      onPress={() => {
+                        setStartsOnDate(thisDate);
+                        setShowDatePicker(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.dateDayText,
+                        isSelected && styles.dateDayTextSelected,
+                        isPast && styles.dateDayTextDisabled,
+                      ]}>{day}</Text>
+                    </TouchableOpacity>
+                  );
+                }
+                return cells;
+              })()}
+            </View>
+
+            {/* Cancel */}
+            <TouchableOpacity style={styles.dateCancelButton} onPress={() => setShowDatePicker(false)}>
+              <Text style={styles.dateCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -284,6 +417,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333',
   },
+  dropdownItemSelected: {
+    backgroundColor: '#E8F5E9',
+  },
+  dropdownItemTextSelected: {
+    color: '#5C9A9A',
+    fontWeight: '600',
+  },
+  dropdownDoneButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#5C9A9A',
+  },
+  dropdownDoneText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
   button: {
     backgroundColor: '#5C9A9A',
     borderRadius: 25,
@@ -297,6 +447,85 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  // Date Picker Modal styles
+  dateModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    maxWidth: 360,
+  },
+  dateNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  dateNavArrow: {
+    fontSize: 20,
+    color: '#5C9A9A',
+    paddingHorizontal: 10,
+  },
+  dateNavTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#333',
+  },
+  dateWeekRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  dateWeekDay: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#999',
+  },
+  dateDayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dateDayCell: {
+    width: '14.28%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+  },
+  dateDayCellSelected: {
+    backgroundColor: '#5C9A9A',
+  },
+  dateDayCellDisabled: {
+    opacity: 0.3,
+  },
+  dateDayText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  dateDayTextSelected: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  dateDayTextDisabled: {
+    color: '#ccc',
+  },
+  dateCancelButton: {
+    marginTop: 15,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  dateCancelText: {
+    fontSize: 15,
+    color: '#e74c3c',
     fontWeight: '600',
   },
 });

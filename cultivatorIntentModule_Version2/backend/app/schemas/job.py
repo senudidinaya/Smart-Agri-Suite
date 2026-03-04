@@ -12,8 +12,7 @@ class JobCreate(BaseModel):
     title: str = Field(..., min_length=2)
     districtOrLocation: str = Field(..., min_length=2)
     startsOnText: Optional[str] = "Immediate"
-    ratePerDay: int = Field(..., ge=0)
-    phoneNumber: str = Field(..., min_length=9, description="Contact phone number")
+    priorExperience: str = Field(..., description="Plantation prior experience")
 
 
 class JobResponse(BaseModel):
@@ -24,8 +23,7 @@ class JobResponse(BaseModel):
     title: str
     districtOrLocation: str
     startsOnText: str
-    ratePerDay: int
-    phoneNumber: Optional[str] = None
+    priorExperience: str
     status: str
     createdAt: datetime
     updatedAt: datetime

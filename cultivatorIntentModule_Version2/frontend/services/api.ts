@@ -33,8 +33,7 @@ export interface Job {
   title: string;
   districtOrLocation: string;
   startsOnText: string;
-  ratePerDay: number;
-  phoneNumber?: string;
+  priorExperience: string;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -348,8 +347,7 @@ class ApiService {
     title: string;
     districtOrLocation: string;
     startsOnText?: string;
-    ratePerDay: number;
-    phoneNumber?: string;
+    priorExperience: string;
   }): Promise<Job> {
     return this.request('POST', '/jobs/', data);
   }

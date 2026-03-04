@@ -516,6 +516,7 @@ async def upload_recording(
         "decision": analysis["intentLabel"],
         "confidence": analysis["confidence"],
         "reasons": list(analysis.get("scores", {}).keys()),
+        "scores": analysis.get("scores", {}),
         "createdAt": now,
     }
     

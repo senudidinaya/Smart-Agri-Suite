@@ -107,6 +107,13 @@ def extract_audio_from_video(video_path: str, output_path: str) -> bool:
 
 def _serialize_interview(doc: dict) -> InterviewResponse:
     """Convert MongoDB document to InterviewResponse."""
+    # Build stats if present
+    stats = None
+    raw_stats = doc.get("gate2_stats")
+    if raw_stats and isinstance(raw_stats, dict):
+        from app.schemas.interview import Gate2AnalysisStats
+        stats = Gate2AnalysisStats(**raw_stats)
+
     return InterviewResponse(
         id=str(doc["_id"]),
         jobId=doc["jobId"],
@@ -120,6 +127,11 @@ def _serialize_interview(doc: dict) -> InterviewResponse:
         reasons=doc.get("reasons", []),
         status=doc.get("status", "pending"),
         createdAt=doc["createdAt"],
+        emotion_distribution=doc.get("gate2_emotion_distribution"),
+        dominant_emotion=doc.get("gate2_dominant_emotion"),
+        top_signals=doc.get("gate2_top_signals"),
+        stats=stats,
+        model_version=doc.get("gate2_model_version"),
     )
 
 
@@ -135,6 +147,7 @@ def _serialize_call_assessment(doc: dict) -> CallAssessmentResponse:
         decision=doc["decision"],
         confidence=doc["confidence"],
         reasons=doc.get("reasons", []),
+        scores=doc.get("scores"),
         createdAt=doc["createdAt"],
     )
 

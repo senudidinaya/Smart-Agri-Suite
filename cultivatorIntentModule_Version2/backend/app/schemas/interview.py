@@ -3,7 +3,7 @@ In-person interview schemas for video analysis workflow.
 """
 
 from datetime import datetime
-from typing import Optional, List, Literal
+from typing import Any, Dict, Optional, List, Literal
 from pydantic import BaseModel, Field
 
 
@@ -48,6 +48,7 @@ class CallAssessmentResponse(BaseModel):
     decision: str
     confidence: float
     reasons: List[str]
+    scores: Optional[Dict[str, float]] = None
     createdAt: datetime
 
 
@@ -117,6 +118,12 @@ class InterviewResponse(BaseModel):
     reasons: List[str] = []
     status: str  # pending, completed
     createdAt: datetime
+    # Gate 2 detailed fields
+    emotion_distribution: Optional[Dict[str, float]] = None
+    dominant_emotion: Optional[str] = None
+    top_signals: Optional[List[str]] = None
+    stats: Optional[Gate2AnalysisStats] = None
+    model_version: Optional[str] = None
 
 
 class InterviewStatusResponse(BaseModel):
