@@ -10,7 +10,8 @@ from fastapi import APIRouter
 
 from app.core.config import get_settings
 from app.schemas.health import HealthResponse
-from app.services.inference import get_classifier
+
+# Health endpoint no longer relies on ML services
 
 router = APIRouter()
 
@@ -30,17 +31,10 @@ async def health_check() -> HealthResponse:
         HealthResponse with current status and component checks.
     """
     settings = get_settings()
-    classifier = get_classifier()
     
-    # Perform health checks
-    checks = {
-        "model_loaded": classifier.is_loaded,
-        "inference_ready": classifier.is_loaded and classifier.model is not None 
-            or classifier.is_loaded,  # Placeholder mode is also ready
-    }
-    
-    # Determine overall status
-    status = "healthy" if all(checks.values()) else "degraded"
+    # Simple static health info
+    checks = {"service": "ok"}
+    status = "healthy"
     
     return HealthResponse(
         status=status,
