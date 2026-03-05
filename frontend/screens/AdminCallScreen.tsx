@@ -210,10 +210,12 @@ export default function AdminCallScreen() {
       }
     }, 3000);
 
+    // Wait up to 5 minutes (300 seconds) for analysis
+    // Matches client-side upload timeout which can take time on slow networks
     setTimeout(() => {
       clearInterval(analysisPoll);
       setWaitingForAnalysis(false);
-    }, 60000);
+    }, 300000);
   };
 
   const formatDuration = (seconds: number): string => {
@@ -238,8 +240,17 @@ export default function AdminCallScreen() {
       await api.endCall(callId);
       setCallStatus('ended');
       cleanup();
+      
+      // Start polling for analysis but allow admin to leave
+      // Analysis runs in background and will be available in "View Analysis" section
       setWaitingForAnalysis(true);
       pollForAnalysis();
+      
+      // Auto-close after 3 seconds
+      // Admin can view analysis later in the job's "View Analysis" section
+      setTimeout(() => {
+        navigation.goBack();
+      }, 3000);
     } catch (error: any) {
       Alert.alert('Error', error.message);
     }

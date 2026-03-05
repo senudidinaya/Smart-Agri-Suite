@@ -25,15 +25,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const storedUser = await api.init();
         if (storedUser) {
-          // Verify token is still valid
-          try {
-            const currentUser = await api.getCurrentUser();
-            setUser(currentUser);
-          } catch {
-            // Token expired, clear it
-            await api.logout();
-            setUser(null);
-          }
+          // Use cached user instantly, then verify token in background.
+          setUser(storedUser);
+          setLoading(false);
+
+          api.getCurrentUser()
+            .then((currentUser) => {
+              setUser(currentUser);
+            })
+            .catch(async (err: any) => {
+              const message = String(err?.message || '').toLowerCase();
+
+              // Clear session only for auth/token failures, not temporary network slowness.
+              if (
+                message.includes('401') ||
+                message.includes('invalid') ||
+                message.includes('expired') ||
+                message.includes('not found')
+              ) {
+                await api.logout();
+                setUser(null);
+                return;
+              }
+
+              console.warn('Auth refresh failed, continuing with cached user:', err?.message || err);
+            });
+          return;
         }
       } catch (e) {
         console.error('Auth init error:', e);

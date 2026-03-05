@@ -19,6 +19,7 @@ import AdminCallScreen from './screens/AdminCallScreen';
 import ClientCallScreen from './screens/ClientCallScreen';
 import IncomingCallScreen from './screens/IncomingCallScreen';
 import InPersonInterviewScreen from './screens/InPersonInterviewScreen';
+import ViewAnalysisScreen from './screens/ViewAnalysisScreen';
 import { api } from './services/api';
 
 // Navigation types
@@ -52,6 +53,10 @@ type ClientStackParamList = {
     token: string;
     jobTitle?: string;
   };
+  ViewAnalysis: {
+    jobId: string;
+    jobTitle: string;
+  };
 };
 
 type AdminStackParamList = {
@@ -68,6 +73,10 @@ type AdminStackParamList = {
     jobId: string;
     clientId: string;
     clientName: string;
+    jobTitle: string;
+  };
+  ViewAnalysis: {
+    jobId: string;
     jobTitle: string;
   };
 };
@@ -202,6 +211,11 @@ function ClientNavigator({ navigationRef }: { navigationRef: any }) {
         component={ClientCallScreen}
         options={{ presentation: 'fullScreenModal' }}
       />
+      <ClientStack.Screen
+        name="ViewAnalysis"
+        component={ViewAnalysisScreen}
+        options={{ presentation: 'modal' }}
+      />
     </ClientStack.Navigator>
   );
 }
@@ -251,6 +265,11 @@ function AdminNavigator() {
         name="InPersonInterview"
         component={InPersonInterviewScreen}
         options={{ presentation: 'fullScreenModal' }}
+      />
+      <AdminStack.Screen
+        name="ViewAnalysis"
+        component={ViewAnalysisScreen}
+        options={{ presentation: 'modal' }}
       />
     </AdminStack.Navigator>
   );

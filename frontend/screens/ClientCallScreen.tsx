@@ -197,23 +197,35 @@ export default function ClientCallScreen() {
 
     try {
       console.log('Starting upload for URI:', uri);
-      const result = await api.uploadRecording(callId, uri);
-      setAnalysisResult({
-        intentLabel: result.intentLabel,
-        confidence: result.confidence,
-        scores: result.scores,
-      });
-      console.log('Upload and analysis complete:', result);
+      // Fire-and-forget: start the upload but don't wait for it to complete
+      // The backend will process the audio and run ML analysis in the background
+      api.uploadRecording(callId, uri)
+        .then(result => {
+          console.log('Upload and analysis complete in background:', result);
+          setAnalysisResult({
+            intentLabel: result.intentLabel,
+            confidence: result.confidence,
+            scores: result.scores,
+          });
+        })
+        .catch(error => {
+          console.error('Upload failed in background:', error);
+          setUploadFailed(true);
+        })
+        .finally(() => {
+          setIsUploading(false);
+        });
+      
+      // Auto-close after 2 seconds so user can move on
+      // Analysis happens in background and is stored in database
+      setTimeout(() => {
+        navigation.goBack();
+      }, 2000);
     } catch (error: any) {
-      console.error('Upload failed:', error);
-      console.error('Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      });
+      console.error('Upload initiation failed:', error);
+      setIsUploading(false);
       setUploadFailed(true);
       
-      // Show detailed error based on type
       let errorMsg = error.message || 'Failed to upload recording. Please check your network connection.';
       if (error.message?.includes('network may be blocking')) {
         errorMsg += '\n\nTip: Try using mobile data instead of university Wi-Fi.';
@@ -222,8 +234,6 @@ export default function ClientCallScreen() {
         { text: 'Retry', onPress: handleRetryUpload },
         { text: 'Close', style: 'cancel' }
       ]);
-    } finally {
-      setIsUploading(false);
     }
   };
 

@@ -6,11 +6,36 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Use localhost for web, IP address for mobile devices
-// Backend runs on port 8000
-const API_BASE_URL = Platform.OS === 'web' 
-  ? 'http://localhost:8000/api/v1' 
-  : 'http://192.168.1.9:8000/api/v1';
+const env = (globalThis as any)?.process?.env ?? {};
+
+function normalizeApiBaseUrl(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
+}
+
+function resolveApiBaseUrl(): string {
+  // Highest priority: explicit full URL override
+  const explicitUrl = env.EXPO_PUBLIC_API_BASE_URL as string | undefined;
+  if (explicitUrl && explicitUrl.trim()) {
+    return normalizeApiBaseUrl(explicitUrl);
+  }
+
+  // Quick Android switch: emulator uses 10.0.2.2, physical device uses LAN IP.
+  const androidTarget = (env.EXPO_PUBLIC_ANDROID_TARGET as string | undefined)?.toLowerCase();
+  const lanIp = (env.EXPO_PUBLIC_DEV_MACHINE_IP as string | undefined) || '192.168.1.9';
+  const androidHost = androidTarget === 'emulator' ? '10.0.2.2' : lanIp;
+
+  const platformBase = Platform.select({
+    web: 'http://localhost:8000/api/v1',
+    android: `http://${androidHost}:8000/api/v1`,
+    ios: 'http://localhost:8000/api/v1',
+    default: `http://${lanIp}:8000/api/v1`,
+  }) as string;
+
+  return platformBase;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const TOKEN_KEY = 'smartagri_token';
 const USER_KEY = 'smartagri_user';
@@ -254,7 +279,8 @@ class ApiService {
     method: string,
     path: string,
     body?: any,
-    auth: boolean = true
+    auth: boolean = true,
+    timeoutMs: number = 45000
   ): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -268,16 +294,35 @@ class ApiService {
     console.log(`API Request: ${method} ${url}`);
     
     let response: Response;
-    try {
-      response = await fetch(url, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-    } catch (networkError: any) {
-      console.error('Network error:', networkError);
-      throw new Error(`Network error: ${networkError.message || 'Unable to connect to server'}`);
-    }
+    const makeFetch = async (attempt: number): Promise<Response> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        return await fetch(url, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+          signal: controller.signal,
+        });
+      } catch (networkError: any) {
+        if (networkError?.name === 'AbortError' && method.toUpperCase() === 'GET' && attempt === 1) {
+          console.warn(`Timeout on ${path}, retrying once...`);
+          return makeFetch(2);
+        }
+
+        if (networkError?.name === 'AbortError') {
+          throw new Error(`Request timeout after ${Math.round(timeoutMs / 1000)}s`);
+        }
+
+        console.error('Network error:', networkError);
+        throw new Error(`Network error: ${networkError.message || 'Unable to connect to server'}`);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    response = await makeFetch(1);
 
     let data: any;
     try {
@@ -330,17 +375,17 @@ class ApiService {
   }
 
   async getCurrentUser(): Promise<User> {
-    return this.request('GET', '/auth/me');
+    return this.request('GET', '/auth/me', undefined, true, 8000);
   }
 
   // Jobs
   async getJobs(status?: string): Promise<{ jobs: Job[]; total: number }> {
     const query = status ? `?status=${status}` : '';
-    return this.request('GET', `/jobs/${query}`);
+    return this.request('GET', `/jobs/${query}`, undefined, true, 60000);
   }
 
   async getMyJobs(): Promise<{ jobs: Job[]; total: number }> {
-    return this.request('GET', '/jobs/my');
+    return this.request('GET', '/jobs/my', undefined, true, 60000);
   }
 
   async createJob(data: {
@@ -359,7 +404,7 @@ class ApiService {
   // Applications
   async getApplications(status?: string): Promise<{ applications: Application[]; total: number }> {
     const query = status ? `?status=${status}` : '';
-    return this.request('GET', `/applications/${query}`);
+    return this.request('GET', `/applications/${query}`, undefined, true, 60000);
   }
 
   async applyToJob(jobId: string): Promise<Application> {
@@ -421,9 +466,10 @@ class ApiService {
       type: 'audio/wav',
     } as any);
 
-    // Create abort controller for timeout - 60 seconds for slow networks
+    // Create abort controller for timeout - 5 minutes for slow networks / large files
+    // University Wi-Fi and slow networks may need longer to upload audio
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
 
     try {
       const response = await fetch(`${API_BASE_URL}/calls/${callId}/recording`, {
@@ -456,7 +502,7 @@ class ApiService {
       }
       
       if (error.name === 'AbortError') {
-        throw new Error('Upload timeout after 60 seconds. Your network may be blocking file uploads. Try connecting to a different network.');
+        throw new Error('Upload timeout after 5 minutes. Your network may be too slow or blocking file uploads. Try: (1) Mobile data instead of Wi-Fi, (2) Move closer to router, or (3) Try again later.');
       }
       throw error;
     }
@@ -570,6 +616,24 @@ class ApiService {
       top_signals: topSignals,
       stats,
     });
+  }
+
+  // ==================== CALL ANALYSES ====================
+
+  /**
+   * Fetch all completed call analyses for a job.
+   * Analyses run asynchronously after calls complete.
+   */
+  async getJobCallAnalyses(jobId: string): Promise<{ analyses: CallStatusResponse[] }> {
+    return this.request('GET', `/jobs/${jobId}/call-analyses`);
+  }
+
+  /**
+   * Fetch all interview analyses for a job.
+   * Video analyses run asynchronously after interviews complete.
+   */
+  async getJobInterviewAnalyses(jobId: string): Promise<{ analyses: Interview[] }> {
+    return this.request('GET', `/jobs/${jobId}/interview-analyses`);
   }
 }
 

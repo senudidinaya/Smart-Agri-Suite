@@ -12,6 +12,8 @@ from app.core.database import get_db
 from app.core.auth import verify_token
 from app.core.logging import get_logger
 from app.schemas.job import JobCreate, JobResponse, JobListResponse
+from app.schemas.call import CallResponse, AnalysisResult
+from app.schemas.interview import InterviewResponse
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
@@ -142,3 +144,116 @@ async def update_job_status(
         raise HTTPException(status_code=404, detail="Job not found")
     
     return {"success": True, "message": f"Status updated to {status}"}
+
+
+@router.get("/{job_id}/call-analyses")
+async def get_job_call_analyses(
+    job_id: str,
+    authorization: str = Header(...)
+):
+    """Get all call analyses for a specific job."""
+    user = get_user_from_token(authorization)
+    
+    db = get_db()
+    
+    # Verify job exists and user has permission
+    job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Only the job creator (client) or admins can view analyses
+    if user["role"] != "admin" and user["sub"] != job["createdByUserId"]:
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to view this job's analyses"
+        )
+    
+    # Get all calls for this job that have analysis
+    cursor = db.calls.find({
+        "jobId": job_id,
+        "analysis": {"$exists": True, "$ne": None}
+    }).sort("createdAt", -1)
+    
+    calls = await cursor.to_list(length=None)
+    
+    call_analyses = []
+    for call in calls:
+        call_data = {
+            "id": str(call["_id"]),
+            "jobId": call.get("jobId"),
+            "adminUserId": call.get("adminUserId"),
+            "clientUserId": call.get("clientUserId"),
+            "status": call.get("status"),
+            "createdAt": call.get("createdAt"),
+            "endedAt": call.get("endedAt"),
+            "analysis": call.get("analysis") if isinstance(call.get("analysis"), dict) else {
+                "intentLabel": call.get("analysis", {}).get("intentLabel", "UNKNOWN"),
+                "confidence": call.get("analysis", {}).get("confidence", 0.0),
+                "scores": call.get("analysis", {}).get("scores"),
+                "analyzedAt": call.get("analysis", {}).get("analyzedAt")
+            }
+        }
+        call_analyses.append(call_data)
+    
+    return {
+        "jobId": job_id,
+        "total": len(call_analyses),
+        "analyses": call_analyses
+    }
+
+
+@router.get("/{job_id}/interview-analyses")
+async def get_job_interview_analyses(
+    job_id: str,
+    authorization: str = Header(...)
+):
+    """Get all interview analyses for a specific job."""
+    user = get_user_from_token(authorization)
+    
+    db = get_db()
+    
+    # Verify job exists and user has permission
+    job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Only the job creator (client) or admins can view analyses
+    if user["role"] != "admin" and user["sub"] != job["createdByUserId"]:
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to view this job's analyses"
+        )
+    
+    # Get all interviews for this job that have analysis
+    cursor = db.interviews.find({
+        "jobId": job_id,
+        "analysisDecision": {"$exists": True, "$ne": None}
+    }).sort("createdAt", -1)
+    
+    interviews = await cursor.to_list(length=None)
+    
+    interview_analyses = []
+    for interview in interviews:
+        interview_data = {
+            "id": str(interview["_id"]),
+            "jobId": interview.get("jobId"),
+            "clientId": interview.get("clientId"),
+            "adminId": interview.get("adminId"),
+            "status": interview.get("status"),
+            "interviewScheduledAt": interview.get("interviewScheduledAt"),
+            "interviewCompletedAt": interview.get("interviewCompletedAt"),
+            "analysisDecision": interview.get("analysisDecision"),
+            "confidence": interview.get("confidence"),
+            "reasons": interview.get("reasons", []),
+            "emotion_distribution": interview.get("emotion_distribution"),
+            "dominant_emotion": interview.get("dominant_emotion"),
+            "top_signals": interview.get("top_signals"),
+            "createdAt": interview.get("createdAt")
+        }
+        interview_analyses.append(interview_data)
+    
+    return {
+        "jobId": job_id,
+        "total": len(interview_analyses),
+        "analyses": interview_analyses
+    }

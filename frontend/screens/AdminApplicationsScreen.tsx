@@ -52,23 +52,33 @@ export default function AdminApplicationsScreen() {
         ? result.jobs 
         : result.jobs.filter((job: Job) => job.status === filter);
 
-      // Fetch interview status for each job in parallel
-      const enriched: ExtendedJob[] = await Promise.all(
-        filteredJobs.map(async (job: Job) => {
-          try {
-            const interviewStatus = await api.getInterviewStatus(job.id, job.createdByUserId);
-            return {
-              ...job,
-              interviewStatus,
-              applicationStatus: interviewStatus.applicationStatus || job.status,
-            } as ExtendedJob;
-          } catch {
-            return { ...job } as ExtendedJob;
-          }
-        })
-      );
+      // Show jobs immediately so UI is responsive even on slow networks.
+      const baseJobs = filteredJobs.map((job) => ({ ...job } as ExtendedJob));
+      setJobs(baseJobs);
 
-      setJobs(enriched);
+      // Enrich interview status in background without blocking list rendering.
+      Promise.allSettled(
+        filteredJobs.map(async (job: Job) => {
+          const interviewStatus = await api.getInterviewStatus(job.id, job.createdByUserId);
+          return { jobId: job.id, interviewStatus };
+        })
+      ).then((results) => {
+        const statusMap = new Map<string, InterviewStatusResponse>();
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            statusMap.set(result.value.jobId, result.value.interviewStatus);
+          }
+        });
+
+        if (statusMap.size > 0) {
+          setJobs((prev) =>
+            prev.map((job) => ({
+              ...job,
+              interviewStatus: statusMap.get(job.id) ?? job.interviewStatus,
+            }))
+          );
+        }
+      });
     } catch (e: any) {
       Alert.alert('Error', e.message);
     } finally {
@@ -197,6 +207,13 @@ export default function AdminApplicationsScreen() {
         },
       ]
     );
+  };
+
+  const handleViewAllAnalyses = (job: Job) => {
+    navigation.navigate('ViewAnalysis', {
+      jobId: job.id,
+      jobTitle: job.title,
+    });
   };
 
   const handleStartInterview = (job: ExtendedJob) => {
@@ -452,6 +469,12 @@ export default function AdminApplicationsScreen() {
               <Text style={styles.inviteButtonText}>🎥 Invite Interview</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={styles.analysisButton}
+              onPress={() => handleViewAllAnalyses(item)}
+            >
+              <Text style={styles.analysisButtonText}>📊 View Analysis</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.rejectButton}
               onPress={() => handleRejectApplication(item)}
             >
@@ -470,6 +493,12 @@ export default function AdminApplicationsScreen() {
               <Text style={styles.startInterviewButtonText}>🎬 Start Interview</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={styles.analysisButton}
+              onPress={() => handleViewAllAnalyses(item)}
+            >
+              <Text style={styles.analysisButtonText}>📊 View Analysis</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.rejectButton}
               onPress={() => handleRejectApplication(item)}
             >
@@ -486,6 +515,12 @@ export default function AdminApplicationsScreen() {
               onPress={() => handleStartInterview(item)}
             >
               <Text style={styles.startInterviewButtonText}>🎬 Re-Interview</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.analysisButton}
+              onPress={() => handleViewAllAnalyses(item)}
+            >
+              <Text style={styles.analysisButtonText}>📊 View Analysis</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.rejectButton}
@@ -697,15 +732,15 @@ export default function AdminApplicationsScreen() {
                       {iv.stats && (
                         <View style={styles.statsRow}>
                           <View style={styles.statBox}>
-                            <Text style={styles.statValue}>{iv.stats.framesAnalyzed ?? '-'}</Text>
+                            <Text style={styles.statValue}>{iv.stats.frames_used ?? '-'}</Text>
                             <Text style={styles.statLabel}>Frames</Text>
                           </View>
                           <View style={styles.statBox}>
-                            <Text style={styles.statValue}>{iv.stats.durationSeconds?.toFixed(0) ?? '-'}s</Text>
-                            <Text style={styles.statLabel}>Duration</Text>
+                            <Text style={styles.statValue}>{iv.stats.predictions_count ?? '-'}</Text>
+                            <Text style={styles.statLabel}>Predictions</Text>
                           </View>
                           <View style={styles.statBox}>
-                            <Text style={styles.statValue}>{iv.stats.facesDetected ?? '-'}</Text>
+                            <Text style={styles.statValue}>{iv.stats.faces_detected ?? '-'}</Text>
                             <Text style={styles.statLabel}>Faces</Text>
                           </View>
                         </View>
@@ -988,6 +1023,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   inviteButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  analysisButton: {
+    flex: 1,
+    backgroundColor: '#3498db',
+    borderRadius: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  analysisButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
