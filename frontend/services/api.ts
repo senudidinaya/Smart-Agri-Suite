@@ -1,4 +1,6 @@
-const BASE_URL = "http://127.0.0.1:8000"; // Android emulator: change later
+const HOST_IP = "192.168.1.100"; // Fallback
+// Try to grab from Expo runtime, but a hardcoded local IP is safest for Expo Go physical devices
+const BASE_URL = `http://172.20.10.3:8000`; // Update this to match your Metro bundler IP if needed
 
 export type PredictionPayload = {
   month: number;

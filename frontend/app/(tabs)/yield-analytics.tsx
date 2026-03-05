@@ -55,10 +55,10 @@ export default function AnalyticsScreen() {
   /* Params from price-result.tsx */
   const params = useLocalSearchParams();
   const spice = String(params.spice || "Cinnamon");
-  const profit = Number(params.profit || 0);
-  const revenue = Number(params.revenue || 0);
-  const cost = Number(params.cost || 0);
-  const margin = Number(params.margin || 0);
+  const profit = Number(params.profit) || 0;
+  const revenue = Number(params.revenue) || 0;
+  const cost = Number(params.cost) || 0;
+  const margin = Number(params.margin) || 0;
 
   const [marketData, setMarketData] = useState<any[]>([]);
 
@@ -100,9 +100,9 @@ export default function AnalyticsScreen() {
             style={styles.heroCard}
           >
             <View style={styles.heroHeader}>
-                <Text style={styles.heroBadge}>CONFIRMED YIELD</Text>
+                <Text style={styles.heroBadge}>{String(t("confirmedYield"))}</Text>
             </View>
-            <Text style={styles.marketName}>Net Profit</Text>
+            <Text style={styles.marketName}>{String(t("netProfitYield"))}</Text>
             
             <View style={styles.profitContainer}>
                 <Text style={styles.currencyPrefix}>LKR</Text>
@@ -112,13 +112,13 @@ export default function AnalyticsScreen() {
                   formatter={(v) => v.toLocaleString()}
                 />
             </View>
-            <Text style={styles.heroFooter}>Margin: {margin}%</Text>
+            <Text style={styles.heroFooter}>{String(t("margin"))}{margin}%</Text>
           </Animated.View>
 
           {/* FINANCIALS GRID */}
           <Animated.View entering={FadeInDown.delay(staggerDelay * 2).springify()} style={styles.metricsGrid}>
               <View style={[styles.metricCard, { backgroundColor: '#F0FDF4' }]}>
-                  <Text style={styles.metricLabel}>Total Revenue</Text>
+                  <Text style={styles.metricLabel}>{String(t("totalRevenueYield"))}</Text>
                   <AnimatedNumberText 
                       value={revenue} 
                       style={styles.metricValueNPV}
@@ -127,7 +127,7 @@ export default function AnalyticsScreen() {
               </View>
 
               <View style={[styles.metricCard, { backgroundColor: '#FEF2F2' }]}>
-                  <Text style={styles.metricLabel}>Total Cost</Text>
+                  <Text style={styles.metricLabel}>{String(t("totalCost"))}</Text>
                   <AnimatedNumberText 
                       value={cost} 
                       style={styles.metricValueCost}
@@ -140,7 +140,7 @@ export default function AnalyticsScreen() {
           <Animated.View entering={FadeInDown.delay(staggerDelay * 3).springify()} style={styles.chartCard}>
             <Text style={styles.chartTitle}>{t("performance" as any) || "Historical Market Trend"}</Text>
             <Text style={styles.chartSubtitle}>
-              6-month pricing pattern for {t(spice.toLowerCase() as any)}
+              {String(t("pricingPatternFor"))}{t(spice.toLowerCase() as any)}
             </Text>
 
             <LineChart
@@ -181,10 +181,10 @@ export default function AnalyticsScreen() {
                 style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push("/farmer");
+                  router.push("/(tabs)/farmer");
                 }}
               >
-                <Text style={styles.primaryBtnText}>Track Order in Dashboard</Text>
+                <Text style={styles.primaryBtnText}>{String(t("trackOrderDash"))}</Text>
               </Pressable>
           </Animated.View>
 

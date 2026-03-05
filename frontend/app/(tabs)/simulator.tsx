@@ -1,7 +1,7 @@
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { LineChart } from "react-native-chart-kit";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useLanguage } from "../../context/LanguageContext";
@@ -80,13 +80,13 @@ export default function ProfitAnalyzer() {
               </View>
               <View>
                  <Text style={styles.sectionTitleWithoutMargin}>{t("potentialProfit" as any) || "Profit Projection"}</Text>
-                 <Text style={styles.cardSub}>Estimated LKR margin vs volume</Text>
+                 <Text style={styles.cardSub}>{String(t("profitProjectionSub"))}</Text>
               </View>
           </View>
 
           <View style={{marginLeft: -16}}>
               <LineChart
-                key={selectedSpice} // Force remount on spice change
+                key={selectedSpice}
                 data={chartData}
                 width={screenWidth - 8}
                 height={220}
@@ -117,7 +117,7 @@ export default function ProfitAnalyzer() {
 
         {/* RESULTS MATRIX */}
         <Animated.View entering={FadeInDown.delay(staggerDelay * 3).springify()}>
-            <Text style={[styles.sectionTitle, {marginLeft: 4, marginBottom: 16}]}>{t("harvestScenario" as any) || "Harvest Scenarios"}</Text>
+            <Text style={[styles.sectionTitle, {marginLeft: 4, marginBottom: 16}]}>{t("harvestScenarios" as any) || "Harvest Scenarios"}</Text>
             {simulation.map((s, index) => (
                 <Animated.View 
                     key={s.quantity} 
@@ -138,12 +138,12 @@ export default function ProfitAnalyzer() {
 
                     <View style={styles.metricsRow}>
                         <View style={styles.metricBlock}>
-                             <Text style={styles.metricLabel}>{t("revenue" as any) || "Gross Revenue"}</Text>
+                             <Text style={styles.metricLabel}>{t("grossRevenue" as any) || "Gross Revenue"}</Text>
                              <Text style={styles.metricValue}>{t("currencySymbol" as any) || "LKR"} {Math.round(s.revenue).toLocaleString()}</Text>
                         </View>
                         
-                        <View style={[styles.metricBlock, {alignItems: 'flex-end'}]}>
-                             <Text style={styles.metricLabel}>{t("profit" as any) || "Net Profit"}</Text>
+                         <View style={[styles.metricBlock, {alignItems: 'flex-end'}]}>
+                             <Text style={styles.metricLabel}>{t("netProfitSimulator" as any) || "Net Profit"}</Text>
                              <Text style={styles.profitValue}>{t("currencySymbol" as any) || "LKR"} {Math.round(s.profit).toLocaleString()}</Text>
                         </View>
                     </View>
@@ -156,7 +156,6 @@ export default function ProfitAnalyzer() {
     </SafeAreaView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: { 

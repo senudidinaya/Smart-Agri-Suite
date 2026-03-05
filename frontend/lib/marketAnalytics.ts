@@ -53,7 +53,7 @@ export const getTrendData = (
     return `${date.getMonth() + 1}/${date.getFullYear().toString().slice(-2)}`;
   });
 
-  const prices = filtered.map((item) => Number(item.price_per_kg));
+  const prices = filtered.map((item) => Number(item.price_per_kg) || 0);
 
   return {
     labels,

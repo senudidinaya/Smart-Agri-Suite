@@ -67,16 +67,7 @@ export default function PriceResultScreen() {
 
   const handleViewAnalytics = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({
-      pathname: "/yield-analytics",
-      params: {
-        spice,
-        profit,
-        revenue,
-        cost,
-        margin: profitMargin,
-      },
-    });
+    router.replace("/(tabs)/farmer");
   };
 
   const staggerDelay = 100;
@@ -97,16 +88,10 @@ export default function PriceResultScreen() {
             style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
             onPress={handleViewAnalytics}
           >
-            <Text style={styles.primaryBtnText}>View Yield Analytics</Text>
-            <Ionicons name="bar-chart" size={20} color="#fff" />
+            <Text style={styles.primaryBtnText}>View Dashboard</Text>
+            <Ionicons name="apps" size={20} color="#fff" />
           </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.8 }]}
-            onPress={() => router.replace("/farmer")}
-          >
-            <Text style={styles.secondaryBtnText}>Go to {t("farmer" as any) || "Farmer Dashboard"}</Text>
-          </Pressable>
         </Animated.View>
       </View>
     );

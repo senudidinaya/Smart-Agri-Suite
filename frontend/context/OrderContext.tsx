@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
-
-// Handle localhost routing for Android emulator vs iOS/Web
-const API_BASE = Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
+import { API_BASE_URL, fetchWithTimeout } from "../lib/apiConfig";
 
 export type OrderStatus = "PENDING" | "CONFIRMED" | "DISPATCHED" | "DELIVERED";
 
@@ -41,12 +39,12 @@ export const OrderProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch(`${API_BASE}/orders`);
-        if (!res.ok) throw new Error("Failed to fetch orders");
+        const res = await fetchWithTimeout(`${API_BASE_URL}/orders`);
+        if (!res.ok) throw new Error("Failed to fetch orders.");
         const data = await res.json();
         setOrders(data);
       } catch (err) {
-        console.warn("Backend not found or fetch failed, running with empty orders:", err);
+         // Quietly fallback directly to local states
       } finally {
         setLoading(false);
       }
@@ -56,7 +54,7 @@ export const OrderProvider = ({ children }: { children: React.ReactNode }) => {
 
   const addOrder = async (order: Order) => {
     try {
-        const res = await fetch(`${API_BASE}/orders`, {
+        const res = await fetchWithTimeout(`${API_BASE_URL}/orders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(order)
@@ -73,14 +71,13 @@ export const OrderProvider = ({ children }: { children: React.ReactNode }) => {
     } catch(err) {
         // Fallback
         setOrders((prev) => [{...order, _id: Date.now().toString()}, ...prev]);
-        console.warn("Server unavailable, saved locally:", err);
     }
   };
 
   const updateStatus = async (id: string, status: OrderStatus) => {
     try {
-        const res = await fetch(`${API_BASE}/orders/${id}`, {
-            method: 'PUT',
+        const res = await fetchWithTimeout(`${API_BASE_URL}/orders/${id}`, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status })
         });
@@ -92,7 +89,6 @@ export const OrderProvider = ({ children }: { children: React.ReactNode }) => {
         }
     } catch(err) {
         setOrders((prev) => prev.map((o) => ((o._id === id || o.id === id) ? { ...o, status } : o)));
-        console.warn("Server unavailable, updated status locally:", err);
     }
   };
 

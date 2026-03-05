@@ -1,9 +1,9 @@
+import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Pressable,
 } from "react-native";
@@ -30,10 +30,9 @@ const COLORS = {
   VERY_HIGH: "#EF4444", // Red
   HIGH: "#F59E0B",      // Orange
   MEDIUM: "#10B981",    // Green
-  LOW: "#94A3B8",       // Grey
+  LOW: "#94A3B8",       // Slate
 };
 
-// Realistic mock data matrix for regions
 const DEMAND_DATA: Record<string, Record<string, DemandLevel>> = {
   Cinnamon: { Colombo: "VERY_HIGH", Kandy: "HIGH", Matale: "MEDIUM", Galle: "HIGH", Dambulla: "LOW", Kurunegala: "MEDIUM", Anuradhapura: "LOW" },
   Pepper: { Colombo: "HIGH", Kandy: "VERY_HIGH", Matale: "HIGH", Galle: "MEDIUM", Dambulla: "MEDIUM", Kurunegala: "LOW", Anuradhapura: "LOW" },
@@ -42,8 +41,6 @@ const DEMAND_DATA: Record<string, Record<string, DemandLevel>> = {
   Nutmeg: { Colombo: "HIGH", Kandy: "MEDIUM", Matale: "LOW", Galle: "VERY_HIGH", Dambulla: "LOW", Kurunegala: "HIGH", Anuradhapura: "MEDIUM" },
 };
 
-// Synthetic SVG coordinate paths representing Sri Lanka districts roughly.
-// In a full prod app these would be exact GeoJSON derived SVG paths.
 const DISTRICT_PATHS = {
   Anuradhapura: "M 40 20 Q 50 10 60 20 Q 60 40 50 50 Q 40 40 40 20 Z",
   Kurunegala: "M 30 50 Q 50 60 40 80 Q 20 80 30 50 Z",
@@ -170,7 +167,7 @@ export default function SriLankaDemandMap() {
                       onPress={() => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                           router.push({
-                              pathname: "/route-planner",
+                              pathname: "/(tabs)/route-planner",
                               params: {
                                   destination: selectedRegion,
                                   spice: selectedSpice,

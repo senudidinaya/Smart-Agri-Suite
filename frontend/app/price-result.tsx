@@ -147,11 +147,15 @@ export default function PriceResult() {
         style={styles.btn}
         onPress={() =>
           router.push({
-            pathname: "/(tabs)/analytics",
+            pathname: "/(tabs)/yield-analytics",
             params: {
               spice: spice,
               quantity: quantity.toString(),
-              farmerLocation: customer, // ✅ PASS ACTUAL SELECTED LOCATION
+              farmerLocation: customer,
+              profit: profit.toString(),
+              revenue: revenue.toString(),
+              cost: cost.toString(),
+              margin: Math.round((profit / revenue) * 100).toString(),
             },
           })
         }
