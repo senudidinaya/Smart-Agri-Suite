@@ -31,7 +31,7 @@ export default function RegisterScreen() {
     const [age, setAge] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [role, setRole] = useState<'client' | 'admin'>('client');
+    const [role, setRole] = useState<'client' | 'admin' | 'helper' | 'farmer'>('client');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [secretCount, setSecretCount] = useState(0);
@@ -233,32 +233,52 @@ export default function RegisterScreen() {
                             )}
                         </View>
 
-                        {/* Role Selector (Hidden by Default) */}
-                        {secretCount >= 5 && (
-                            <View style={styles.inputWrapper}>
-                                <Text style={styles.inputLabel}>Account Type (Admin Override)</Text>
-                                <View style={styles.roleRow}>
-                                    <Pressable
-                                        style={[styles.roleButton, role === 'client' && styles.roleButtonActive]}
-                                        onPress={() => setRole('client')}
-                                    >
-                                        <Text style={styles.roleEmoji}>🧑‍🌾</Text>
-                                        <Text style={[styles.roleText, role === 'client' && styles.roleTextActive]}>
-                                            Client
-                                        </Text>
-                                    </Pressable>
-                                    <Pressable
-                                        style={[styles.roleButton, role === 'admin' && styles.roleButtonActive]}
-                                        onPress={() => setRole('admin')}
-                                    >
-                                        <Text style={styles.roleEmoji}>🛡️</Text>
-                                        <Text style={[styles.roleText, role === 'admin' && styles.roleTextActive]}>
-                                            Admin
-                                        </Text>
-                                    </Pressable>
-                                </View>
+                        {/* Role Selector */}
+                        <View style={styles.inputWrapper}>
+                            <Text style={styles.inputLabel}>Join as *</Text>
+                            <View style={styles.roleGrid}>
+                                <Pressable
+                                    style={[styles.roleButton, role === 'client' && styles.roleButtonActive]}
+                                    onPress={() => setRole('client')}
+                                >
+                                    <Text style={styles.roleEmoji}>👤</Text>
+                                    <Text style={[styles.roleText, role === 'client' && styles.roleTextActive]}>
+                                        Client
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    style={[styles.roleButton, role === 'farmer' && styles.roleButtonActive]}
+                                    onPress={() => setRole('farmer')}
+                                >
+                                    <Text style={styles.roleEmoji}>🧑‍🌾</Text>
+                                    <Text style={[styles.roleText, role === 'farmer' && styles.roleTextActive]}>
+                                        Farmer
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    style={[styles.roleButton, role === 'helper' && styles.roleButtonActive]}
+                                    onPress={() => setRole('helper')}
+                                >
+                                    <Text style={styles.roleEmoji}>🤝</Text>
+                                    <Text style={[styles.roleText, role === 'helper' && styles.roleTextActive]}>
+                                        Helper
+                                    </Text>
+                                </Pressable>
                             </View>
-                        )}
+
+                            {/* Hidden Admin Override */}
+                            {secretCount >= 5 && (
+                                <Pressable
+                                    style={[styles.adminToggle, role === 'admin' && styles.roleButtonActive]}
+                                    onPress={() => setRole('admin')}
+                                >
+                                    <Text style={styles.roleEmoji}>🛡️</Text>
+                                    <Text style={[styles.roleText, role === 'admin' && styles.roleTextActive]}>
+                                        Admin (Unauthorized)
+                                    </Text>
+                                </Pressable>
+                            )}
+                        </View>
 
                         {/* Register Button */}
                         <Pressable
@@ -423,20 +443,34 @@ const styles = StyleSheet.create({
         marginTop: 6,
         marginLeft: 4,
     },
-    roleRow: {
+    roleGrid: {
         flexDirection: 'row',
-        gap: 12,
+        flexWrap: 'wrap',
+        gap: 8,
     },
     roleButton: {
         flex: 1,
-        flexDirection: 'row',
+        minWidth: '30%',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
+        paddingVertical: 12,
         borderRadius: 14,
         borderWidth: 2,
         borderColor: '#e2e8f0',
         backgroundColor: '#f8fafc',
+        gap: 4,
+    },
+    adminToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        borderRadius: 14,
+        borderWidth: 2,
+        borderColor: '#fee2e2',
+        backgroundColor: '#fef2f2',
+        marginTop: 12,
         gap: 8,
     },
     roleButtonActive: {

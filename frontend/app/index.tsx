@@ -202,7 +202,7 @@ export default function AppHome() {
                         </View>
                     )}
                     <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {user?.role === 'client' && (
+                        {user?.role !== 'admin' && (
                             <Pressable
                                 style={({ pressed }) => [
                                     styles.themeToggle,
