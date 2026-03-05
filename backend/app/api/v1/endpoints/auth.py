@@ -114,6 +114,9 @@ async def get_current_user(authorization: str = Header(...)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     
     db = get_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database connection unavailable")
+    
     user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
     
     if not user:
