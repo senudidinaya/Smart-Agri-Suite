@@ -1,8 +1,7 @@
 """
 FastAPI Application Entry Point.
 
-Cultivator Intention Prediction System
-Smart Agri-Suite - Backend API
+Smart Agri-Suite - Login & Register API
 """
 
 from contextlib import asynccontextmanager
@@ -18,7 +17,6 @@ from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import CorrelationIdMiddleware, RequestLoggingMiddleware, get_correlation_id
 from app.core.database import connect_db, close_db
-from app.services.inference import get_classifier, reset_classifier
 
 # Initialize logging
 setup_logging()
@@ -31,7 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Application lifespan manager.
     
     Handles startup and shutdown events:
-    - Startup: Connect to MongoDB, load ML model
+    - Startup: Connect to MongoDB
     - Shutdown: Close database, cleanup resources
     """
     settings = get_settings()
@@ -54,16 +52,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error(f"Failed to connect to MongoDB: {e}")
         # Continue without database for health checks
     
-    # Initialize classifier (loads model)
-    classifier = get_classifier()
-    logger.info(f"Model loaded: {classifier.is_loaded}")
-    
     yield
     
     # Shutdown
     logger.info("Shutting down application...")
     await close_db()
-    reset_classifier()
     logger.info("Cleanup complete")
 
 
@@ -80,9 +73,8 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         description=(
-            "Cultivator Intention Prediction API.\n\n"
-            "Analyzes voice recordings to predict cultivator intentions using "
-            "paralinguistic features (tone, pitch, pace, etc.)."
+            "Smart Agri-Suite Login & Register API.\n\n"
+            "Provides authentication endpoints for user login and registration."
         ),
         docs_url="/docs",
         redoc_url="/redoc",
