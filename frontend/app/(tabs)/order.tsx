@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import { useLanguage } from "../../context/LanguageContext";
 import { useEffect, useState } from "react";
 import {
     Pressable,
@@ -55,6 +56,7 @@ const useScaleAnimation = () => {
 
 export default function OrderScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   /* DATA STATE */
   const [marketData, setMarketData] = useState<any[]>([]);
@@ -123,13 +125,13 @@ export default function OrderScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Animated.View entering={FadeInDown.delay(staggerDelay * 1).springify()}>
-        <Text style={styles.title}>Harvest Simulator</Text>
-        <Text style={styles.subtitle}>Configure logistics to estimate market selling price</Text>
+        <Text style={styles.title}>{t("simulateHarvest" as any) || "Harvest Simulator"}</Text>
+        <Text style={styles.subtitle}>{t("harvestScenario" as any) || "Configure logistics to estimate market selling price"}</Text>
       </Animated.View>
 
         {/* SPICE */}
         <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 2).springify()}>
-          <Text style={styles.label}>Spice Category</Text>
+          <Text style={styles.label}>{t("selectSpice" as any) || "Spice Category"}</Text>
           <View style={styles.row}>
             {(
               [
@@ -161,7 +163,7 @@ export default function OrderScreen() {
 
         {/* QUANTITY */}
         <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 3).springify()}>
-          <Text style={styles.label}>Quantity (kg)</Text>
+          <Text style={styles.label}>{t("expectedYield" as any) || "Quantity (kg)"}</Text>
           <View style={styles.qtyRow}>
             <Pressable
               style={({pressed}) => [styles.btn, pressed && {opacity: 0.7}]}
@@ -278,7 +280,7 @@ export default function OrderScreen() {
               style={({pressed}) => [styles.generate, pressed && { opacity: 0.9, transform: [{scale: 0.98}] }]} 
               onPress={handleGenerate}
           >
-            <Text style={styles.genText}>Generate Full Analysis</Text>
+            <Text style={styles.genText}>{t("submit" as any) || "Generate Full Analysis"}</Text>
           </Pressable>
 
           <Pressable 
@@ -288,7 +290,7 @@ export default function OrderScreen() {
                   router.push("/");
               }}
           >
-            <Text style={styles.backText}>Cancel & Return</Text>
+            <Text style={styles.backText}>{t("cancel" as any) || "Cancel & Return"}</Text>
           </Pressable>
       </Animated.View>
     </ScrollView>

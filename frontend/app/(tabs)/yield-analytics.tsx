@@ -23,6 +23,7 @@ import { loadMarketData } from "../../lib/dataLoader";
 import {
     getTrendData,
 } from "../../lib/marketAnalytics";
+import { useLanguage } from "../../context/LanguageContext";
 
 const screenWidth = Dimensions.get("window").width - 32;
 const AnimatedText = Animated.createAnimatedComponent(Text);
@@ -49,6 +50,7 @@ function AnimatedNumberText({ value, style, duration = 1500, formatter = (v: num
 
 export default function AnalyticsScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   /* Params from price-result.tsx */
   const params = useLocalSearchParams();
@@ -83,11 +85,11 @@ export default function AnalyticsScreen() {
            }} 
            style={({pressed}) => [{ opacity: pressed ? 0.7 : 1, paddingBottom: 16 }]}
         >
-          <Text style={styles.back}>← Back to Dashboard</Text>
+          <Text style={styles.back}>← {t("cancel" as any) || "Back to Dashboard"}</Text>
         </Pressable>
-        <Text style={styles.title}>Post-Order Analytics</Text>
+        <Text style={styles.title}>{t("analytics" as any) || "Post-Order Analytics"}</Text>
         <Text style={styles.subtitle}>
-          Financial breakdown for <Text style={{color: '#fff', fontFamily: 'Poppins_600SemiBold'}}>{spice}</Text>
+          {t("marketOverview" as any) || "Financial breakdown"} - <Text style={{color: '#fff', fontFamily: 'Poppins_600SemiBold'}}>{t(spice.toLowerCase() as any)}</Text>
         </Text>
       </View>
 
@@ -136,9 +138,9 @@ export default function AnalyticsScreen() {
 
           {/* CHART */}
           <Animated.View entering={FadeInDown.delay(staggerDelay * 3).springify()} style={styles.chartCard}>
-            <Text style={styles.chartTitle}>Historical Market Trend</Text>
+            <Text style={styles.chartTitle}>{t("performance" as any) || "Historical Market Trend"}</Text>
             <Text style={styles.chartSubtitle}>
-              6-month pricing pattern for {spice}
+              6-month pricing pattern for {t(spice.toLowerCase() as any)}
             </Text>
 
             <LineChart

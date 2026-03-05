@@ -7,6 +7,8 @@ import {
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { OrderProvider } from "../context/OrderContext";
+import { LanguageProvider } from "../context/LanguageContext";
+import LanguageToggle from "../components/LanguageToggle";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -19,8 +21,13 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <OrderProvider>
-      <Stack screenOptions={{ headerShown: false }} />
-    </OrderProvider>
+    <LanguageProvider>
+      <OrderProvider>
+        <>
+          <Stack screenOptions={{ headerShown: false }} />
+          <LanguageToggle />
+        </>
+      </OrderProvider>
+    </LanguageProvider>
   );
 }

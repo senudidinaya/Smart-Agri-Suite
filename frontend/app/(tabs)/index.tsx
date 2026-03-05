@@ -20,6 +20,8 @@ import Animated, {
     useSharedValue,
     withSpring
 } from "react-native-reanimated";
+import { useLanguage } from "../../context/LanguageContext";
+import AnimatedBackground from "../../components/AnimatedBackground";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -39,24 +41,24 @@ const useScaleAnimation = () => {
 };
 
 export default function Dashboard() {
+  const { t } = useLanguage();
   const [price, setPrice] = useState(2200);
   const [region, setRegion] = useState("Colombo");
-  const [spice, setSpice] = useState("Cinnamon");
   const [chartDataState, setChartDataState] = useState([
       2120, 2160, 2180, 2200, 2210, 2230,
   ]);
   
   const [tickerPrices, setTickerPrices] = useState([
-    { spice: "Cinnamon", price: 2100, change: 2.1, up: true },
-    { spice: "Pepper", price: 1600, change: 1.5, up: false },
-    { spice: "Cardamom", price: 3200, change: 3.4, up: true },
-    { spice: "Clove", price: 2600, change: 0.8, up: true },
-    { spice: "Nutmeg", price: 2400, change: 1.2, up: false },
+    { spiceKey: "cinnamon", price: 2100, change: 2.1, up: true },
+    { spiceKey: "pepper", price: 1600, change: 1.5, up: false },
+    { spiceKey: "cardamom", price: 3200, change: 3.4, up: true },
+    { spiceKey: "clove", price: 2600, change: 0.8, up: true },
+    { spiceKey: "nutmeg", price: 2400, change: 1.2, up: false },
   ]);
 
-  const demand = 85; 
-  const supply = 40; 
-  const profit = 150000;
+  const marketVolatility = 65; 
+  const demandPressure = 45; 
+  const priceMomentum = 78;
 
   const screenWidth = Dimensions.get("window").width - 32;
 
@@ -98,30 +100,36 @@ export default function Dashboard() {
   const staggerDelay = 100;
 
   const quickLinks = [
-      { title: "Harvest Price Simulator", route: "/order", icon: "calculator", color: "#10B981" },
-      { title: "Profit Scenario Simulator", route: "/simulator", icon: "bar-chart", color: "#F59E0B" },
-      { title: "Transport Optimizer", route: "/transport-optimizer", icon: "bus", color: "#3B82F6" },
-      { title: "Market Demand Prediction", route: "/demand-prediction", icon: "trending-up", color: "#8B5CF6" },
-      { title: "Sri Lanka Demand Heatmap", route: "/demand-prediction", icon: "map", color: "#EF4444" },
-      { title: "Farmer Dashboard", route: "/farmer", icon: "person", color: "#0F172A" },
+      { titleKey: "simulateHarvest", route: "/order", icon: "calculator", color: "#10B981" },
+      { titleKey: "harvestScenario", route: "/simulator", icon: "bar-chart", color: "#F59E0B" },
+      { titleKey: "optimizeTransport", route: "/transport-optimizer", icon: "bus", color: "#3B82F6" },
+      { titleKey: "seasonalAnalytics", route: "/seasonal-price-analytics", icon: "analytics-outline", color: "#8B5CF6" },
+      { titleKey: "tracking", route: "/transport-tracking", icon: "location", color: "#6366F1" },
+      { titleKey: "analytics", route: "/transport-analytics", icon: "pie-chart", color: "#0EA5E9" },
+      { titleKey: "demand", route: "/srilanka-demand-map", icon: "map", color: "#EF4444" },
+      { titleKey: "farmer", route: "/farmer", icon: "person", color: "#0F172A" },
   ];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+      <AnimatedBackground />
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         {/* HEADER */}
-        <Animated.View entering={FadeInDown.delay(staggerDelay * 1).springify()}>
-          <Text style={styles.headerTitle}>Smart Agri-Suite 🌱</Text>
-          <Text style={styles.headerSub}>Agritech Intelligence Platform</Text>
+        <Animated.View entering={FadeInDown.delay(staggerDelay * 1).springify()} style={styles.headerContainer}>
+          <View>
+              <Text style={styles.headerTitle}>{t("agriSuite")} 🌱</Text>
+              <Text style={styles.headerSub}>Agritech Intelligence Platform</Text>
+          </View>
         </Animated.View>
         
         {/* LIVE TICKER */}
         <Animated.View entering={FadeInDown.delay(staggerDelay * 2).springify()}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{overflow: 'visible', marginBottom: 20, marginTop: -8}}>
             {tickerPrices.map((item) => (
-                <View key={item.spice} style={styles.tickerCard}>
-                    <Text style={styles.tickerSpice}>{item.spice}</Text>
-                    <Text style={styles.tickerPrice}>LKR {item.price}</Text>
+                <View key={item.spiceKey} style={styles.tickerCard}>
+                    <Text style={styles.tickerSpice}>{t(item.spiceKey as any)}</Text>
+                    <Text style={styles.tickerPrice}>{t("currencySymbol")} {item.price}</Text>
 
                     <View style={styles.tickerChangeRow}>
                         <Ionicons
@@ -151,48 +159,48 @@ export default function Dashboard() {
             <AnimatedCircularProgress
               size={76}
               width={8}
-              fill={demand}
-              tintColor="#10B981"
-              backgroundColor="#E2E8F0"
-              lineCap="round"
-              rotation={270}
-              duration={1500}
-            >
-              {() => <Text style={styles.gaugeCenterText}>{demand}%</Text>}
-            </AnimatedCircularProgress>
-            <Text style={styles.gaugeLabel}>Demand</Text>
-          </View>
-
-          <View style={styles.gaugeItem}>
-            <AnimatedCircularProgress
-              size={76}
-              width={8}
-              fill={supply}
-              tintColor="#3B82F6"
-              backgroundColor="#E2E8F0"
-              lineCap="round"
-              rotation={270}
-              duration={1500}
-            >
-              {() => <Text style={styles.gaugeCenterText}>{supply}%</Text>}
-            </AnimatedCircularProgress>
-            <Text style={styles.gaugeLabel}>Supply</Text>
-          </View>
-
-          <View style={styles.gaugeItem}>
-            <AnimatedCircularProgress
-              size={76}
-              width={8}
-              fill={(profit % 100)} // Just visual rep
+              fill={marketVolatility}
               tintColor="#F59E0B"
               backgroundColor="#E2E8F0"
               lineCap="round"
               rotation={270}
               duration={1500}
             >
-              {() => <Text style={styles.gaugeCenterText}>{Math.floor(profit/1000)}k</Text>}
+              {() => <Text style={styles.gaugeCenterText}>{marketVolatility}</Text>}
             </AnimatedCircularProgress>
-            <Text style={styles.gaugeLabel}>Profit Index</Text>
+            <Text style={styles.gaugeLabel}>{t("marketVolatility" as any) || "Volatility"}</Text>
+          </View>
+
+          <View style={styles.gaugeItem}>
+            <AnimatedCircularProgress
+              size={76}
+              width={8}
+              fill={demandPressure}
+              tintColor="#3B82F6"
+              backgroundColor="#E2E8F0"
+              lineCap="round"
+              rotation={270}
+              duration={1500}
+            >
+              {() => <Text style={styles.gaugeCenterText}>{demandPressure}</Text>}
+            </AnimatedCircularProgress>
+            <Text style={styles.gaugeLabel}>{t("demandPressure" as any) || "Pressure"}</Text>
+          </View>
+
+          <View style={styles.gaugeItem}>
+            <AnimatedCircularProgress
+              size={76}
+              width={8}
+              fill={priceMomentum}
+              tintColor="#10B981"
+              backgroundColor="#E2E8F0"
+              lineCap="round"
+              rotation={270}
+              duration={1500}
+            >
+              {() => <Text style={styles.gaugeCenterText}>{priceMomentum}</Text>}
+            </AnimatedCircularProgress>
+            <Text style={styles.gaugeLabel}>{t("priceMomentum" as any) || "Momentum"}</Text>
           </View>
         </Animated.View>
 
@@ -200,8 +208,8 @@ export default function Dashboard() {
         <Animated.View style={styles.cardShadow} entering={FadeInDown.delay(staggerDelay * 4).springify()}>
           <View style={styles.marketHeaderRow}>
              <View>
-               <Text style={styles.marketTitle}>{region} Market</Text>
-               <Text style={styles.marketSub}>{spice} Overview</Text>
+               <Text style={styles.marketTitle}>{t("marketOverview" as any) || "Market Overview"}</Text>
+               <Text style={styles.marketSub}>{t("cinnamon")} {t("priceMomentum" as any) || "Trend"}</Text>
              </View>
              <View style={styles.liveIndicator}>
                <View style={styles.liveDot} />
@@ -209,7 +217,32 @@ export default function Dashboard() {
              </View>
           </View>
 
-          <Text style={styles.price}>LKR {Math.floor(price).toLocaleString()} <Text style={styles.perKg}>/kg</Text></Text>
+          {/* Region Tabs */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.regionScroll}>
+             {["Colombo", "Kandy", "Matale", "Kurunegala", "Dambulla"].map(r => (
+                 <Pressable
+                     key={r}
+                     style={[styles.regionChip, region === r && styles.regionChipActive]}
+                     onPress={() => {
+                         Haptics.selectionAsync();
+                         setRegion(r);
+                         const base = 2000 + Math.random() * 500;
+                         setPrice(base);
+                         setChartDataState([
+                             Math.floor(base - 80), Math.floor(base - 40), Math.floor(base - 60), Math.floor(base - 20), Math.floor(base - 10), Math.floor(base + 30)
+                         ]);
+                     }}
+                 >
+                     <Text style={[styles.regionChipText, region === r && styles.regionChipTextActive]}>{r}</Text>
+                 </Pressable>
+             ))}
+          </ScrollView>
+
+          <View style={{flexDirection: 'row', alignItems: 'baseline', marginTop: 12}}>
+            <Text style={styles.price}>{t("currencySymbol" as any) || "Rs"} {Math.floor(price).toLocaleString()}</Text>
+            <Text style={styles.perKg}> /{t("kg" as any) || "kg"}</Text>
+            <Text style={[styles.regionChipText, {marginLeft: 8, color: '#64748B'}]}>in {region}</Text>
+          </View>
 
           <View style={{marginTop: 10, alignSelf: 'center'}}>
               <LineChart
@@ -221,7 +254,7 @@ export default function Dashboard() {
                 withInnerLines={false}
                 withOuterLines={false}
                 withVerticalLabels={true}
-                yAxisLabel="Rs."
+                yAxisLabel=""
                 yAxisInterval={1}
                 chartConfig={{
                   backgroundColor: "#ffffff",
@@ -248,18 +281,6 @@ export default function Dashboard() {
           </View>
         </Animated.View>
 
-        {/* HARVEST TIP */}
-        <Animated.View style={styles.tipCard} entering={FadeInDown.delay(staggerDelay * 5).springify()}>
-          <View style={styles.tipHeaderRow}>
-             <Ionicons name="leaf" size={20} color="#fff" />
-             <Text style={styles.tipTitle}>Harvest Tip</Text>
-          </View>
-          <Text style={styles.tipText}>
-            Dry your spices in shade today to preserve aroma. Humidity levels
-            are ideal for cinnamon and pepper drying. Avoid direct sunlight.
-          </Text>
-        </Animated.View>
-
         {/* NAVIGATION LINKS */}
         <Animated.View entering={FadeInDown.delay(staggerDelay * 6).springify()} style={{marginTop: 8}}>
             <Text style={styles.sectionTitle}>Intelligence Modules</Text>
@@ -269,7 +290,7 @@ export default function Dashboard() {
                     const { style, onPressIn, onPressOut } = useScaleAnimation();
                     return (
                         <AnimatedPressable
-                            key={link.title}
+                            key={link.titleKey}
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                 router.push(link.route as any);
@@ -281,7 +302,7 @@ export default function Dashboard() {
                             <View style={[styles.moduleIconWrap, {backgroundColor: `${link.color}15`}]}>
                                 <Ionicons name={link.icon as any} size={24} color={link.color} />
                             </View>
-                            <Text style={styles.moduleText}>{link.title}</Text>
+                            <Text style={styles.moduleText}>{t(link.titleKey as any)}</Text>
                         </AnimatedPressable>
                     )
                 })}
@@ -290,12 +311,20 @@ export default function Dashboard() {
 
         <View style={{height: 40}} />
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { padding: 16, paddingTop: 24 },
+  
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20
+  },
 
   headerTitle: {
     fontFamily: "Poppins_700Bold",
@@ -305,10 +334,28 @@ const styles = StyleSheet.create({
   },
 
   headerSub: {
-    marginBottom: 20,
     color: "#64748B",
     fontSize: 15,
     fontFamily: "Poppins_400Regular",
+  },
+  
+  langToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    shadowColor: "#64748b",
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  langText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 12,
+    color: "#334155",
   },
   
   tickerCard: {
@@ -424,33 +471,29 @@ const styles = StyleSheet.create({
       color: "#94A3B8",
       fontFamily: "Poppins_500Medium",
   },
-
-  tipCard: {
-    backgroundColor: "#10B981",
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 20,
-    shadowColor: "#10B981",
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+  
+  regionScroll: {
+      marginTop: 16,
+      marginBottom: 8,
+      flexDirection: 'row',
   },
-  tipHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+  regionChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: '#F1F5F9',
+      marginRight: 8,
   },
-  tipTitle: {
-    color: "white",
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 16,
-    marginLeft: 6
+  regionChipActive: {
+      backgroundColor: '#10B981',
   },
-  tipText: {
-    color: "rgba(255,255,255,0.9)",
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    lineHeight: 22,
+  regionChipText: {
+      fontFamily: "Poppins_600SemiBold",
+      fontSize: 13,
+      color: '#64748B',
+  },
+  regionChipTextActive: {
+      color: '#FFFFFF',
   },
   
   sectionTitle: {

@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LineChart, PieChart } from "react-native-chart-kit";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { useLanguage } from "../../context/LanguageContext";
 
 import { OrderStatus, useOrders } from "../../context/OrderContext";
 import {
@@ -27,6 +28,7 @@ import { getBestMarketRecommendation } from "../../lib/marketRecommendationEngin
 const screenWidth = Dimensions.get("window").width - 32;
 
 export default function FarmerDashboard() {
+  const { t } = useLanguage();
   const { orders, totalRevenue, totalProfit, updateStatus } = useOrders();
 
   /* ---------------- LIVE PRICE TICKER ---------------- */
@@ -164,8 +166,8 @@ export default function FarmerDashboard() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(staggerDelay * 1).springify()}>
-            <Text style={styles.headerTitle}>Farmer Analytics</Text>
-            <Text style={styles.headerSub}>Business Overview</Text>
+            <Text style={styles.headerTitle}>{t("farmer" as any) || "Farmer Analytics"}</Text>
+            <Text style={styles.headerSub}>{t("marketOverview" as any) || "Business Overview"}</Text>
         </Animated.View>
 
         {/* LIVE PRICE TICKER */}
@@ -176,8 +178,8 @@ export default function FarmerDashboard() {
 
                 return (
                 <View key={item.spice} style={styles.tickerCard}>
-                    <Text style={styles.tickerSpice}>{item.spice}</Text>
-                    <Text style={styles.tickerPrice}>LKR {item.price}</Text>
+                    <Text style={styles.tickerSpice}>{t(item.spice.toLowerCase() as any)}</Text>
+                    <Text style={styles.tickerPrice}>{t("currencySymbol" as any)} {item.price}</Text>
 
                     <View style={styles.tickerChange}>
                     <Ionicons
@@ -232,7 +234,7 @@ export default function FarmerDashboard() {
             >
               {() => <Text style={styles.gaugeCenterText}>{Math.round(totalProfit / 1000)}K</Text>}
             </AnimatedCircularProgress>
-            <Text style={styles.gaugeLabel}>Profit</Text>
+            <Text style={styles.gaugeLabel}>{t("profit" as any) || "Profit"}</Text>
           </View>
 
           <View style={styles.gaugeItem}>
@@ -248,7 +250,7 @@ export default function FarmerDashboard() {
             >
               {() => <Text style={styles.gaugeCenterText}>{orders.length}</Text>}
             </AnimatedCircularProgress>
-            <Text style={styles.gaugeLabel}>Orders</Text>
+            <Text style={styles.gaugeLabel}>{t("orders" as any) || "Orders"}</Text>
           </View>
         </Animated.View>
 
@@ -339,7 +341,7 @@ export default function FarmerDashboard() {
 
         {/* DEMAND PIE */}
         <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 5).springify()}>
-          <Text style={styles.sectionTitle}>Spice Demand Distribution</Text>
+          <Text style={styles.sectionTitle}>{t("demand" as any) || "Spice Demand Distribution"}</Text>
           <Text style={styles.sectionSub}>Current spread of requests globally.</Text>
 
           {demandData.length === 0 ? (
@@ -385,7 +387,7 @@ export default function FarmerDashboard() {
         <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 7).springify()}>
           <View style={styles.titleRow}>
               <Ionicons name="analytics" size={20} color="#1E293B" style={{marginRight: 8}} />
-              <Text style={styles.sectionTitleWithoutMargin}>Forecast Insights</Text>
+              <Text style={styles.sectionTitleWithoutMargin}>{t("forecast" as any) || "Forecast Insights"}</Text>
           </View>
 
           <View style={styles.insightBox}>

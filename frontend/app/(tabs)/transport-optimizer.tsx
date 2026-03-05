@@ -17,6 +17,7 @@ import Animated, {
     useSharedValue,
     withSpring
 } from "react-native-reanimated";
+import { useLanguage } from "../../context/LanguageContext";
 
 
 const screenWidth = Dimensions.get("window").width - 32;
@@ -45,25 +46,33 @@ const TRANSPORT_MODES = [
   { mode: "Lorry", rate: 120, icon: "car" },
 ] as const;
 
-const MARKETS = [
-  { name: "Colombo", distance: 140 },
-  { name: "Kandy", distance: 30 },
-  { name: "Dambulla", distance: 25 },
-  { name: "Kurunegala", distance: 80 },
-];
+const ORIGINS = ["Matale", "Kandy", "Kurunegala"];
+const DESTINATIONS = ["Colombo", "Dambulla", "Galle", "Anuradhapura"];
+
+const getDistance = (orig: string, dest: string) => {
+    const map: Record<string, number> = {
+        "Matale-Colombo": 140, "Matale-Dambulla": 45, "Matale-Galle": 230, "Matale-Anuradhapura": 105,
+        "Kandy-Colombo": 115, "Kandy-Dambulla": 70, "Kandy-Galle": 205, "Kandy-Anuradhapura": 135,
+        "Kurunegala-Colombo": 95, "Kurunegala-Dambulla": 55, "Kurunegala-Galle": 185, "Kurunegala-Anuradhapura": 110,
+    };
+    return map[`${orig}-${dest}`] || 100;
+};
 
 export default function TransportOptimizer() {
-  const [selectedMarket, setSelectedMarket] = useState("Colombo");
+  const { t } = useLanguage();
+  const [origin, setOrigin] = useState("Matale");
+  const [destination, setDestination] = useState("Colombo");
 
-  const market = MARKETS.find((m) => m.name === selectedMarket)!;
+  const distance = getDistance(origin, destination);
 
   const transportCosts = useMemo(() => {
     return TRANSPORT_MODES.map((t) => ({
       mode: t.mode,
       icon: t.icon,
-      cost: market.distance * t.rate,
+      cost: distance * t.rate,
+      eta: Math.round(distance / (t.rate === 40 ? 30 : t.rate === 60 ? 40 : t.rate === 80 ? 60 : 50)),
     }));
-  }, [selectedMarket]);
+  }, [origin, destination]);
 
   const cheapest = transportCosts.reduce((a, b) => (a.cost < b.cost ? a : b));
 
@@ -82,7 +91,7 @@ export default function TransportOptimizer() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(staggerDelay * 1).springify()}>
-            <Text style={styles.header}>Logistics Engine</Text>
+            <Text style={styles.header}>{t("optimizeTransport" as any) || "Logistics Engine"}</Text>
             <Text style={styles.sub}>
               Optimize delivery routes & costs
             </Text>
@@ -94,13 +103,13 @@ export default function TransportOptimizer() {
               <View style={styles.routeBox}>
                  <Ionicons name="location" size={16} color="#475569" style={{marginBottom: 4}}/>
                  <Text style={styles.marketLabel}>Origin</Text>
-                 <Text style={styles.marketValue}>Matale</Text>
+                 <Text style={styles.marketValue}>{origin}</Text>
               </View>
               
               <View style={styles.routeDivider}>
                   <View style={styles.routeLine} />
                   <View style={styles.distancePill}>
-                      <Text style={styles.distanceText}>{market.distance} km</Text>
+                      <Text style={styles.distanceText}>{distance} km</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={16} color="#CBD5E1" style={{position: 'absolute', right: -4, backgroundColor: '#fff'}} />
               </View>
@@ -108,33 +117,46 @@ export default function TransportOptimizer() {
               <View style={[styles.routeBox, {alignItems: 'flex-end'}]}>
                  <Ionicons name="flag" size={16} color="#3B82F6" style={{marginBottom: 4}}/>
                  <Text style={styles.marketLabel}>Destination</Text>
-                 <Text style={styles.marketValue}>{market.name}</Text>
+                 <Text style={styles.marketValue}>{destination}</Text>
               </View>
           </View>
 
-          <Text style={styles.sectionTitleWithoutMargin}>Select Destination</Text>
-          <View style={styles.chipRow}>
-             {MARKETS.map(m => {
-                 const active = selectedMarket === m.name;
-                 const { style, onPressIn, onPressOut } = useScaleAnimation();
+          <Text style={styles.sectionTitleWithoutMargin}>Select Origin</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.chipRow, {marginBottom: 16}]}>
+             {ORIGINS.map(o => {
+                 const active = origin === o;
                  return (
-                    <AnimatedPressable
-                        key={m.name}
-                        style={[styles.chip, active && styles.activeChip, style]}
-                        onPress={() => setSelectedMarket(m.name)}
-                        onPressIn={onPressIn}
-                        onPressOut={onPressOut}
+                    <Pressable
+                        key={o}
+                        style={[styles.chip, active && styles.activeChip]}
+                        onPress={() => setOrigin(o)}
                     >
-                        <Text style={[styles.chipText, active && styles.activeText]}>{m.name}</Text>
-                    </AnimatedPressable>
+                        <Text style={[styles.chipText, active && styles.activeText]}>{o}</Text>
+                    </Pressable>
                  )
              })}
-          </View>
+          </ScrollView>
+
+          <Text style={styles.sectionTitleWithoutMargin}>Select Destination</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+             {DESTINATIONS.map(d => {
+                 const active = destination === d;
+                 return (
+                    <Pressable
+                        key={d}
+                        style={[styles.chip, active && styles.activeChip]}
+                        onPress={() => setDestination(d)}
+                    >
+                        <Text style={[styles.chipText, active && styles.activeText]}>{d}</Text>
+                    </Pressable>
+                 )
+             })}
+          </ScrollView>
         </Animated.View>
 
         {/* COST CHART */}
         <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 3).springify()}>
-          <Text style={styles.sectionTitle}>Mode Comparison</Text>
+          <Text style={styles.sectionTitle}>{t("modeUsage" as any) || "Mode Comparison"}</Text>
 
           <View style={{marginLeft: -16, marginTop: 10}}>
               <BarChart
@@ -161,17 +183,22 @@ export default function TransportOptimizer() {
 
         {/* COST BREAKDOWN */}
         <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 4).springify()}>
-          <Text style={[styles.sectionTitle, {marginBottom: 16}]}>Cost Breakdown</Text>
+          <Text style={[styles.sectionTitle, {marginBottom: 16}]}>{t("analytics" as any) || "Cost Breakdown"}</Text>
 
-          {transportCosts.map((t, index) => (
-            <View key={t.mode} style={[styles.row, index === transportCosts.length - 1 && { borderBottomWidth: 0, paddingBottom: 0 }]}>
+          {transportCosts.map((data, index) => (
+            <View key={data.mode} style={[styles.row, index === transportCosts.length - 1 && { borderBottomWidth: 0, paddingBottom: 0 }]}>
               <View style={styles.modeIconWrap}>
-                  <Ionicons name={t.icon as any} size={18} color="#4338CA" />
+                  <Ionicons name={data.icon as any} size={18} color="#4338CA" />
               </View>
               
-              <Text style={styles.modeText}>{t.mode}</Text>
+              <View style={{flex: 1, marginLeft: 12}}>
+                  <Text style={styles.modeText}>{data.mode}</Text>
+                  <Text style={{color: '#64748B', fontSize: 12, fontFamily: 'Poppins_500Medium', marginTop: 2}}>
+                    {t("eta" as any) || "ETA"}: ~{Math.max(1, data.eta)} hrs
+                  </Text>
+              </View>
 
-              <Text style={styles.cost}>LKR {t.cost.toLocaleString()}</Text>
+              <Text style={styles.cost}>{t("currencySymbol" as any) || "LKR"} {data.cost.toLocaleString()}</Text>
             </View>
           ))}
         </Animated.View>
@@ -180,12 +207,12 @@ export default function TransportOptimizer() {
         <Animated.View style={styles.tipCard} entering={FadeInDown.delay(staggerDelay * 5).springify()}>
           <View style={styles.tipHeaderRow}>
               <Ionicons name="flash" size={20} color="#fff" />
-              <Text style={styles.tipTitle}>Smart Suggestion</Text>
+              <Text style={styles.tipTitle}>{t("cheapestRoute" as any) || "Smart Suggestion"}</Text>
           </View>
 
-          <Text style={styles.tipLead}>Optimal Mode: {cheapest.mode}</Text>
+          <Text style={styles.tipLead}>Optimal Mode: {t(cheapest.mode.toLowerCase() as any)}</Text>
           <Text style={styles.tipText}>
-            Maximizes margin with an estimated cost of LKR {Math.round(cheapest.cost).toLocaleString()}
+            Maximizes margin with an estimated cost of {t("currencySymbol" as any)} {Math.round(cheapest.cost).toLocaleString()}
           </Text>
         </Animated.View>
         

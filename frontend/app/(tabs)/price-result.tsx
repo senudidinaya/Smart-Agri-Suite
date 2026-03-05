@@ -14,10 +14,12 @@ import Animated, {
     FadeInDown,
     FadeInUp,
 } from "react-native-reanimated";
+import { useLanguage } from "../../context/LanguageContext";
 import { useOrders } from "../../context/OrderContext";
 
 export default function PriceResultScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const params = useLocalSearchParams();
   const { addOrder } = useOrders();
 
@@ -65,8 +67,8 @@ export default function PriceResultScreen() {
 
   const handleViewAnalytics = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.replace({
-      pathname: "/analytics",
+    router.push({
+      pathname: "/yield-analytics",
       params: {
         spice,
         profit,
@@ -88,7 +90,7 @@ export default function PriceResultScreen() {
           </View>
           <Text style={styles.successTitle}>Order Confirmed</Text>
           <Text style={styles.successSub}>
-            Your harvest order for {quantity}kg of {spice} has been placed successfully and synced to the cloud.
+            Your harvest order for {quantity}{t("kg" as any) || "kg"} of {t(spice.toLowerCase() as any)} has been placed successfully and synced to the cloud.
           </Text>
 
           <Pressable
@@ -103,7 +105,7 @@ export default function PriceResultScreen() {
             style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.8 }]}
             onPress={() => router.replace("/farmer")}
           >
-            <Text style={styles.secondaryBtnText}>Go to Farmer Dashboard</Text>
+            <Text style={styles.secondaryBtnText}>Go to {t("farmer" as any) || "Farmer Dashboard"}</Text>
           </Pressable>
         </Animated.View>
       </View>
@@ -137,12 +139,12 @@ export default function PriceResultScreen() {
         
         <View style={styles.detailRow}>
             <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Spice</Text>
-                <Text style={styles.detailValue}>{spice}</Text>
+                <Text style={styles.detailLabel}>{t("selectSpice" as any) || "Spice"}</Text>
+                <Text style={styles.detailValue}>{t(spice.toLowerCase() as any)}</Text>
             </View>
             <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Quantity</Text>
-                <Text style={styles.detailValue}>{quantity} kg</Text>
+                <Text style={styles.detailLabel}>{t("expectedYield" as any) || "Quantity"}</Text>
+                <Text style={styles.detailValue}>{quantity} {t("kg" as any) || "kg"}</Text>
             </View>
         </View>
 
@@ -160,21 +162,21 @@ export default function PriceResultScreen() {
 
       {/* FINANCIALS */}
       <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 4).springify()}>
-        <Text style={styles.sectionTitle}>Financial Breakdown</Text>
+        <Text style={styles.sectionTitle}>{t("analytics" as any) || "Financial Breakdown"}</Text>
         
         <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>Base Cost ({quantity}kg)</Text>
-            <Text style={styles.financeValue}>LKR {cost.toLocaleString()}</Text>
+            <Text style={styles.financeLabel}>Base Cost ({quantity}{t("kg" as any) || "kg"})</Text>
+            <Text style={styles.financeValue}>{t("currencySymbol" as any) || "LKR"} {cost.toLocaleString()}</Text>
         </View>
         
         <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>Transport ({mode})</Text>
-            <Text style={styles.financeValue}>LKR {Math.round(Ct).toLocaleString()}</Text>
+            <Text style={styles.financeLabel}>{t("transport" as any) || "Transport"} ({t(mode.toLowerCase() as any) || mode})</Text>
+            <Text style={styles.financeValue}>{t("currencySymbol" as any) || "LKR"} {Math.round(Ct).toLocaleString()}</Text>
         </View>
 
         <View style={[styles.financeRow, { borderBottomWidth: 0, paddingBottom: 0, marginTop: 12, paddingTop: 16, borderTopWidth: 1, borderColor: '#E2E8F0' }]}>
-            <Text style={styles.financeTitle}>Gross Revenue</Text>
-            <Text style={styles.financeTitleValue}>LKR {revenue.toLocaleString()}</Text>
+            <Text style={styles.financeTitle}>{t("revenue" as any) || "Gross Revenue"}</Text>
+            <Text style={styles.financeTitleValue}>{t("currencySymbol" as any) || "LKR"} {revenue.toLocaleString()}</Text>
         </View>
       </Animated.View>
 

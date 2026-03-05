@@ -1,15 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Dimensions, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LineChart } from "react-native-chart-kit";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { useLanguage } from "../../context/LanguageContext";
 
 import { forecastPrice } from "../../lib/forecastEngine";
 import { getBestMarketRecommendation } from "../../lib/marketRecommendationEngine";
 
 const screenWidth = Dimensions.get("window").width - 32;
 
-export default function ProfitSimulator() {
+export default function ProfitAnalyzer() {
+  const { t } = useLanguage();
   const [selectedSpice, setSelectedSpice] = useState("Cinnamon");
   const spices = ["Cinnamon", "Pepper", "Cardamom", "Clove"];
   
@@ -43,12 +46,12 @@ export default function ProfitSimulator() {
   const staggerDelay = 100;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(staggerDelay * 1).springify()}>
-            <Text style={styles.header}>Yield Simulator</Text>
+            <Text style={styles.header}>{t("simulator" as any) || "Profit Analyzer"}</Text>
             <Text style={styles.sub}>
-              Estimate returns across harvest scales
+              {t("harvestScenario" as any) || "Estimate returns across harvest scales"}
             </Text>
         </Animated.View>
 
@@ -63,27 +66,27 @@ export default function ProfitSimulator() {
                           onPress={() => setSelectedSpice(spice)}
                           style={[styles.spicePill, isActive && styles.spicePillActive]}
                       >
-                          <Text style={[styles.spiceText, isActive && styles.spiceTextActive]}>{spice}</Text>
+                          <Text style={[styles.spiceText, isActive && styles.spiceTextActive]}>{t(spice.toLowerCase() as any)}</Text>
                       </Pressable>
                   )
               })}
           </ScrollView>
         </Animated.View>
 
-        {/* PROFIT CHART */}
         <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 2).springify()}>
           <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 16}}>
               <View style={styles.iconWrap}>
                   <Ionicons name="trending-up" size={18} color="#10B981" />
               </View>
               <View>
-                 <Text style={styles.sectionTitleWithoutMargin}>Profit Projection</Text>
+                 <Text style={styles.sectionTitleWithoutMargin}>{t("potentialProfit" as any) || "Profit Projection"}</Text>
                  <Text style={styles.cardSub}>Estimated LKR margin vs volume</Text>
               </View>
           </View>
 
           <View style={{marginLeft: -16}}>
               <LineChart
+                key={selectedSpice} // Force remount on spice change
                 data={chartData}
                 width={screenWidth - 8}
                 height={220}
@@ -114,7 +117,7 @@ export default function ProfitSimulator() {
 
         {/* RESULTS MATRIX */}
         <Animated.View entering={FadeInDown.delay(staggerDelay * 3).springify()}>
-            <Text style={[styles.sectionTitle, {marginLeft: 4, marginBottom: 16}]}>Harvest Scenarios</Text>
+            <Text style={[styles.sectionTitle, {marginLeft: 4, marginBottom: 16}]}>{t("harvestScenario" as any) || "Harvest Scenarios"}</Text>
             {simulation.map((s, index) => (
                 <Animated.View 
                     key={s.quantity} 
@@ -123,11 +126,11 @@ export default function ProfitSimulator() {
                 >
                     <View style={styles.scenarioHeader}>
                         <View style={styles.qtyBadge}>
-                            <Text style={styles.qtyText}>{s.quantity} kg</Text>
+                            <Text style={styles.qtyText}>{s.quantity} {t("kg" as any) || "kg"}</Text>
                         </View>
                         <View style={styles.targetMarket}>
                             <Ionicons name="location" size={12} color="#4338CA" />
-                            <Text style={styles.marketText}>Optimal: <Text style={{fontFamily: 'Poppins_600SemiBold', color: '#334155'}}>{s.market}</Text></Text>
+                            <Text style={styles.marketText}>{t("recommendedMarket" as any) || "Optimal"}: <Text style={{fontFamily: 'Poppins_600SemiBold', color: '#334155'}}>{s.market}</Text></Text>
                         </View>
                     </View>
 
@@ -135,13 +138,13 @@ export default function ProfitSimulator() {
 
                     <View style={styles.metricsRow}>
                         <View style={styles.metricBlock}>
-                             <Text style={styles.metricLabel}>Gross Revenue</Text>
-                             <Text style={styles.metricValue}>LKR {Math.round(s.revenue).toLocaleString()}</Text>
+                             <Text style={styles.metricLabel}>{t("revenue" as any) || "Gross Revenue"}</Text>
+                             <Text style={styles.metricValue}>{t("currencySymbol" as any) || "LKR"} {Math.round(s.revenue).toLocaleString()}</Text>
                         </View>
                         
                         <View style={[styles.metricBlock, {alignItems: 'flex-end'}]}>
-                             <Text style={styles.metricLabel}>Net Profit</Text>
-                             <Text style={styles.profitValue}>LKR {Math.round(s.profit).toLocaleString()}</Text>
+                             <Text style={styles.metricLabel}>{t("profit" as any) || "Net Profit"}</Text>
+                             <Text style={styles.profitValue}>{t("currencySymbol" as any) || "LKR"} {Math.round(s.profit).toLocaleString()}</Text>
                         </View>
                     </View>
                 </Animated.View>
