@@ -17,6 +17,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import s from "../../src/styles/listLandFormStyles";
 import { API_BASE_URL } from "../../src/config";
+import { useAuth } from "../../context/AuthContext";
 
 const PURPOSES = ["sell", "lease", "partnership", "contract"] as const;
 
@@ -25,6 +26,7 @@ export default function ListLandFormScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams<{ polygon?: string }>();
+    const { token } = useAuth();
 
     /* ---------- state ---------- */
     const [step, setStep] = useState(1);
@@ -155,9 +157,14 @@ export default function ListLandFormScreen() {
                 expected_price: expectedPrice ? parseFloat(expectedPrice) : null
             };
 
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            if (token) {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
             const res = await fetch(`${API_BASE_URL}/api/listings/create`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers,
                 body: JSON.stringify(body)
             });
 
@@ -184,8 +191,14 @@ export default function ListLandFormScreen() {
                     } as any);
                 });
 
+                const photoHeaders: Record<string, string> = {};
+                if (token) {
+                    photoHeaders["Authorization"] = `Bearer ${token}`;
+                }
+
                 const photoRes = await fetch(`${API_BASE_URL}/api/listings/${newListingId}/photos`, {
                     method: "POST",
+                    headers: photoHeaders,
                     body: photoData
                 });
 
@@ -206,8 +219,14 @@ export default function ListLandFormScreen() {
                     } as any);
                 });
 
+                const docHeaders: Record<string, string> = {};
+                if (token) {
+                    docHeaders["Authorization"] = `Bearer ${token}`;
+                }
+
                 const docRes = await fetch(`${API_BASE_URL}/api/listings/${newListingId}/documents`, {
                     method: "POST",
+                    headers: docHeaders,
                     body: docData
                 });
 

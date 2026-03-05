@@ -50,6 +50,9 @@ class LandListing(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
+    # --- Link to MongoDB user (from Login-Register auth system) ---
+    mongo_user_id = Column(String(50), nullable=True, index=True)
+
     # --- Owner info ---
     owner_name = Column(String(200), nullable=False)
     owner_phone = Column(String(20), nullable=False)
@@ -88,6 +91,7 @@ class LandListing(Base):
         default=ListingStatus.pending,
     )
     verification_code = Column(String(20), unique=True, nullable=False)
+    admin_comment = Column(Text, nullable=True)
 
     # Flags
     has_documents = Column(Boolean, default=False)

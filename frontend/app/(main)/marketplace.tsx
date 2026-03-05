@@ -215,6 +215,7 @@ export default function MarketplaceScreen() {
 
     const handleListLand = () => router.push("/(main)/map?startDraw=true" as any);
     const handleSeeAll = () => router.push("/listings/all");
+    const handleMyLands = () => router.push("/listings/my" as any);
 
     // ======================== RENDER ========================
 
@@ -388,6 +389,9 @@ export default function MarketplaceScreen() {
                     )}
                 </Pressable>
 
+                <Pressable style={s.fabSecondary} onPress={handleMyLands}>
+                    <Text style={s.fabSecondaryText}>📝 My Lands</Text>
+                </Pressable>
                 <Pressable style={s.fabSecondary} onPress={handleSeeAll}>
                     <Text style={s.fabSecondaryText}>📋 See All</Text>
                 </Pressable>

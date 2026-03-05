@@ -119,6 +119,7 @@ class ListingSummary(BaseModel):
     status: str
     expected_price: Optional[float] = None
     submitted_at: Optional[datetime] = None
+    admin_comment: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -150,6 +151,7 @@ class ListingResponse(BaseModel):
     expected_price: Optional[float] = None
     status: str
     verification_code: str
+    admin_comment: Optional[str] = None
 
     submitted_at: Optional[datetime] = None
     verified_at: Optional[datetime] = None

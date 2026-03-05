@@ -8,10 +8,12 @@ import {
   Pressable
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useLanguage } from "../../context/LanguageContext";
 
 // ==================== MAIN SCREEN ====================
 export default function OverviewScreen() {
   const router = useRouter();
+  const { langConfig } = useLanguage();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f8fafc" }}>
@@ -40,7 +42,7 @@ export default function OverviewScreen() {
           onPress={() => router.replace("/")}
         >
           <Text style={{ fontSize: 16, color: "#334155", fontWeight: "800" }}>←</Text>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: "#334155" }}>Back to Hub</Text>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: "#334155" }}>{langConfig['common.backToHub']}</Text>
         </Pressable>
       </View>
       <ScrollView
@@ -49,14 +51,12 @@ export default function OverviewScreen() {
       >
         {/* ==================== HERO SECTION ====================*/}
         <View style={[styles.card, styles.heroCard]}>
-          <Text style={styles.heroTitle}>🌱 Spice Cultivation Optimization</Text>
+          <Text style={styles.heroTitle}>{langConfig['ov.heroTitle']}</Text>
           <Text style={styles.heroSubtitle}>
-            Through Idle Land Mobilization
+            {langConfig['ov.heroSub']}
           </Text>
           <Text style={styles.heroDescription}>
-            Understand your land condition and get simple farming guidance using
-            satellite data. Tap a location on the map to analyze its potential
-            for spice cultivation.
+            {langConfig['ov.heroDesc']}
           </Text>
         </View>
 
@@ -65,33 +65,33 @@ export default function OverviewScreen() {
           <View style={styles.cardIconHeader}>
             <Text style={styles.cardIcon}>✨</Text>
             <Text style={[styles.cardTitle, styles.cardTitlePurple]}>
-              What can this app help you with?
+              {langConfig['ov.whatAppDo']}
             </Text>
           </View>
 
           <View style={styles.featureGrid}>
             <FeatureCard
               emoji="🗺️"
-              text="Check land type"
-              desc="Vegetation / Idle / Built-up"
+              text={langConfig['ov.f1.title']}
+              desc={langConfig['ov.f1.desc']}
               color="#8b5cf6"
             />
             <FeatureCard
               emoji="💧"
-              text="Water & vegetation"
-              desc="Health indicators"
+              text={langConfig['ov.f2.title']}
+              desc={langConfig['ov.f2.desc']}
               color="#06b6d4"
             />
             <FeatureCard
               emoji="🌶️"
-              text="Crop suitability"
-              desc="Which spices fit best"
+              text={langConfig['ov.f3.title']}
+              desc={langConfig['ov.f3.desc']}
               color="#ea580c"
             />
             <FeatureCard
               emoji="🌱"
-              text="Intercropping advice"
-              desc="Grow multiple crops"
+              text={langConfig['ov.f4.title']}
+              desc={langConfig['ov.f4.desc']}
               color="#16a34a"
             />
           </View>
@@ -102,22 +102,21 @@ export default function OverviewScreen() {
           <View style={styles.cardIconHeader}>
             <Text style={styles.cardIcon}>📍</Text>
             <Text style={[styles.cardTitle, styles.cardTitleBlue]}>
-              Study Area
+              {langConfig['ov.studyArea']}
             </Text>
           </View>
 
           <Text style={styles.bodyText}>
-            This analysis covers land inside the{" "}
-            <Text style={styles.bold}>blue AOI boundary (Malabe area)</Text>.
+            {langConfig['ov.studyDesc1']}
+            <Text style={styles.bold}>{langConfig['ov.studyDescBlue']}</Text>
           </Text>
           <Text style={styles.bodySub}>
-            Satellite imagery is used to assess land conditions and potential.
+            {langConfig['ov.studyDesc2']}
           </Text>
 
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
-              💡 Higher resolution data helps us understand terrain, vegetation
-              health, and moisture levels.
+              {langConfig['ov.studyTip']}
             </Text>
           </View>
         </View>
@@ -127,31 +126,31 @@ export default function OverviewScreen() {
           <View style={styles.cardIconHeader}>
             <Text style={styles.cardIcon}>❗</Text>
             <Text style={[styles.cardTitle, styles.cardTitleAmber]}>
-              How to use this app
+              {langConfig['ov.howToUse']}
             </Text>
           </View>
 
           <StepCard
             number="1"
             emoji="🗺️"
-            text="Go to Map"
-            desc="Tap the Map tab at the bottom"
+            text={langConfig['ov.step1.title']}
+            desc={langConfig['ov.step1.desc']}
           />
           <StepCard
             number="2"
             emoji="📍"
-            text="Select a location"
-            desc="Tap inside the blue AOI boundary"
+            text={langConfig['ov.step2.title']}
+            desc={langConfig['ov.step2.desc']}
           />
           <StepCard
             number="3"
             emoji="📊"
-            text="View analytics"
-            desc="Get land health & crop recommendations"
+            text={langConfig['ov.step3.title']}
+            desc={langConfig['ov.step3.desc']}
           />
 
           <Text style={styles.helperText}>
-            ✓ No technical knowledge needed. Tap and explore!
+            {langConfig['ov.helperText']}
           </Text>
         </View>
 
@@ -160,30 +159,29 @@ export default function OverviewScreen() {
           <View style={styles.cardIconHeader}>
             <Text style={styles.cardIcon}>🎨</Text>
             <Text style={[styles.cardTitle, styles.cardTitleGreen]}>
-              Color meanings
+              {langConfig['ov.colors']}
             </Text>
           </View>
 
           <ColorLegend
             color="#16a34a"
-            title="Green (Good)"
-            desc="Good for farming • Healthy conditions"
+            title={langConfig['ov.color1']}
+            desc={langConfig['ov.color1Desc']}
           />
           <ColorLegend
             color="#ca8a04"
-            title="Amber (Moderate)"
-            desc="Needs care • With management possible"
+            title={langConfig['ov.color2']}
+            desc={langConfig['ov.color2Desc']}
           />
           <ColorLegend
             color="#dc2626"
-            title="Red (Poor)"
-            desc="Improvement needed • Plan ahead"
+            title={langConfig['ov.color3']}
+            desc={langConfig['ov.color3Desc']}
           />
 
           <View style={styles.colorTip}>
             <Text style={styles.colorTipText}>
-              💡 Colors appear in charts, scores, and status indicators to help
-              you quickly understand land conditions.
+              {langConfig['ov.colorTip']}
             </Text>
           </View>
         </View>
@@ -193,18 +191,17 @@ export default function OverviewScreen() {
           <View style={styles.cardIconHeader}>
             <Text style={styles.cardIcon}>👨‍🌾</Text>
             <Text style={[styles.cardTitle, styles.cardTitlePink]}>
-              Who can use this app?
+              {langConfig['ov.whoCanUse']}
             </Text>
           </View>
 
-          <UserCard emoji="👨‍🌾" text="Farmers & Landowners" />
-          <UserCard emoji="🏛️" text="Agriculture Officers" />
-          <UserCard emoji="🎓" text="Students & Researchers" />
-          <UserCard emoji="🌍" text="Environmental Planners" />
+          <UserCard emoji="👨‍🌾" text={langConfig['ov.user1']} />
+          <UserCard emoji="🏛️" text={langConfig['ov.user2']} />
+          <UserCard emoji="🎓" text={langConfig['ov.user3']} />
+          <UserCard emoji="🌍" text={langConfig['ov.user4']} />
 
           <Text style={styles.userNote}>
-            This tool is designed for anyone interested in understanding land
-            potential for agricultural use.
+            {langConfig['ov.userNote']}
           </Text>
         </View>
 
@@ -213,34 +210,34 @@ export default function OverviewScreen() {
           <View style={styles.cardIconHeader}>
             <Text style={styles.cardIcon}>⭐</Text>
             <Text style={[styles.cardTitle, styles.cardTitleTeal]}>
-              Key features
+              {langConfig['ov.keyFeatures']}
             </Text>
           </View>
 
           <FeatureHighlight
             icon="📊"
-            title="Satellite Analytics"
-            desc="Real-time vegetation, moisture & terrain data"
+            title={langConfig['ov.kf1.title']}
+            desc={langConfig['ov.kf1.desc']}
           />
           <FeatureHighlight
             icon="🤖"
-            title="ML Model"
-            desc="Predicts land type: Vegetation, Idle, or Built-up"
+            title={langConfig['ov.kf2.title']}
+            desc={langConfig['ov.kf2.desc']}
           />
           <FeatureHighlight
             icon="🌶️"
-            title="Spice Scoring"
-            desc="Personalized suitability for Cinnamon, Pepper, Clove & Cardamom"
+            title={langConfig['ov.kf3.title']}
+            desc={langConfig['ov.kf3.desc']}
           />
           <FeatureHighlight
             icon="🌱"
-            title="Intercropping"
-            desc="Smart recommendations for growing multiple crops together"
+            title={langConfig['ov.kf4.title']}
+            desc={langConfig['ov.kf4.desc']}
           />
           <FeatureHighlight
             icon="👨‍🌾"
-            title="Farmer-Friendly"
-            desc="Simple language & practical guidance, no jargon"
+            title={langConfig['ov.kf5.title']}
+            desc={langConfig['ov.kf5.desc']}
           />
         </View>
 
@@ -249,19 +246,18 @@ export default function OverviewScreen() {
           <View style={styles.cardIconHeader}>
             <Text style={styles.cardIcon}>💡</Text>
             <Text style={[styles.cardTitle, styles.cardTitleOrange]}>
-              Tips for best results
+              {langConfig['ov.tips']}
             </Text>
           </View>
 
-          <TipItem emoji="📍" text="Tap multiple points across your land to see variations" />
-          <TipItem emoji="🔍" text="Zoom in for more detailed analysis in specific areas" />
-          <TipItem emoji="🗺️" text="Check satellite view for visual context" />
-          <TipItem emoji="📋" text="Compare scores with field observations" />
-          <TipItem emoji="🌱" text="Use recommendations as a starting point for planning" />
+          <TipItem emoji="📍" text={langConfig['ov.tip1']} />
+          <TipItem emoji="🔍" text={langConfig['ov.tip2']} />
+          <TipItem emoji="🗺️" text={langConfig['ov.tip3']} />
+          <TipItem emoji="📋" text={langConfig['ov.tip4']} />
+          <TipItem emoji="🌱" text={langConfig['ov.tip5']} />
 
           <Text style={styles.tipsFooter}>
-            Remember: Satellite analysis is a tool to help planning, not a
-            replacement for field knowledge and local expertise.
+            {langConfig['ov.tipsFooter']}
           </Text>
         </View>
 
@@ -270,14 +266,13 @@ export default function OverviewScreen() {
           style={styles.ctaButton}
           onPress={() => router.push("/map")}
         >
-          <Text style={styles.ctaButtonText}>🗺️ Open Map & Analyze</Text>
+          <Text style={styles.ctaButtonText}>{langConfig['ov.cta']}</Text>
         </Pressable>
 
         {/* ==================== FOOTER TIP ====================*/}
         <View style={styles.footerTip}>
           <Text style={styles.footerTipText}>
-            🌍 Tip: Tap anywhere inside the blue boundary on the map to start
-            analyzing land!
+            {langConfig['ov.footerTip']}
           </Text>
         </View>
 

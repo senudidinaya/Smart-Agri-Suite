@@ -41,6 +41,7 @@ interface Listing {
     current_land_use: string | null; soil_type: string | null; water_availability: string | null;
     road_access: boolean; electricity: boolean; listing_purpose: string;
     expected_price: number | null; status: string; verification_code: string; submitted_at: string | null;
+    admin_comment?: string | null;
     analytics: any; crop_scores: any[];
     photos?: { id: number; url: string; is_primary: boolean }[];
     documents?: { id: number; url: string; doc_type: string }[];
@@ -212,6 +213,33 @@ export default function ListingDetailScreen() {
                 <View style={[S.headerBadge, { backgroundColor: badge.bg }]}><Text style={[S.headerBadgeText, { color: badge.color }]}>{badge.emoji} {badge.text}</Text></View>
             </View>
             <ScrollView contentContainerStyle={S.scroll}>
+                {/* STATUS BANNERS */}
+                {listing.status === "rejected" && (
+                    <View style={[S.card, { backgroundColor: '#fef2f2', borderColor: '#fca5a5', borderWidth: 1 }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <Text style={{ fontSize: 24 }}>❌</Text>
+                            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#991b1b' }}>Listing Rejected</Text>
+                        </View>
+                        {listing.admin_comment && (
+                            <Text style={{ fontSize: 15, color: '#991b1b', lineHeight: 22 }}>
+                                <Text style={{ fontWeight: 'bold' }}>Reason:</Text> {listing.admin_comment}
+                            </Text>
+                        )}
+                        <Text style={{ fontSize: 13, color: '#dc2626', marginTop: 12 }}>This listing has been removed from the public marketplace.</Text>
+                    </View>
+                )}
+                {listing.status === "pending" && (
+                    <View style={[S.card, { backgroundColor: '#fffbeb', borderColor: '#fde047', borderWidth: 1 }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <Text style={{ fontSize: 24 }}>⏳</Text>
+                            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#854d0e' }}>Pending Verification</Text>
+                        </View>
+                        <Text style={{ fontSize: 15, color: '#854d0e', lineHeight: 22 }}>
+                            This listing is currently under review by our team and is not yet visible to the public.
+                        </Text>
+                    </View>
+                )}
+
                 {/* MAP */}
                 {mapCoords.length >= 3 && <View style={S.mapBox}><MapView style={S.map} provider={PROVIDER_GOOGLE} initialRegion={{ latitude: cLat, longitude: cLng, latitudeDelta: 0.005, longitudeDelta: 0.005 }} scrollEnabled={false} zoomEnabled={false}><Polygon coordinates={mapCoords} strokeColor={badge.color} fillColor={badge.color + "33"} strokeWidth={3} /></MapView></View>}
 

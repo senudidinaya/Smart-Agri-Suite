@@ -17,3 +17,6 @@ rasterio
 shapely
 mercantile
 pyproj>=3.0.0
+python-jose[cryptography]
+bcrypt
+motor

@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Header
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Tuple, Any, Optional
@@ -11,6 +12,7 @@ import joblib
 from io import BytesIO
 from PIL import Image
 from functools import lru_cache
+from datetime import datetime, timezone
 
 import rasterio
 from rasterio.enums import Resampling
@@ -27,8 +29,28 @@ from marketplace import models as mp_models
 from marketplace import schemas as mp_schemas
 from marketplace import crud as mp_crud
 
+# --- Auth imports ---
+from auth_utils import (
+    get_mongo_db, close_mongo,
+    hash_password, verify_password,
+    create_token, verify_token,
+    get_current_user_id, require_auth,
+    user_doc_to_response,
+    UserRegister, UserLogin,
+)
+from bson import ObjectId
 
-app = FastAPI(title="Idle Land Mobilization API", version="2.2.0")
+
+app = FastAPI(title="Idle Land Mobilization API", version="2.3.0")
+
+# CORS — allow all origins for mobile app development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount media directory for static file serving
 os.makedirs("media/photos", exist_ok=True)
@@ -44,6 +66,18 @@ def _startup_create_tables():
         print("✅ Marketplace tables ready")
     except Exception as e:
         print(f"⚠️ Could not create marketplace tables: {e}")
+
+    # Pre-warm MongoDB connection
+    try:
+        get_mongo_db()
+        print("✅ MongoDB connection ready")
+    except Exception as e:
+        print(f"⚠️ MongoDB not available (auth will fail): {e}")
+
+
+@app.on_event("shutdown")
+async def _shutdown_mongo():
+    await close_mongo()
 
 
 MODEL_PATH_PRIMARY = os.path.join("model", "xgb_land_classifier.pkl")
@@ -149,6 +183,117 @@ def root():
         "model_loaded": model is not None,
         "model_path": MODEL_PATH_PRIMARY if os.path.exists(MODEL_PATH_PRIMARY) else MODEL_PATH_FALLBACK,
     }
+
+
+# ==================== AUTH ENDPOINTS ====================
+@app.post("/api/v1/auth/register")
+async def auth_register(data: UserRegister):
+    """Register a new user (stores in MongoDB)."""
+    db = get_mongo_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    existing = await db.users.find_one({"username": data.username})
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    existing = await db.users.find_one({"email": data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already exists")
+
+    now = datetime.now(timezone.utc)
+    user_doc = {
+        "fullName": data.fullName,
+        "username": data.username,
+        "email": data.email,
+        "address": data.address,
+        "age": data.age,
+        "role": data.role,
+        "passwordHash": hash_password(data.password),
+        "createdAt": now,
+        "updatedAt": now,
+    }
+
+    await db.users.insert_one(user_doc)
+    print(f"✅ User registered: {data.username} (role: {data.role})")
+
+    return JSONResponse({"success": True, "message": "Registration successful. Please login."})
+
+
+@app.post("/api/v1/auth/login")
+async def auth_login(data: UserLogin):
+    """Login and get JWT token."""
+    db = get_mongo_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    user = await db.users.find_one({"username": data.username})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    if not verify_password(data.password, user["passwordHash"]):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token = create_token(
+        user_id=str(user["_id"]),
+        username=user["username"],
+        role=user["role"],
+    )
+
+    print(f"✅ User logged in: {data.username}")
+
+    return JSONResponse({
+        "token": token,
+        "user": user_doc_to_response(user),
+    })
+
+
+@app.get("/api/v1/auth/me")
+async def auth_me(user_id: str = Depends(require_auth)):
+    """Get current user from token."""
+    db = get_mongo_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return JSONResponse(user_doc_to_response(user))
+
+
+# ==================== MY LISTINGS ====================
+@app.get("/api/listings/my")
+def get_my_listings(
+    db: Session = Depends(get_db),
+    user_id: str = Depends(require_auth),
+):
+    """Get listings belonging to the currently authenticated user."""
+    listings = mp_crud.get_listings_by_user(db, user_id)
+    results = []
+    for l in listings:
+        pred_label = None
+        if l.analytics:
+            pred_label = l.analytics.prediction_label
+        results.append({
+            "id": l.id,
+            "title": l.title,
+            "owner_name": l.owner_name,
+            "verification_code": l.verification_code,
+            "area_acres": l.area_acres,
+            "area_hectares": l.area_hectares,
+            "listing_purpose": l.listing_purpose.value if l.listing_purpose else None,
+            "status": l.status.value if l.status else None,
+            "expected_price": l.expected_price,
+            "admin_comment": l.admin_comment,
+            "submitted_at": l.submitted_at.isoformat() if l.submitted_at else None,
+            "analytics": {"prediction_label": pred_label} if pred_label else None,
+            "photos": [
+                {"id": p.id, "url": p.url, "is_primary": p.is_primary}
+                for p in (l.photos or [])
+            ],
+        })
+    return JSONResponse({"ok": True, "count": len(results), "listings": results})
 
 
 @app.get("/aoi")
@@ -942,13 +1087,18 @@ def validate_listing_area(req: mp_schemas.ValidateAreaRequest, db: Session = Dep
 
 
 @app.post("/api/listings/create")
-def create_listing(req: mp_schemas.ListingCreate, db: Session = Depends(get_db)):
+def create_listing(
+    req: mp_schemas.ListingCreate,
+    db: Session = Depends(get_db),
+    user_id: Optional[str] = Depends(get_current_user_id),
+):
     """
     Create a new land listing:
     1. Validates area
     2. Runs ML analysis (reuses existing pipeline)
     3. Calculates area via pyproj
     4. Stores listing + analytics + crop scores
+    5. Links listing to authenticated user (if JWT present)
     """
     coords = req.coordinates
 
@@ -1005,6 +1155,7 @@ def create_listing(req: mp_schemas.ListingCreate, db: Session = Depends(get_db))
             listing_purpose=req.listing_purpose,
             expected_price=req.expected_price,
             analysis_results=analysis,
+            mongo_user_id=user_id,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create listing: {str(e)}")
@@ -1023,7 +1174,7 @@ def create_listing(req: mp_schemas.ListingCreate, db: Session = Depends(get_db))
 
 @app.get("/api/listings")
 def list_listings(
-    status: Optional[str] = None,
+    status: Optional[str] = "verified,pending",
     listing_purpose: Optional[str] = None,
     min_acres: Optional[float] = None,
     max_acres: Optional[float] = None,
@@ -1032,6 +1183,8 @@ def list_listings(
     db: Session = Depends(get_db),
 ):
     """Get filtered list of land listings."""
+    if status in ["all", ""]:
+        status = None
     listings = mp_crud.get_listings(
         db,
         status=status,
@@ -1119,6 +1272,7 @@ def get_listing_detail(listing_id: int, db: Session = Depends(get_db)):
             "listing_purpose": listing.listing_purpose.value if listing.listing_purpose else None,
             "expected_price": listing.expected_price,
             "status": listing.status.value if listing.status else None,
+            "admin_comment": listing.admin_comment,
             "verification_code": listing.verification_code,
             "submitted_at": listing.submitted_at.isoformat() if listing.submitted_at else None,
             "verified_at": listing.verified_at.isoformat() if listing.verified_at else None,
@@ -1298,17 +1452,56 @@ def admin_stats(db: Session = Depends(get_db)):
 
 
 @app.patch("/api/listings/{listing_id}/status")
-def admin_update_status(listing_id: int, update: AdminStatusUpdate, db: Session = Depends(get_db)):
-    """Update a listing's status (verify / reject / sold)."""
+async def admin_update_status(listing_id: int, update: AdminStatusUpdate, db: Session = Depends(get_db)):
+    """Update a listing's status (verify / reject / sold) and add comment."""
     from datetime import datetime as dt, timezone as tz
     listing = db.query(mp_models.LandListing).filter(mp_models.LandListing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found.")
     listing.status = update.status
+    if update.reason:
+        listing.admin_comment = update.reason
     if update.status == "verified":
         listing.verified_at = dt.now(tz.utc)
     db.commit()
+
+    if listing.mongo_user_id:
+        mongo = get_mongo_db()
+        if mongo is not None:
+            msg = f"Your land '{listing.title}' has been {update.status}."
+            if update.reason:
+                msg += f" Reason: {update.reason}"
+            await mongo.notifications.insert_one({
+                "userId": listing.mongo_user_id,
+                "listingId": listing.id,
+                "type": update.status,
+                "message": msg,
+                "read": False,
+                "createdAt": dt.now(tz.utc)
+            })
+
     return JSONResponse({"success": True, "message": f"Listing #{listing_id} marked as {update.status}."})
+
+@app.get("/api/v1/user/notifications")
+async def get_my_notifications(user_id: str = Depends(require_auth)):
+    db = get_mongo_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    docs = await db.notifications.find({"userId": user_id}).sort("createdAt", -1).to_list(100)
+    for d in docs:
+        d["_id"] = str(d["_id"])
+        if "createdAt" in d and hasattr(d["createdAt"], "isoformat"):
+            d["createdAt"] = d["createdAt"].isoformat()
+    return JSONResponse(docs)
+
+@app.patch("/api/v1/user/notifications/{notif_id}/read")
+async def mark_notification_read(notif_id: str, user_id: str = Depends(require_auth)):
+    db = get_mongo_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    from bson.objectid import ObjectId
+    await db.notifications.update_one({"_id": ObjectId(notif_id), "userId": user_id}, {"$set": {"read": True}})
+    return JSONResponse({"success": True})
 
 
 @app.delete("/api/listings/{listing_id}")

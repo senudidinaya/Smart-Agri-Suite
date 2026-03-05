@@ -130,6 +130,7 @@ def create_listing(
     listing_purpose: str,
     expected_price: Optional[float],
     analysis_results: Optional[Dict[str, Any]] = None,
+    mongo_user_id: Optional[str] = None,
 ) -> LandListing:
     """
     Create a new land listing with its analytics and crop scores in one transaction.
@@ -138,6 +139,7 @@ def create_listing(
     geojson_str = _coords_to_geojson(coordinates)
 
     listing = LandListing(
+        mongo_user_id=mongo_user_id,
         owner_name=owner_name,
         owner_phone=owner_phone,
         owner_email=owner_email,
@@ -220,7 +222,8 @@ def get_listings(
     )
 
     if status:
-        q = q.filter(LandListing.status == status)
+        status_list = [s.strip() for s in status.split(',')]
+        q = q.filter(LandListing.status.in_(status_list))
     if listing_purpose:
         q = q.filter(LandListing.listing_purpose == listing_purpose)
     if min_acres is not None:
@@ -230,6 +233,27 @@ def get_listings(
 
     q = q.order_by(LandListing.submitted_at.desc())
     return q.offset(offset).limit(limit).all()
+
+
+def get_listings_by_user(
+    db: Session,
+    mongo_user_id: str,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[LandListing]:
+    """Get all listings belonging to a specific MongoDB user."""
+    return (
+        db.query(LandListing)
+        .options(
+            joinedload(LandListing.photos),
+            joinedload(LandListing.analytics),
+        )
+        .filter(LandListing.mongo_user_id == mongo_user_id)
+        .order_by(LandListing.submitted_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
 
 def get_listing_by_id(db: Session, listing_id: int) -> Optional[LandListing]:

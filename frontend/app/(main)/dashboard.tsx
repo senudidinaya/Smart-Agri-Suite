@@ -11,11 +11,13 @@ import {
     Animated,
     RefreshControl,
     StyleSheet,
-    Platform} from "react-native";
+    Platform
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useNavigation } from "@react-navigation/native";
-import { useSafeAreaInsets , SafeAreaView} from "react-native-safe-area-context";
-import { API_BASE_URL } from "../../src/config";
+import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
+import { API_BASE_URL, AUTH_API_BASE_URL } from "../../src/config";
+import { useAuth } from "../../context/AuthContext";
 
 // ════════════════════════════════════════════════════════════
 //  TYPES
@@ -61,8 +63,6 @@ interface AdminZone {
 //  HELPERS
 // ════════════════════════════════════════════════════════════
 
-const ADMIN_PASSWORD = "admin123";
-
 type StatusTab = "all" | "pending" | "verified" | "rejected" | "sold";
 
 function landTypeBadge(label: string | null | undefined) {
@@ -92,14 +92,29 @@ function statusBadge(status: string | null) {
 // ════════════════════════════════════════════════════════════
 
 export default function AdminDashboardScreen() {
+    const { user } = useAuth();
     const [isUnlocked, setIsUnlocked] = useState(false);
     const [password, setPassword] = useState("");
+    const [unlocking, setUnlocking] = useState(false);
 
-    const handleUnlock = () => {
-        if (password === ADMIN_PASSWORD) {
-            setIsUnlocked(true);
-        } else {
-            Alert.alert("Access Denied", "Incorrect password. Try again.");
+    const handleUnlock = async () => {
+        if (!user) return;
+        setUnlocking(true);
+        try {
+            const res = await fetch(`${AUTH_API_BASE_URL}/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: user.username, password, rememberMe: false }),
+            });
+            if (res.ok) {
+                setIsUnlocked(true);
+            } else {
+                Alert.alert("Access Denied", "Incorrect password. Try again.");
+            }
+        } catch (e) {
+            Alert.alert("Connection Error", "Could not verify password against server.");
+        } finally {
+            setUnlocking(false);
         }
     };
 
@@ -109,6 +124,7 @@ export default function AdminDashboardScreen() {
                 password={password}
                 setPassword={setPassword}
                 onSubmit={handleUnlock}
+                loading={unlocking}
             />
         );
     }
@@ -123,11 +139,13 @@ export default function AdminDashboardScreen() {
 function AdminPasswordGate({
     password,
     setPassword,
-    onSubmit}: {
-    password: string;
-    setPassword: (v: string) => void;
-    onSubmit: () => void;
-}) {
+    onSubmit,
+    loading }: {
+        password: string;
+        setPassword: (v: string) => void;
+        onSubmit: () => void;
+        loading: boolean;
+    }) {
     const insets = useSafeAreaInsets();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
@@ -137,12 +155,14 @@ function AdminPasswordGate({
             Animated.timing(fadeAnim, {
                 toValue: 1,
                 duration: 600,
-                useNativeDriver: true}),
+                useNativeDriver: true
+            }),
             Animated.spring(slideAnim, {
                 toValue: 0,
                 tension: 80,
                 friction: 12,
-                useNativeDriver: true}),
+                useNativeDriver: true
+            }),
         ]).start();
     }, []);
 
@@ -177,10 +197,16 @@ function AdminPasswordGate({
                     style={({ pressed }) => [
                         ds.lockButton,
                         pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                        loading && { opacity: 0.7 }
                     ]}
                     onPress={onSubmit}
+                    disabled={loading}
                 >
-                    <Text style={ds.lockButtonText}>Unlock Dashboard</Text>
+                    {loading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={ds.lockButtonText}>Unlock Dashboard</Text>
+                    )}
                 </Pressable>
             </Animated.View>
         </SafeAreaView>
@@ -211,7 +237,8 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
         Animated.timing(headerAnim, {
             toValue: 1,
             duration: 400,
-            useNativeDriver: true}).start();
+            useNativeDriver: true
+        }).start();
     }, []);
 
     // ── Fetch ────────────────────────────────────────────
@@ -219,7 +246,7 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
         try {
             const [statsRes, listRes, zonesRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/admin/stats`),
-                fetch(`${API_BASE_URL}/api/listings?limit=50`),
+                fetch(`${API_BASE_URL}/api/listings?limit=50&status=all`),
                 fetch(`${API_BASE_URL}/api/restricted-zones`),
             ]);
             const [statsData, listData, zonesData] = await Promise.all([
@@ -260,13 +287,14 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
     };
 
     // ── Admin Actions ────────────────────────────────────
-    const updateListingStatus = async (id: number, newStatus: string) => {
+    const updateListingStatus = async (id: number, newStatus: string, reason?: string) => {
         setActionLoading(id);
         try {
             await fetch(`${API_BASE_URL}/api/listings/${id}/status`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: newStatus })});
+                body: JSON.stringify({ status: newStatus, reason: reason ?? null })
+            });
             fetchAll();
         } catch (e) {
             Alert.alert("Error", "Failed to update status.");
@@ -291,7 +319,8 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
                     } finally {
                         setActionLoading(null);
                     }
-                }},
+                }
+            },
         ]);
     };
 
@@ -308,7 +337,8 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
                     } catch {
                         Alert.alert("Error", "Delete failed.");
                     }
-                }},
+                }
+            },
         ]);
     };
 
@@ -372,7 +402,8 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
                                 ? `+${stats.listings_this_week} this week`
                                 : null,
                             trendColor: "#22c55e",
-                            valueColor: "#1e293b"},
+                            valueColor: "#1e293b"
+                        },
                         {
                             key: "pending",
                             emoji: "⏳",
@@ -381,7 +412,8 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
                             label: "Pending",
                             trend: null,
                             trendColor: null,
-                            valueColor: (stats?.pending_count ?? 0) > 0 ? "#eab308" : "#1e293b"},
+                            valueColor: (stats?.pending_count ?? 0) > 0 ? "#eab308" : "#1e293b"
+                        },
                         {
                             key: "verified",
                             emoji: "✅",
@@ -390,7 +422,8 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
                             label: "Verified",
                             trend: null,
                             trendColor: null,
-                            valueColor: "#22c55e"},
+                            valueColor: "#22c55e"
+                        },
                         {
                             key: "zones",
                             emoji: "🚫",
@@ -399,7 +432,8 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
                             label: "Restricted Zones",
                             trend: null,
                             trendColor: null,
-                            valueColor: "#ef4444"},
+                            valueColor: "#ef4444"
+                        },
                     ]}
                     contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8 }}
                     renderItem={({ item }) => (
@@ -428,11 +462,25 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
                                 borderColor="#eab308"
                                 actionLoading={actionLoading === listing.id}
                                 onVerify={() => updateListingStatus(listing.id, "verified")}
-                                onReject={() => updateListingStatus(listing.id, "rejected")}
+                                onReject={() => {
+                                    Alert.prompt(
+                                        "Reject Listing",
+                                        "Enter a reason for rejection (this will be sent to the user):",
+                                        [
+                                            { text: "Cancel", style: "cancel" },
+                                            {
+                                                text: "Reject",
+                                                style: "destructive",
+                                                onPress: (reason?: string) => updateListingStatus(listing.id, "rejected", reason)
+                                            }
+                                        ]
+                                    );
+                                }}
                                 onView={() =>
                                     router.push({
                                         pathname: "/admin/listing-detail",
-                                        params: { id: String(listing.id) }} as any)
+                                        params: { id: String(listing.id) }
+                                    } as any)
                                 }
                                 onDelete={() => deleteListing(listing.id)}
                             />
@@ -494,19 +542,33 @@ function AdminDashboardContent({ onLock }: { onLock: () => void }) {
                                 borderColor={sb.color}
                                 actionLoading={actionLoading === listing.id}
                                 onVerify={
-                                    listing.status === "pending"
+                                    listing.status === "pending" || listing.status === "rejected"
                                         ? () => updateListingStatus(listing.id, "verified")
                                         : undefined
                                 }
                                 onReject={
-                                    listing.status === "pending"
-                                        ? () => updateListingStatus(listing.id, "rejected")
+                                    listing.status === "pending" || listing.status === "verified"
+                                        ? () => {
+                                            Alert.prompt(
+                                                "Reject Listing",
+                                                "Enter a reason for rejection (this will be sent to the user):",
+                                                [
+                                                    { text: "Cancel", style: "cancel" },
+                                                    {
+                                                        text: "Reject",
+                                                        style: "destructive",
+                                                        onPress: (reason?: string) => updateListingStatus(listing.id, "rejected", reason)
+                                                    }
+                                                ]
+                                            );
+                                        }
                                         : undefined
                                 }
                                 onView={() =>
                                     router.push({
                                         pathname: "/admin/listing-detail",
-                                        params: { id: String(listing.id) }} as any)
+                                        params: { id: String(listing.id) }
+                                    } as any)
                                 }
                                 onDelete={() => deleteListing(listing.id)}
                             />
@@ -571,15 +633,15 @@ function DashboardStatCard({
     label,
     trend,
     trendColor,
-    valueColor}: {
-    emoji: string;
-    bgColor: string;
-    value: number;
-    label: string;
-    trend: string | null;
-    trendColor: string | null;
-    valueColor: string;
-}) {
+    valueColor }: {
+        emoji: string;
+        bgColor: string;
+        value: number;
+        label: string;
+        trend: string | null;
+        trendColor: string | null;
+        valueColor: string;
+    }) {
     return (
         <View style={ds.statCard}>
             <View style={[ds.statIconCircle, { backgroundColor: bgColor }]}>
@@ -604,15 +666,15 @@ function AdminListingCard({
     onVerify,
     onReject,
     onView,
-    onDelete}: {
-    listing: AdminListing;
-    borderColor: string;
-    actionLoading: boolean;
-    onVerify?: () => void;
-    onReject?: () => void;
-    onView: () => void;
-    onDelete: () => void;
-}) {
+    onDelete }: {
+        listing: AdminListing;
+        borderColor: string;
+        actionLoading: boolean;
+        onVerify?: () => void;
+        onReject?: () => void;
+        onView: () => void;
+        onDelete: () => void;
+    }) {
     const sb = statusBadge(listing.status);
     const lt = landTypeBadge(listing.analytics?.prediction_label);
 
@@ -698,10 +760,10 @@ function AdminListingCard({
 /** AdminZoneCard — restricted zone row */
 function AdminZoneCard({
     zone,
-    onDelete}: {
-    zone: AdminZone;
-    onDelete: () => void;
-}) {
+    onDelete }: {
+        zone: AdminZone;
+        onDelete: () => void;
+    }) {
     return (
         <View style={[ds.listingCard, { borderLeftColor: "#ef4444" }]}>
             <View style={ds.listingRow}>
@@ -818,7 +880,8 @@ const ds = StyleSheet.create({
         flex: 1,
         backgroundColor: "#f8fafc",
         alignItems: "center",
-        justifyContent: "center"},
+        justifyContent: "center"
+    },
     lockCard: {
         width: 300,
         backgroundColor: "#fff",
@@ -829,7 +892,8 @@ const ds = StyleSheet.create({
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.08,
         shadowRadius: 24,
-        elevation: 6},
+        elevation: 6
+    },
     lockIconCircle: {
         width: 72,
         height: 72,
@@ -837,7 +901,8 @@ const ds = StyleSheet.create({
         backgroundColor: "#dbeafe",
         alignItems: "center",
         justifyContent: "center",
-        marginBottom: 20},
+        marginBottom: 20
+    },
     lockIcon: { fontSize: 32 },
     lockTitle: { fontSize: 22, fontWeight: "700", color: "#1e293b", marginBottom: 6 },
     lockSubtitle: { fontSize: 14, color: "#64748b", marginBottom: 24, textAlign: "center" },
@@ -850,13 +915,15 @@ const ds = StyleSheet.create({
         padding: 14,
         fontSize: 15,
         color: "#1e293b",
-        marginBottom: 16},
+        marginBottom: 16
+    },
     lockButton: {
         width: "100%",
         backgroundColor: "#3b82f6",
         borderRadius: 12,
         paddingVertical: 14,
-        alignItems: "center"},
+        alignItems: "center"
+    },
     lockButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 
     // -- Header --
@@ -866,7 +933,8 @@ const ds = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 20,
         paddingTop: 16,
-        paddingBottom: 8},
+        paddingBottom: 8
+    },
     headerTitle: { fontSize: 28, fontWeight: "700", color: "#1e293b" },
     headerSubtitle: { fontSize: 14, color: "#64748b", marginTop: 2 },
     lockBtn: {
@@ -880,7 +948,8 @@ const ds = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
-        elevation: 2},
+        elevation: 2
+    },
     lockBtnText: { fontSize: 20 },
 
     // -- Section title --
@@ -890,7 +959,8 @@ const ds = StyleSheet.create({
         color: "#1e293b",
         paddingHorizontal: 20,
         marginTop: 24,
-        marginBottom: 14},
+        marginBottom: 14
+    },
 
     // -- Stat Cards --
     statCard: {
@@ -903,14 +973,16 @@ const ds = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
-        elevation: 3},
+        elevation: 3
+    },
     statIconCircle: {
         width: 56,
         height: 56,
         borderRadius: 28,
         alignItems: "center",
         justifyContent: "center",
-        marginBottom: 14},
+        marginBottom: 14
+    },
     statIconEmoji: { fontSize: 26 },
     statValue: { fontSize: 36, fontWeight: "700", color: "#1e293b" },
     statLabel: { fontSize: 14, color: "#64748b", marginTop: 2 },
@@ -929,12 +1001,14 @@ const ds = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
-        elevation: 3},
+        elevation: 3
+    },
     listingRow: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 8},
+        marginBottom: 8
+    },
     listingTitle: { fontSize: 18, fontWeight: "600", color: "#1e293b" },
     listingCode: { fontSize: 12, color: "#64748b", fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }) },
     listingMetaRow: { flexDirection: "row", gap: 16, marginTop: 4 },
@@ -944,7 +1018,8 @@ const ds = StyleSheet.create({
     badge: {
         paddingHorizontal: 10,
         paddingVertical: 4,
-        borderRadius: 20},
+        borderRadius: 20
+    },
     badgeText: { fontSize: 12, fontWeight: "700" },
 
     // -- Action buttons --
@@ -953,23 +1028,27 @@ const ds = StyleSheet.create({
         gap: 8,
         marginTop: 14,
         flexWrap: "wrap",
-        alignItems: "center"},
+        alignItems: "center"
+    },
     actionBtn: {
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderRadius: 10,
         alignItems: "center",
-        justifyContent: "center"},
+        justifyContent: "center"
+    },
     actionBtnGreen: { backgroundColor: "#22c55e" },
     actionBtnRed: { backgroundColor: "#ef4444" },
     actionBtnBlueOutline: {
         backgroundColor: "transparent",
         borderWidth: 1.5,
-        borderColor: "#3b82f6"},
+        borderColor: "#3b82f6"
+    },
     actionBtnGrayOutline: {
         backgroundColor: "transparent",
         borderWidth: 1.5,
-        borderColor: "#e2e8f0"},
+        borderColor: "#e2e8f0"
+    },
     actionBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
     actionBtnTextOutline: { color: "#3b82f6", fontWeight: "700", fontSize: 13 },
 
@@ -979,7 +1058,8 @@ const ds = StyleSheet.create({
         paddingHorizontal: 16,
         marginBottom: 14,
         gap: 4,
-        flexWrap: "wrap"},
+        flexWrap: "wrap"
+    },
     tabItem: {
         flexDirection: "row",
         alignItems: "center",
@@ -987,9 +1067,11 @@ const ds = StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 20,
         backgroundColor: "#f1f5f9",
-        gap: 6},
+        gap: 6
+    },
     tabItemActive: {
-        backgroundColor: "#dbeafe"},
+        backgroundColor: "#dbeafe"
+    },
     tabText: { fontSize: 13, color: "#64748b", fontWeight: "500" },
     tabTextActive: { color: "#2563eb", fontWeight: "700" },
     tabBadge: {
@@ -998,7 +1080,8 @@ const ds = StyleSheet.create({
         borderRadius: 11,
         backgroundColor: "#e2e8f0",
         alignItems: "center",
-        justifyContent: "center"},
+        justifyContent: "center"
+    },
     tabBadgeActive: { backgroundColor: "#3b82f6" },
     tabBadgeText: { fontSize: 10, color: "#64748b", fontWeight: "700" },
     tabBadgeTextActive: { color: "#fff" },
@@ -1015,7 +1098,8 @@ const ds = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 8,
-        elevation: 1},
+        elevation: 1
+    },
     emptyEmoji: { fontSize: 36, marginBottom: 8 },
     emptyText: { fontSize: 14, color: "#94a3b8" },
 
@@ -1023,7 +1107,8 @@ const ds = StyleSheet.create({
     viewAllBtn: {
         marginHorizontal: 16,
         paddingVertical: 12,
-        alignItems: "center"},
+        alignItems: "center"
+    },
     viewAllText: { color: "#3b82f6", fontWeight: "700", fontSize: 14 },
 
     // -- Add Zone --
@@ -1038,7 +1123,8 @@ const ds = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 12,
-        elevation: 4},
+        elevation: 4
+    },
     addZoneBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 
     // -- Timeline --
@@ -1052,26 +1138,33 @@ const ds = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
-        elevation: 3},
+        elevation: 3
+    },
     timelineRow: {
         flexDirection: "row",
-        minHeight: 48},
+        minHeight: 48
+    },
     timelineLineContainer: {
         width: 24,
-        alignItems: "center"},
+        alignItems: "center"
+    },
     timelineDot: {
         width: 12,
         height: 12,
         borderRadius: 6,
-        marginTop: 4},
+        marginTop: 4
+    },
     timelineLine: {
         width: 2,
         flex: 1,
         backgroundColor: "#e2e8f0",
-        marginTop: 4},
+        marginTop: 4
+    },
     timelineContent: {
         flex: 1,
         paddingLeft: 10,
-        paddingBottom: 16},
+        paddingBottom: 16
+    },
     timelineText: { fontSize: 14, color: "#334155", lineHeight: 20 },
-    timelineTime: { fontSize: 12, color: "#94a3b8", marginTop: 2 }});
+    timelineTime: { fontSize: 12, color: "#94a3b8", marginTop: 2 }
+});

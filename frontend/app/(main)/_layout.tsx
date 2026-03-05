@@ -3,8 +3,12 @@ import React from "react";
 import { Tabs } from "expo-router";
 import { Platform, Text } from "react-native";
 import styles from "../../src/styles/tabLayoutStyles";
+import { useAuth } from "../../context/AuthContext";
 
 export default function TabLayout() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   return (
     <Tabs
       screenOptions={{
@@ -14,10 +18,13 @@ export default function TabLayout() {
         tabBarStyle: {
           height: Platform.OS === "android" ? 62 : 82,
           paddingTop: 6,
-          paddingBottom: Platform.OS === "android" ? 10 : 24},
+          paddingBottom: Platform.OS === "android" ? 10 : 24
+        },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "800"}}}
+          fontWeight: "800"
+        }
+      }}
     >
       {/* ✅ 1) Overview */}
       <Tabs.Screen
@@ -26,7 +33,8 @@ export default function TabLayout() {
           title: "Overview",
           tabBarIcon: ({ color }) => (
             <IconText color={color} text="🏠" />
-          )}}
+          )
+        }}
       />
 
       {/* ✅ 2) Analytics */}
@@ -36,7 +44,8 @@ export default function TabLayout() {
           title: "Analytics",
           tabBarIcon: ({ color }) => (
             <IconText color={color} text="📊" />
-          )}}
+          )
+        }}
       />
 
       {/* ✅ 3) Map */}
@@ -46,7 +55,8 @@ export default function TabLayout() {
           title: "Map",
           tabBarIcon: ({ color }) => (
             <IconText color={color} text="🗺️" />
-          )}}
+          )
+        }}
       />
 
       {/* ✅ 4) Model */}
@@ -56,7 +66,8 @@ export default function TabLayout() {
           title: "Model",
           tabBarIcon: ({ color }) => (
             <IconText color={color} text="🤖" />
-          )}}
+          )
+        }}
       />
 
       {/* ✅ 5) Marketplace */}
@@ -66,7 +77,8 @@ export default function TabLayout() {
           title: "Market",
           tabBarIcon: ({ color }) => (
             <IconText color={color} text="🏪" />
-          )}}
+          )
+        }}
       />
 
       {/* ✅ 6) Dashboard */}
@@ -74,16 +86,19 @@ export default function TabLayout() {
         name="dashboard"
         options={{
           title: "Admin",
+          href: isAdmin ? "/dashboard" : null,
           tabBarIcon: ({ color }) => (
             <IconText color={color} text="📊" />
-          )}}
+          )
+        }}
       />
 
       {/* index */}
       <Tabs.Screen
         name="index"
         options={{
-          href: null}}
+          href: null
+        }}
       />
     </Tabs>
   );
