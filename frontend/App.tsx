@@ -10,6 +10,8 @@ import { Text, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
+import AdminPage from './screens/AdminPage';
+import ClientPage from './screens/ClientPage';
 
 // Navigation types
 type AuthStackParamList = {
@@ -61,8 +63,18 @@ function AppContent() {
     return <LoadingScreen />;
   }
 
-  // Always show auth screens
-  return <AuthNavigator />;
+  // Not logged in - show auth screens
+  if (!user) {
+    return <AuthNavigator />;
+  }
+
+  // Logged in - display simple page based on role
+  if (user.role === 'admin') {
+    return <AdminPage />;
+  }
+
+  // default to client
+  return <ClientPage />;
 }
 
 // Root App Component
