@@ -6,6 +6,10 @@ from pydantic import BaseModel
 from typing import List, Dict, Tuple, Any, Optional
 from sqlalchemy.orm import Session
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import json  
 import numpy as np
 import joblib
@@ -39,6 +43,7 @@ from auth_utils import (
     UserRegister, UserLogin,
 )
 from bson import ObjectId
+import gee_service
 
 
 app = FastAPI(title="Idle Land Mobilization API", version="2.3.0")
@@ -1178,6 +1183,7 @@ def list_listings(
     listing_purpose: Optional[str] = None,
     min_acres: Optional[float] = None,
     max_acres: Optional[float] = None,
+    city: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -1191,6 +1197,7 @@ def list_listings(
         listing_purpose=listing_purpose,
         min_acres=min_acres,
         max_acres=max_acres,
+        city=city,
         limit=limit,
         offset=offset,
     )
@@ -1404,6 +1411,93 @@ def upload_listing_documents(
         "documents": [{"id": d.id, "url": d.url, "doc_type": d.doc_type} for d in saved_docs]
     })
 
+
+# =============================================================
+#  LAND COMPLEXITY ENDPOINTS
+# =============================================================
+
+@app.get("/api/analysis/city")
+async def get_city_analysis(city: str):
+    """Get land complexity analysis for a city."""
+    try:
+        result = gee_service.analyze_city_complexity(city)
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return JSONResponse(result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analysis/point")
+async def get_point_analysis(lat: float, lng: float):
+    """XGBoost analysis for any clicked point (works globally via GEE)."""
+    try:
+        result = gee_service.gee_inspect_point(lat, lng)
+
+        # Add spice suitability & intercropping using the same logic as local analysis
+        feats = result.get("features", {})
+        pred = result.get("prediction") or {}
+        land_label = str(pred.get("label") or "UNKNOWN")
+
+        if feats:
+            spices = [_evaluate_spice(s, feats, land_label) for s in SPICES]
+            result["intelligence"] = {
+                "spices": spices,
+                "intercropping": _intercropping(spices, feats),
+                "health": _health_summary(feats, land_label),
+            }
+            # Mark as inside_aoi=True so analytics screen renders fully
+            result["inside_aoi"] = True
+        else:
+            result["intelligence"] = {
+                "spices": [],
+                "intercropping": {"good_pairs": [], "avoid_pairs": [], "notes": []},
+                "health": {"headline": "No data available for this location", "tags": []},
+            }
+
+        return JSONResponse(result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class GeePolygonRequest(BaseModel):
+    coordinates: List[List[float]]  # [[lng, lat], ...]
+
+
+@app.post("/api/analysis/polygon")
+async def get_polygon_analysis(req: GeePolygonRequest):
+    """XGBoost analysis for any drawn polygon (works globally via GEE)."""
+    try:
+        result = gee_service.gee_analyze_polygon(req.coordinates)
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Analysis failed"))
+
+        # Add spice suitability & intercropping
+        stats = result.get("statistics", {})
+        pred = result.get("prediction") or {}
+        land_label = str(pred.get("label") or "UNKNOWN")
+
+        feats_dict = {k: stats.get(k) for k in FEATURES if stats.get(k) is not None}
+
+        if feats_dict:
+            spices = [_evaluate_spice(s, feats_dict, land_label) for s in SPICES]
+            result["intelligence"] = {
+                "spices": spices,
+                "intercropping": _intercropping(spices, feats_dict),
+                "health": _health_summary(feats_dict, land_label),
+            }
+        else:
+            result["intelligence"] = {
+                "spices": [],
+                "intercropping": {"good_pairs": [], "avoid_pairs": [], "notes": []},
+                "health": {"headline": "Insufficient data", "tags": []},
+            }
+
+        return JSONResponse(result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # =============================================================
 #  ADMIN DASHBOARD ENDPOINTS

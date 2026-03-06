@@ -8,11 +8,13 @@ import {
   Alert,
   LayoutAnimation,
   UIManager,
-  StyleSheet
+  StyleSheet,
+  Modal
 } from "react-native";
 import Slider from "@react-native-community/slider";
 import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
 import styles from "../../src/styles/mapStyles";
+import { ComplexitySearch } from "../../components/ComplexitySearch";
 import MapView, {
   PROVIDER_GOOGLE,
   Region,
@@ -34,6 +36,22 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 // ==================== CONSTANTS ====================
+// ==================== TYPES ====================
+interface ListingSummary {
+  id: number;
+  title: string;
+  listing_purpose: string;
+  status: string;
+  area_hectares: number | null;
+  analytics?: {
+    prediction_label: string | null;
+  } | null;
+}
+
+interface ListingWithPolygon extends ListingSummary {
+  polygon_coordinates: number[][] | null;
+}
+
 const MALABE_BOUNDS = {
   minLng: 79.94143645990987,
   minLat: 6.882981538452185,
@@ -177,6 +195,15 @@ function getPolygonColor(points: LatLng[]): string {
   return "#22c55e";
 }
 
+function polygonCentroid(coords: LatLng[]) {
+  let lat = 0, lng = 0;
+  for (const c of coords) {
+    lat += c.latitude;
+    lng += c.longitude;
+  }
+  return { latitude: lat / coords.length, longitude: lng / coords.length };
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 function regionIntersectsBounds(r: Region) {
   const north = r.latitude + r.latitudeDelta / 2;
@@ -216,7 +243,15 @@ function pointInPolygon(pt: LatLng, poly: LatLng[]) {
 // ==================== MAIN SCREEN ====================
 export default function MapScreen() {
   const router = useRouter();
-  const { startDraw } = useLocalSearchParams<{ startDraw?: string }>();
+  const { startDraw, cityMode, lat, lng, cityName, boundary, geeTileUrl } = useLocalSearchParams<{
+    startDraw?: string;
+    cityMode?: 'point' | 'analysis' | 'listings';
+    lat?: string;
+    lng?: string;
+    cityName?: string;
+    boundary?: string;
+    geeTileUrl?: string;
+  }>();
   const mapRef = useRef<MapView>(null);
   const insets = useSafeAreaInsets();
 
@@ -224,6 +259,7 @@ export default function MapScreen() {
   const [mapType, setMapType] = useState<"standard" | "satellite" | "terrain">("standard");
   const [showClassifiedOverlay, setShowClassifiedOverlay] = useState(false);
   const [geeOpacity, setGeeOpacity] = useState(0.7);
+  const [dynamicTileUrl, setDynamicTileUrl] = useState<string | null>(null);
 
 
 
@@ -239,6 +275,127 @@ export default function MapScreen() {
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [polygonError, setPolygonError] = useState<string | null>(null);
   const [pointHistory, setPointHistory] = useState<LatLng[][]>([]);
+  const [cityBoundary, setCityBoundary] = useState<LatLng[]>([]);
+  const [targetCity, setTargetCity] = useState<string | null>(null);
+  const [nearbyListings, setNearbyListings] = useState<ListingWithPolygon[]>([]);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+
+  // Function to fetch listings for a city or region
+  const fetchCityListings = useCallback(async (name: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/listings?city=${encodeURIComponent(name)}&limit=50`);
+      const data = await res.json();
+      if (data.ok) {
+        // Fetch detail for each listing (to get polygon_coordinates)
+        const summaries: ListingSummary[] = data.listings ?? [];
+        const details = await Promise.all(
+          summaries.map((s) =>
+            fetch(`${API_BASE_URL}/api/listings/${s.id}`)
+              .then((r) => r.json())
+              .then((d) => d.listing as ListingWithPolygon)
+              .catch(() => null)
+          )
+        );
+        setNearbyListings(details.filter(Boolean) as ListingWithPolygon[]);
+      }
+    } catch (e) {
+      console.error("Failed to fetch listings for city:", e);
+    }
+  }, []);
+
+  // Handle Incoming City Search Params
+  useEffect(() => {
+    if (lat && lng) {
+      setShowSearchModal(false);
+      const targetLat = parseFloat(lat);
+      const targetLng = parseFloat(lng);
+
+      const newRegion: Region = {
+        latitude: targetLat,
+        longitude: targetLng,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05
+      };
+
+      setTimeout(() => {
+        mapRef.current?.animateToRegion(newRegion, 1000);
+      }, 500);
+
+      if (cityName) setTargetCity(cityName);
+
+      if (geeTileUrl) {
+        setDynamicTileUrl(geeTileUrl);
+        if (cityMode === 'analysis') {
+          setShowClassifiedOverlay(true);
+        }
+      }
+
+      if (boundary) {
+        try {
+          const parsed = JSON.parse(boundary);
+          if (parsed.type === "Polygon") {
+            const coords: LatLng[] = parsed.coordinates[0].map((c: any) => ({
+              longitude: c[0],
+              latitude: c[1]
+            }));
+            setCityBoundary(coords);
+
+            // If Analysis mode, trigger boundary analysis
+            if (cityMode === 'analysis') {
+              setPolygonPoints(coords);
+              setTimeout(() => {
+                analyzePolygonAuto(coords);
+              }, 1500);
+            }
+
+            if (cityMode === 'listings' && cityName) {
+              fetchCityListings(cityName);
+            }
+          } else if (parsed.type === "MultiPolygon") {
+            const coords: LatLng[] = parsed.coordinates[0][0].map((c: any) => ({
+              longitude: c[0],
+              latitude: c[1]
+            }));
+            setCityBoundary(coords);
+            if (cityMode === 'analysis') {
+              setPolygonPoints(coords);
+              setTimeout(() => {
+                analyzePolygonAuto(coords);
+              }, 1500);
+            }
+            if (cityMode === 'listings' && cityName) {
+              fetchCityListings(cityName);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse boundary GeoJSON", e);
+        }
+      }
+    }
+  }, [lat, lng, boundary, cityMode, cityName, fetchCityListings]);
+
+  const analyzePolygonAuto = async (points: LatLng[]) => {
+    setAnalyzeLoading(true);
+    try {
+      const coords = points.map((p) => [p.longitude, p.latitude]);
+      const res = await fetch(`${API_BASE_URL}/aoi/analyze-polygon`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coordinates: coords })
+      });
+      const result = await res.json();
+      if (result.ok) {
+        router.push({
+          pathname: "/analytics",
+          params: { type: "polygon", result: JSON.stringify(result) }
+        });
+      }
+    } catch (e) {
+      console.error("Auto analysis failed:", e);
+    } finally {
+      setAnalyzeLoading(false);
+    }
+  };
 
   const [userLoc, setUserLoc] = useState<{
     latitude: number;
@@ -460,31 +617,51 @@ export default function MapScreen() {
     try {
       const coords = polygonPoints.map((p) => [p.longitude, p.latitude]);
 
-      const response = await fetch(`${API_BASE_URL}/aoi/analyze-polygon`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coordinates: coords })
-      });
+      // Try GEE-based global analysis first (works anywhere)
+      let result: any = null;
+      let useGee = true;
 
-      const responseText = await response.text();
-
-      if (!response.ok) {
-        Alert.alert("Error", `Status ${response.status}`);
-        setAnalyzeLoading(false);
-        return;
-      }
-
-      let result;
       try {
-        result = JSON.parse(responseText);
+        const geeResponse = await fetch(`${API_BASE_URL}/api/analysis/polygon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coordinates: coords })
+        });
+        if (geeResponse.ok) {
+          result = await geeResponse.json();
+        }
       } catch {
-        Alert.alert("Error", "Parse failed");
-        setAnalyzeLoading(false);
-        return;
+        useGee = false;
       }
 
-      if (!result.ok) {
-        Alert.alert("Error", result.message || "Analysis failed");
+      // Fall back to local AOI analysis (Malabe)
+      if (!result || !result.ok) {
+        useGee = false;
+        const response = await fetch(`${API_BASE_URL}/aoi/analyze-polygon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coordinates: coords })
+        });
+
+        const responseText = await response.text();
+
+        if (!response.ok) {
+          Alert.alert("Error", `Status ${response.status}`);
+          setAnalyzeLoading(false);
+          return;
+        }
+
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          Alert.alert("Error", "Parse failed");
+          setAnalyzeLoading(false);
+          return;
+        }
+      }
+
+      if (!result || !result.ok) {
+        Alert.alert("Error", result?.message || result?.error || "Analysis failed");
         setAnalyzeLoading(false);
         return;
       }
@@ -524,9 +701,9 @@ export default function MapScreen() {
         onRegionChangeComplete={(r) => setRegion(r)}
         onPress={onMapPress}
       >
-        {showOverlayNow && (
+        {(showClassifiedOverlay || dynamicTileUrl) && (
           <UrlTile
-            urlTemplate={`${API_BASE_URL}/tiles/classified/{z}/{x}/{y}.png`}
+            urlTemplate={dynamicTileUrl || `${API_BASE_URL}/tiles/classified/{z}/{x}/{y}.png`}
             maximumZ={20}
             tileSize={256}
             zIndex={2}
@@ -543,6 +720,43 @@ export default function MapScreen() {
             zIndex={20}
           />
         )}
+
+        {/* City Boundary Polygon */}
+        {cityBoundary.length > 2 && (
+          <Polygon
+            coordinates={cityBoundary}
+            strokeColor="#64748b" // Ash color for boundary
+            strokeWidth={3}
+            fillColor="rgba(148, 163, 184, 0.1)" // Light ash fill
+            zIndex={15}
+          />
+        )}
+
+        {/* Nearby Listing Polygons & Markers */}
+        {nearbyListings.map((listing) => {
+          if (!listing.polygon_coordinates || listing.polygon_coordinates.length < 3) return null;
+          const coords = listing.polygon_coordinates.map(([lng, lat]) => ({
+            latitude: lat,
+            longitude: lng
+          }));
+          const centroid = polygonCentroid(coords);
+          return (
+            <React.Fragment key={`listing-${listing.id}`}>
+              <Polygon
+                coordinates={coords}
+                strokeColor="#22c55e"
+                fillColor="rgba(34, 197, 94, 0.2)"
+                strokeWidth={2}
+              />
+              <Marker
+                coordinate={centroid}
+                pinColor="green"
+                title={listing.title}
+                onCalloutPress={() => router.push({ pathname: "/listings/detail", params: { id: listing.id.toString() } })}
+              />
+            </React.Fragment>
+          );
+        })}
 
         {/* ALWAYS show Polyline for all points to securely draw the boundaries (chain) */}
         {polygonPoints.length >= 2 && (
@@ -705,6 +919,15 @@ export default function MapScreen() {
               <Text style={styles.toolboxBtnText}>📍</Text>
             </Pressable>
 
+            {/* Search City */}
+            <Pressable
+              style={[styles.toolboxBtn, showSearchModal && styles.toolboxBtnActive]}
+              onPress={() => setShowSearchModal(true)}
+              android_ripple={{ color: "rgba(59, 130, 246, 0.2)", radius: 24 }}
+            >
+              <Text style={styles.toolboxBtnText}>🔍</Text>
+            </Pressable>
+
             {/* Draw/Edit */}
             <Pressable
               style={[
@@ -848,29 +1071,79 @@ export default function MapScreen() {
                     selected.inside ? styles.statusTextInside : styles.statusTextOutside,
                   ]}
                 >
-                  {selected.inside ? "✅ Inside AOI" : "❌ Outside AOI"}
+                  {selected.inside ? "✅ Inside Malabe AOI" : "🌍 Global Analysis (GEE)"}
                 </Text>
               </View>
 
               <Pressable
                 style={[
                   styles.analyzePointBtn,
-                  !selected.inside && styles.analyzePointBtnDisabled,
                 ]}
-                onPress={openAnalytics}
-                disabled={!selected.inside}
+                onPress={selected.inside ? openAnalytics : () => {
+                  router.push({
+                    pathname: "/analytics",
+                    params: {
+                      lat: String(selected.latitude),
+                      lng: String(selected.longitude),
+                      type: "gee_point"
+                    }
+                  });
+                }}
               >
                 <Text style={styles.analyzePointBtnText}>
-                  {selected.inside ? "📊 Analyze" : "Outside AOI"}
+                  {selected.inside ? "📊 Analyze (Local)" : "🔬 Analyze (XGBoost)"}
                 </Text>
               </Pressable>
             </View>
           </View>
         )}
+
+        {/* Search Modal */}
+        <Modal
+          visible={showSearchModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowSearchModal(false)}
+        >
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            justifyContent: 'center',
+            padding: 20
+          }}>
+            <View style={{
+              backgroundColor: '#fff',
+              borderRadius: 24,
+              padding: 4,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.3,
+              shadowRadius: 20,
+              elevation: 10
+            }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 16 }}>
+                <Pressable onPress={() => setShowSearchModal(false)} style={{ padding: 4 }}>
+                  <View style={{ backgroundColor: '#f1f5f9', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: '#64748b' }}>✕</Text>
+                  </View>
+                </Pressable>
+              </View>
+              <ComplexitySearch theme={{
+                background: "#f8fafc",
+                cardBg: "#ffffff",
+                borderColor: "rgba(0,0,0,0.06)",
+                textPrimary: "#0f172a",
+                textSecondary: "#475569",
+                textMuted: "#64748b",
+                textHighlight: "#16a34a",
+                badgeBg: "rgba(22, 163, 74, 0.1)",
+                badgeBorder: "rgba(22, 163, 74, 0.2)",
+                badgeText: "#16a34a"
+              }} />
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
 }
-
-
-

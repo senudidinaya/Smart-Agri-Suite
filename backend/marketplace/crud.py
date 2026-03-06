@@ -209,6 +209,7 @@ def get_listings(
     listing_purpose: Optional[str] = None,
     min_acres: Optional[float] = None,
     max_acres: Optional[float] = None,
+    city: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
 ) -> List[LandListing]:
@@ -230,6 +231,8 @@ def get_listings(
         q = q.filter(LandListing.area_acres >= min_acres)
     if max_acres is not None:
         q = q.filter(LandListing.area_acres <= max_acres)
+    if city:
+        q = q.filter(LandListing.owner_address.ilike(f"%{city}%"))
 
     q = q.order_by(LandListing.submitted_at.desc())
     return q.offset(offset).limit(limit).all()

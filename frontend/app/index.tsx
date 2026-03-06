@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { API_BASE_URL } from "../src/config";
+import { ComplexitySearch } from "../components/ComplexitySearch";
 
 const COMPONENTS = [
     {

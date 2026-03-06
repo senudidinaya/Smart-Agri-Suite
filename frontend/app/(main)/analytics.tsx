@@ -562,12 +562,13 @@ export default function AnalyticsScreen() {
     lng: params.lng
   });
 
-  // Determine if this is polygon or point analysis
-  const analysisType = params.type as "point" | "polygon" | undefined;
+  // Determine analysis type
+  const analysisType = params.type as "point" | "polygon" | "gee_point" | undefined;
   const isPolygonAnalysis = analysisType === "polygon";
+  const isGeePoint = analysisType === "gee_point";
 
-  const lat = analysisType === "point" ? Number(params.lat) : null;
-  const lng = analysisType === "point" ? Number(params.lng) : null;
+  const lat = (analysisType === "point" || isGeePoint) ? Number(params.lat) : null;
+  const lng = (analysisType === "point" || isGeePoint) ? Number(params.lng) : null;
 
   // Parse polygon data immediately from params
   const polygonData = useMemo(() => {
@@ -603,10 +604,15 @@ export default function AnalyticsScreen() {
   const url = useMemo(() => {
     if (isPolygonAnalysis) return null;
     if (!Number.isFinite(lat!) || !Number.isFinite(lng!)) return null;
+    if (isGeePoint) {
+      return `${API_BASE_URL}/api/analysis/point?lat=${encodeURIComponent(
+        String(lat)
+      )}&lng=${encodeURIComponent(String(lng))}`;
+    }
     return `${API_BASE_URL}/intelligence/evaluate?lat=${encodeURIComponent(
       String(lat)
     )}&lng=${encodeURIComponent(String(lng))}`;
-  }, [lat, lng, isPolygonAnalysis]);
+  }, [lat, lng, isPolygonAnalysis, isGeePoint]);
 
   // Fetch for point analysis
   useEffect(() => {
@@ -700,7 +706,7 @@ export default function AnalyticsScreen() {
     );
   }
 
-  if (!isPolygonAnalysis && !data.inside_aoi) {
+  if (!isPolygonAnalysis && !isGeePoint && !data.inside_aoi) {
     return (
       <SafeAreaView style={styles.centerContainer}>
         <View style={[styles.card, styles.warningCard]}>
@@ -756,7 +762,7 @@ export default function AnalyticsScreen() {
     slope: slopeVal
   });
 
-  const pageTitle = isPolygonAnalysis ? "📐 Polygon Land Analytics" : "🌍 Point Land Analytics";
+  const pageTitle = isPolygonAnalysis ? "📐 Polygon Land Analytics" : isGeePoint ? "🔬 GEE Point Analytics (XGBoost)" : "🌍 Point Land Analytics";
   const pageSubtitle = isPolygonAnalysis
     ? `Area: ${(data.area_hectares ?? 0).toFixed(2)} ha • ${data.pixel_count ?? 0} pixels`
     : `Lat ${fmt(data.lat, 6)} • Lng ${fmt(data.lng, 6)}`;
