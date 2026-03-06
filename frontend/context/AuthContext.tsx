@@ -68,16 +68,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             const freshUser = await res.json();
                             setUser(freshUser);
                             await AsyncStorage.setItem(USER_KEY, JSON.stringify(freshUser));
-                        } else {
-                            // Token expired / invalid
+                        } else if (res.status === 401 || res.status === 403) {
+                            // Token explicitly expired or invalid
                             await AsyncStorage.removeItem(TOKEN_KEY);
                             await AsyncStorage.removeItem(USER_KEY);
                             setToken(null);
                             setUser(null);
+                        } else {
+                            // Server error (e.g. 500, 503) — keep the cached user
+                            console.warn(`Could not verify token (Status ${res.status}), using cached user info`);
                         }
                     } catch {
                         // Network error — keep cached user
-                        console.warn('Could not verify token, using cached user');
+                        console.warn('Network error while verifying token, using cached user');
                     }
                 }
             } catch {

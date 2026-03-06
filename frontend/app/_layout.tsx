@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { LanguageProvider } from "../context/LanguageContext";
 import { ActivityIndicator, View } from "react-native";
@@ -12,9 +12,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
 
   useEffect(() => {
-    if (loading) return; // Still checking AsyncStorage
+    // Wait until AuthContext finishes loading AND the root navigator is fully mounted
+    if (loading || !rootNavigationState?.key) return;
 
     const inAuthGroup = (segments[0] as string) === "auth";
 
@@ -25,7 +27,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       // Logged in but on auth screens → redirect to home
       router.replace("/" as any);
     }
-  }, [user, loading, segments]);
+  }, [user, loading, segments, rootNavigationState]);
 
   if (loading) {
     return (

@@ -243,7 +243,7 @@ export default function RegisterScreen() {
                                 >
                                     <Text style={styles.roleEmoji}>👤</Text>
                                     <Text style={[styles.roleText, role === 'client' && styles.roleTextActive]}>
-                                        Client
+                                        Interviewer
                                     </Text>
                                 </Pressable>
                                 <Pressable
@@ -252,16 +252,7 @@ export default function RegisterScreen() {
                                 >
                                     <Text style={styles.roleEmoji}>🧑‍🌾</Text>
                                     <Text style={[styles.roleText, role === 'farmer' && styles.roleTextActive]}>
-                                        Farmer
-                                    </Text>
-                                </Pressable>
-                                <Pressable
-                                    style={[styles.roleButton, role === 'helper' && styles.roleButtonActive]}
-                                    onPress={() => setRole('helper')}
-                                >
-                                    <Text style={styles.roleEmoji}>🤝</Text>
-                                    <Text style={[styles.roleText, role === 'helper' && styles.roleTextActive]}>
-                                        Helper
+                                        Cultivator
                                     </Text>
                                 </Pressable>
                             </View>
