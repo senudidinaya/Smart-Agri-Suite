@@ -37,6 +37,8 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
+from cloud_data_utils import make_temp_work_dir, prepare_csv_from_cloud
+
 
 # Project paths
 SCRIPT_DIR = Path(__file__).parent
@@ -278,6 +280,12 @@ def main():
         help="Path to labeled training data CSV",
     )
     parser.add_argument(
+        "--data-url",
+        type=str,
+        default=None,
+        help="Cloud URL to CSV dataset (overrides --data-path)",
+    )
+    parser.add_argument(
         "--model-type",
         choices=["logistic_regression", "random_forest"],
         default="logistic_regression",
@@ -291,13 +299,23 @@ def main():
     )
     
     args = parser.parse_args()
+
+    data_path = args.data_path
+    if args.data_url:
+        temp_dir = make_temp_work_dir("intent_cloud_")
+        data_path = prepare_csv_from_cloud(
+            args.data_url,
+            cache_dir=temp_dir,
+            default_name="intent_dataset.csv",
+        )
+        print(f"[CLOUD] Using downloaded dataset: {data_path}")
     
     print("=" * 60)
     print("🌾 Smart Agri-Suite - Intent Risk Model Training")
     print("=" * 60)
     
     # Load data
-    df = load_dataset(args.data_path)
+    df = load_dataset(data_path)
     
     # Prepare features
     X, y, label_encoder = prepare_features(df)
@@ -317,7 +335,7 @@ def main():
         accuracy=accuracy,
         cv_accuracy=cv_accuracy,
         model_type=args.model_type,
-        data_path=str(args.data_path),
+        data_path=str(data_path),
         n_samples=len(df),
     )
     

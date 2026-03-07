@@ -155,6 +155,7 @@ export default function AdminApplicationsScreen() {
         agora: response.agora,
         clientUsername: job.createdByUsername,
         jobTitle: job.title,
+        priorExperience: job.priorExperience,
         // Legacy fields
         roomName: response.roomName,
         token: response.token,
@@ -222,6 +223,7 @@ export default function AdminApplicationsScreen() {
       clientId: job.createdByUserId,
       clientName: job.createdByUsername,
       jobTitle: job.title,
+      priorExperience: job.priorExperience,
     });
   };
 
@@ -591,7 +593,7 @@ export default function AdminApplicationsScreen() {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={!loading ? renderEmpty : null}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#5C9A9A']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#27ae60']} />
         }
       />
 
@@ -786,7 +788,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 20,
     paddingVertical: 25,
     paddingTop: 15,
@@ -817,7 +819,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   filterTabActive: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
   },
   filterText: {
     fontSize: 13,
@@ -857,7 +859,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -879,7 +881,7 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 22.5,
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -949,7 +951,7 @@ const styles = StyleSheet.create({
   },
   contactButton: {
     flex: 1,
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     borderRadius: 20,
     paddingVertical: 10,
     alignItems: 'center',

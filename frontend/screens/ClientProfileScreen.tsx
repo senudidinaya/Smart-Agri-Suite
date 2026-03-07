@@ -421,13 +421,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F5E9',
   },
   dropdownItemTextSelected: {
-    color: '#5C9A9A',
+    color: '#27ae60',
     fontWeight: '600',
   },
   dropdownDoneButton: {
     paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
   },
   dropdownDoneText: {
     color: '#fff',
@@ -435,14 +435,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   button: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     borderRadius: 25,
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 10,
   },
   buttonDisabled: {
-    backgroundColor: '#99C1C1',
+    backgroundColor: '#a3d9a5',
   },
   buttonText: {
     color: '#fff',
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   },
   dateNavArrow: {
     fontSize: 20,
-    color: '#5C9A9A',
+    color: '#27ae60',
     paddingHorizontal: 10,
   },
   dateNavTitle: {
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   dateDayCellSelected: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
   },
   dateDayCellDisabled: {
     opacity: 0.3,

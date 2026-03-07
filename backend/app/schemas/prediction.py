@@ -154,3 +154,206 @@ class ErrorResponse(BaseModel):
             }
         }
     }
+
+
+# =============================================================================
+# DECEPTION & TRUTHFULNESS ANALYSIS SCHEMAS
+# =============================================================================
+
+class DeceptionSignal(BaseModel):
+    """Individual deception signal indicator."""
+    
+    signal_name: str = Field(
+        description="Name of the prosodic signal",
+        examples=["pitch_variability", "pause_ratio", "jitter", "vocal_stress"],
+    )
+    value: float = Field(
+        description="Measured value of the signal",
+        examples=[45.2, 0.28, 0.035],
+    )
+    interpretation: str = Field(
+        description="What this signal suggests",
+        examples=["High pitch variability indicates elevated stress", "High jitter suggests vocal tension"],
+    )
+    risk_level: str = Field(
+        description="Risk indicator: normal, elevated, or high",
+        examples=["normal", "elevated", "high"],
+    )
+
+
+class TruthnessAnalysis(BaseModel):
+    """Deception/Truthfulness analysis results."""
+    
+    label: str = Field(
+        description="Predicted truthfulness label",
+        examples=["truthful", "deceptive", "uncertain"],
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence score for the truthfulness prediction",
+        examples=[0.72],
+    )
+    scores: Dict[str, float] = Field(
+        description="Probability score for each truthfulness class",
+        examples={"truthful": 0.72, "deceptive": 0.28},
+    )
+    signals: List[DeceptionSignal] = Field(
+        description="Individual prosodic signals analyzed",
+        examples=[{
+            "signal_name": "pitch_variability",
+            "value": 45.2,
+            "interpretation": "High pitch variability indicates elevated cognitive load",
+            "risk_level": "elevated",
+        }],
+    )
+    summary: str = Field(
+        description="Human-readable summary of truthfulness assessment",
+        examples=["Audio shows moderate deception signals: elevated pitch variability and jitter suggesting vocal stress"],
+    )
+
+
+class CombinedAnalysisResult(BaseModel):
+    """Combined Intent + Truthfulness analysis."""
+    
+    intent_analysis: Dict = Field(
+        description="Intent classification result (PROCEED/VERIFY/REJECT)",
+    )
+    truthfulness_analysis: TruthnessAnalysis = Field(
+        description="Deception/truthfulness detection result",
+    )
+    combined_decision: str = Field(
+        description="Final decision integrating both analyses",
+        examples=["APPROVE", "VERIFY", "REJECT"],
+    )
+    trust_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Combined trust score: intent_confidence × (1 - deception_confidence)",
+        examples=[0.63],
+    )
+    combined_confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Min confidence of intent and truthfulness analyses",
+        examples=[0.72],
+    )
+    reasoning: str = Field(
+        description="Explanation of the combined decision",
+        examples=["PROCEED intent (87%) + TRUTHFUL speech (72%) = APPROVE with high confidence"],
+    )
+    recommendation: str = Field(
+        description="Recommended action",
+        examples=["auto_approve", "manual_verify", "reject"],
+    )
+
+
+# =============================================================================
+# CULTIVATOR INTENTION DECISION SCHEMAS
+# =============================================================================
+
+class GateDecisionDetail(BaseModel):
+    """Single gate decision detail with justification."""
+    
+    decision: str = Field(
+        description="Gate decision outcome",
+        examples=["PROCEED", "VERIFY", "REJECT"],
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence in this decision (0-1)",
+        examples=[0.85],
+    )
+    reasoning: str = Field(
+        description="Justification for the decision",
+        examples=["High cultivation intent with truthful audio detected"],
+    )
+    positive_factors: List[str] = Field(
+        description="List of positive behavioral indicators",
+        examples=["✓ High cultivation intent (85%)", "✓ Legitimate farming keywords detected"],
+    )
+    risk_factors: List[str] = Field(
+        description="List of risk or concern indicators",
+        examples=["✗ Low cultivation intent (25%)", "⚠ Mixed audio deception signals"],
+    )
+
+
+class CultivatorDecisionResponse(BaseModel):
+    """Cultivator intention analysis decision response."""
+    
+    success: bool = Field(
+        default=True,
+        description="Whether analysis was successful",
+    )
+    overall_recommendation: str = Field(
+        description="Final recommendation: PROCEED/VERIFY/REJECT",
+        examples=["PROCEED"],
+    )
+    overall_reason: str = Field(
+        description="Explanation of the final recommendation",
+        examples=["Both gates indicate positive signals for proceeding with land use agreement"],
+    )
+    combined_confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Overall confidence in the recommendation",
+        examples=[0.87],
+    )
+    gate1: GateDecisionDetail = Field(
+        description="Gate-1 result: Audio Intent + Deception Analysis",
+    )
+    gate2: GateDecisionDetail = Field(
+        description="Gate-2 result: Emotion + Video Deception Analysis",
+    )
+    summary: Dict = Field(
+        description="Summary statistics",
+        examples=[{
+            "total_positive_indicators": 6,
+            "total_risk_indicators": 1,
+            "risk_level": "LOW",
+        }],
+    )
+    processing_time_ms: float = Field(
+        description="Total processing time in milliseconds",
+        examples=[456.78],
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "success": True,
+                "overall_recommendation": "PROCEED",
+                "overall_reason": "Both gates indicate positive signals for proceeding with land use agreement",
+                "combined_confidence": 0.87,
+                "gate1": {
+                    "decision": "PROCEED",
+                    "confidence": 0.89,
+                    "reasoning": "Strong cultivation intent with truthful audio. Legitimate farming keywords detected. Ready to proceed.",
+                    "positive_factors": [
+                        "✓ High cultivation intent (89%)",
+                        "✓ Truthful audio signals (85%)",
+                        "✓ Legitimate cultivation keywords detected (3)",
+                    ],
+                    "risk_factors": [],
+                },
+                "gate2": {
+                    "decision": "APPROVE",
+                    "confidence": 0.85,
+                    "reasoning": "Truthful behavioral signals with calm, composed demeanor. Indicates genuine commitment to land use agreement.",
+                    "positive_factors": [
+                        "✓ Truthful behavioral signals (84%)",
+                        "✓ Calm/composed demeanor (neutral - 92%)",
+                    ],
+                    "risk_factors": [],
+                },
+                "summary": {
+                    "total_positive_indicators": 6,
+                    "total_risk_indicators": 0,
+                    "risk_level": "LOW",
+                },
+                "processing_time_ms": 456.78,
+            }
+        }
+    }
+

@@ -15,7 +15,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { api, CallStatusResponse, Interview } from '../services/api';
+import { api, CallStatusResponse, Interview, DeceptionAnalysis } from '../services/api';
 
 interface RouteParams {
   jobId: string;
@@ -114,11 +114,26 @@ export default function ViewAnalysisScreen() {
     }
   };
 
+  const getDeceptionColor = (label: string): string => {
+    const normalized = label.toLowerCase();
+    if (normalized === 'truthful') {
+      return '#27ae60'; // Green
+    } else if (normalized === 'deceptive') {
+      return '#e74c3c'; // Red
+    }
+    return '#95a5a6'; // Gray
+  };
+
+  const getDeceptionLabel = (label: string): string => {
+    const normalized = label.toLowerCase();
+    return normalized === 'truthful' ? 'Truthful' : normalized === 'deceptive' ? 'Deceptive' : label;
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#5C9A9A" />
+          <ActivityIndicator size="large" color="#27ae60" />
           <Text style={styles.loadingText}>Loading analyses...</Text>
         </View>
       </SafeAreaView>
@@ -257,6 +272,62 @@ export default function ViewAnalysisScreen() {
                   </View>
                 )}
 
+                {/* Gate-1 Deception Analysis */}
+                {interview.gate1_deception && (
+                  <View style={styles.deceptionContainer}>
+                    <Text style={styles.deceptionTitle}>🔊 Audio Truth Analysis (Gate-1)</Text>
+                    <View style={[styles.deceptionBadge, { backgroundColor: getDeceptionColor(interview.gate1_deception.deception_label) }]}>
+                      <Text style={styles.deceptionBadgeText}>
+                        {getDeceptionLabel(interview.gate1_deception.deception_label)}
+                      </Text>
+                    </View>
+                    <Text style={styles.deceptionConfidence}>
+                      Confidence: {(interview.gate1_deception.deception_confidence * 100).toFixed(1)}%
+                    </Text>
+                    {interview.gate1_deception.deception_model_type && (
+                      <Text style={styles.modelTypeText}>Model: {interview.gate1_deception.deception_model_type.toUpperCase()}</Text>
+                    )}
+                    {interview.gate1_deception.deception_signals && interview.gate1_deception.deception_signals.length > 0 && (
+                      <View style={styles.deceptionSignalsContainer}>
+                        <Text style={styles.signalsTitle}>Vocal Cues:</Text>
+                        {interview.gate1_deception.deception_signals.map((signal, i) => (
+                          <Text key={i} style={styles.signalItem}>
+                            • {signal}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* Gate-2 Deception Analysis */}
+                {interview.gate2_deception && (
+                  <View style={styles.deceptionContainer}>
+                    <Text style={styles.deceptionTitle}>👁️ Visual Truth Analysis (Gate-2)</Text>
+                    <View style={[styles.deceptionBadge, { backgroundColor: getDeceptionColor(interview.gate2_deception.deception_label) }]}>
+                      <Text style={styles.deceptionBadgeText}>
+                        {getDeceptionLabel(interview.gate2_deception.deception_label)}
+                      </Text>
+                    </View>
+                    <Text style={styles.deceptionConfidence}>
+                      Confidence: {(interview.gate2_deception.deception_confidence * 100).toFixed(1)}%
+                    </Text>
+                    {interview.gate2_deception.deception_model_type && (
+                      <Text style={styles.modelTypeText}>Model: {interview.gate2_deception.deception_model_type.toUpperCase()}</Text>
+                    )}
+                    {interview.gate2_deception.deception_signals && interview.gate2_deception.deception_signals.length > 0 && (
+                      <View style={styles.deceptionSignalsContainer}>
+                        <Text style={styles.signalsTitle}>Visual Cues:</Text>
+                        {interview.gate2_deception.deception_signals.map((signal, i) => (
+                          <Text key={i} style={styles.signalItem}>
+                            • {signal}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                )}
+
                 {interview.reasons && interview.reasons.length > 0 && (
                   <View style={styles.reasonsContainer}>
                     <Text style={styles.reasonsTitle}>Key Signals:</Text>
@@ -294,7 +365,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backButton: {
-    color: '#5C9A9A',
+    color: '#27ae60',
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
@@ -471,5 +542,60 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 6,
     lineHeight: 18,
+  },
+  deceptionContainer: {
+    marginTop: 12,
+    backgroundColor: '#f9f3f0',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e74c3c',
+  },
+  deceptionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  deceptionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  deceptionBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  deceptionConfidence: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  modelTypeText: {
+    fontSize: 11,
+    color: '#999',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  deceptionSignalsContainer: {
+    marginTop: 8,
+    backgroundColor: 'rgba(231, 76, 60, 0.05)',
+    borderRadius: 6,
+    padding: 8,
+  },
+  signalsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 6,
+  },
+  signalItem: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 4,
+    lineHeight: 16,
   },
 });

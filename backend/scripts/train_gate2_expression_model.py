@@ -41,6 +41,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import joblib
 
+from cloud_data_utils import make_temp_work_dir, prepare_image_dir_from_cloud
+
 
 def extract_hog_features(image: np.ndarray, size: tuple = (64, 64)) -> np.ndarray:
     """Extract HOG (Histogram of Oriented Gradients) features from image."""
@@ -248,25 +250,44 @@ def main():
     parser = argparse.ArgumentParser(description="Train Gate 2 expression classifier")
     parser.add_argument('--data_dir', type=str, default='data/gate2/dataset',
                         help='Path to dataset directory')
+    parser.add_argument('--data_url', type=str, default=None,
+                        help='Cloud URL to ZIP dataset (overrides --data_dir)')
     parser.add_argument('--output_dir', type=str, default='models/gate2',
                         help='Output directory for model artifacts')
     parser.add_argument('--max_per_class', type=int, default=None,
                         help='Maximum samples per class (for quick testing)')
     
     args = parser.parse_args()
+
+    data_dir = args.data_dir
+    if args.data_url:
+        temp_dir = make_temp_work_dir("gate2_expression_cloud_")
+        extracted_dir = temp_dir / "extracted"
+        prepare_image_dir_from_cloud(
+            args.data_url,
+            cache_dir=temp_dir,
+            extract_dir=extracted_dir,
+            default_name="gate2_expression_dataset.zip",
+        )
+        candidate_dirs = [d for d in extracted_dir.iterdir() if d.is_dir()]
+        if len(candidate_dirs) == 1:
+            data_dir = str(candidate_dirs[0])
+        else:
+            data_dir = str(extracted_dir)
+        print(f"[CLOUD] Using extracted dataset directory: {data_dir}")
     
     print("=" * 60)
     print("Gate 2 Facial Expression Model Training")
     print("(scikit-learn version with HOG features)")
     print("=" * 60)
-    print(f"Dataset: {args.data_dir}")
+    print(f"Dataset: {data_dir}")
     print(f"Output: {args.output_dir}")
     print("=" * 60)
     
     # Validate data directory
-    data_path = Path(args.data_dir)
+    data_path = Path(data_dir)
     if not data_path.exists():
-        print(f"[ERROR] Dataset directory not found: {args.data_dir}")
+        print(f"[ERROR] Dataset directory not found: {data_dir}")
         print("\nPlease provide the dataset path:")
         print("  1. Download 'Facial Expression Dataset (Sri Lankan)' from IEEE DataPort")
         print("  2. Extract to data/gate2/dataset/")
@@ -274,7 +295,7 @@ def main():
         sys.exit(1)
     
     # Load dataset
-    X, y, class_names = load_dataset(args.data_dir, args.max_per_class)
+    X, y, class_names = load_dataset(data_dir, args.max_per_class)
     
     if len(X) == 0:
         print("[ERROR] No images found in dataset")
@@ -295,7 +316,7 @@ def main():
     metrics = evaluate_model(model, scaler, X_val, y_val, class_names)
     
     # Save
-    save_model_artifacts(model, scaler, class_names, metrics, args.data_dir, args.output_dir)
+    save_model_artifacts(model, scaler, class_names, metrics, data_dir, args.output_dir)
     
     print("\n" + "=" * 60)
     print("Training Complete!")

@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   container: {
     flex: 1,
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   title: {
-    color: '#C4A35A',
+    color: '#27ae60',
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   button: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     borderRadius: 25,
     paddingVertical: 14,
     alignItems: 'center',
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   buttonDisabled: {
-    backgroundColor: '#99C1C1',
+    backgroundColor: '#a3d9a5',
   },
   buttonText: {
     color: '#fff',
@@ -241,8 +241,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#5C9A9A',
-    borderColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
+    borderColor: '#27ae60',
   },
   checkmark: {
     color: '#fff',

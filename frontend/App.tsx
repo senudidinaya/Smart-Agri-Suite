@@ -68,12 +68,14 @@ type AdminStackParamList = {
     token: string;
     clientUsername: string;
     jobTitle: string;
+    priorExperience?: string;
   };
   InPersonInterview: {
     jobId: string;
     clientId: string;
     clientName: string;
     jobTitle: string;
+    priorExperience?: string;
   };
   ViewAnalysis: {
     jobId: string;
@@ -118,9 +120,9 @@ function ClientTabNavigator() {
   return (
     <ClientTab.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#5C9A9A' },
+        headerStyle: { backgroundColor: '#27ae60' },
         headerTintColor: '#fff',
-        tabBarActiveTintColor: '#5C9A9A',
+        tabBarActiveTintColor: '#27ae60',
         tabBarInactiveTintColor: '#999',
         headerRight: () => (
           <Text style={styles.logoutButton} onPress={logout}>
@@ -227,9 +229,9 @@ function AdminTabNavigator() {
   return (
     <AdminTab.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#5C9A9A' },
+        headerStyle: { backgroundColor: '#27ae60' },
         headerTintColor: '#fff',
-        tabBarActiveTintColor: '#5C9A9A',
+        tabBarActiveTintColor: '#27ae60',
         tabBarInactiveTintColor: '#999',
         headerRight: () => (
           <Text style={styles.logoutButton} onPress={logout}>
@@ -279,7 +281,7 @@ function AdminNavigator() {
 function LoadingScreen() {
   return (
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#5C9A9A" />
+      <ActivityIndicator size="large" color="#27ae60" />
       <Text style={styles.loadingText}>Loading...</Text>
     </View>
   );

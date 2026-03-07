@@ -40,7 +40,7 @@ class IncomingCallResponse(BaseModel):
     callId: Optional[str] = None
     jobId: Optional[str] = None
     jobTitle: Optional[str] = None
-    adminUsername: Optional[str] = None
+    interviewerUsername: Optional[str] = None
     # Agora connection info
     agora: Optional[AgoraTokenInfo] = None
     # Legacy fields
@@ -86,8 +86,8 @@ class CallResponse(BaseModel):
     """Full call response model."""
     id: str
     jobId: str
-    adminUserId: str
-    clientUserId: str
+    interviewerUserId: str
+    cultivatorUserId: str
     channelName: str
     status: CallStatus
     createdAt: datetime

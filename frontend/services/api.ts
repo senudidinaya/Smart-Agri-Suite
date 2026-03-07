@@ -177,6 +177,24 @@ export interface Gate2AnalysisStats {
   predictions_count: number;
 }
 
+// Deception Detection Analysis
+export interface DeceptionAnalysis {
+  deception_label: string; // 'truthful' / 'deceptive'
+  deception_confidence: number;
+  deception_scores?: Record<string, number>;
+  deception_signals: string[];
+  deception_model_type?: string; // 'ml' / 'rules'
+}
+
+// Safety/Trustworthiness Assessment
+export interface SafetyAssessment {
+  safety_score: number; // 0.0-1.0
+  primary_signals: string[];
+  risk_flags: string[];
+  admin_action: 'PROCEED' | 'VERIFY' | 'REJECT' | 'APPROVE';
+  admin_recommendation: string;
+}
+
 export interface InterviewAnalyzeResponse {
   success: boolean;
   interviewId: string;
@@ -191,6 +209,11 @@ export interface InterviewAnalyzeResponse {
   top_signals?: string[];
   stats?: Gate2AnalysisStats;
   model_version?: string;
+  // Deception detection fields (Gate 1 audio + Gate 2 visual)
+  gate1_deception?: DeceptionAnalysis;
+  gate2_deception?: DeceptionAnalysis;
+  // Safety assessment (combined intent + deception)
+  safety_assessment?: SafetyAssessment;
 }
 
 export interface CallAssessment {
@@ -226,6 +249,11 @@ export interface Interview {
   top_signals?: string[];
   stats?: Gate2AnalysisStats;
   model_version?: string;
+  // Deception detection fields
+  gate1_deception?: DeceptionAnalysis;
+  gate2_deception?: DeceptionAnalysis;
+  // Safety assessment
+  safety_assessment?: SafetyAssessment;
 }
 
 export interface InterviewStatusResponse {
@@ -257,6 +285,21 @@ export interface NotificationListResponse {
 export interface InsightResponse {
   success: boolean;
   insight: string;
+}
+
+// Question Generation interfaces
+export interface Question {
+  question: string;
+  purpose: string;
+  follow_up_hint?: string;
+}
+
+export interface QuestionGenerationResponse {
+  success: boolean;
+  gate: string;
+  job_title: string;
+  plantation_type: string;
+  questions: Question[];
 }
 
 class ApiService {
@@ -615,6 +658,27 @@ class ApiService {
       emotion_distribution: emotionDistribution,
       top_signals: topSignals,
       stats,
+    });
+  }
+
+  /**
+   * Generate AI-powered questions for admin to ask during calls/interviews.
+   * @param jobTitle - The type of work (e.g., Harvesting, Planting)
+   * @param plantationType - The plantation type(s) (e.g., Cinnamon, Cardamom)
+   * @param gate - Either 'gate1' (introductory call) or 'gate2' (formal interview)
+   * @param numQuestions - Number of questions to generate (default: 5)
+   */
+  async generateQuestions(
+    jobTitle: string,
+    plantationType: string,
+    gate: 'gate1' | 'gate2',
+    numQuestions: number = 5
+  ): Promise<QuestionGenerationResponse> {
+    return this.request('POST', '/explain/questions', {
+      job_title: jobTitle,
+      plantation_type: plantationType,
+      gate,
+      num_questions: numQuestions,
     });
   }
 

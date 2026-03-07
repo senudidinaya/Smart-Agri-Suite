@@ -7,7 +7,7 @@
     "userInterfaceStyle": "light",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#5C9A9A"
+      "backgroundColor": "#27ae60"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#5C9A9A"
+        "backgroundColor": "#27ae60"
       },
       "package": "com.smartagri.mobile",
       "permissions": [

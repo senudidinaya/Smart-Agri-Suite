@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Optional
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Header, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Header, UploadFile, File, Form, BackgroundTasks
 
 from app.core.database import get_db
 from app.core.config import get_settings
@@ -419,11 +419,13 @@ async def end_call(
 async def upload_recording(
     call_id: str,
     file: UploadFile = File(...),
+    transcript: Optional[str] = Form(None),
     authorization: str = Header(...)
 ):
     """
     Upload a call recording and trigger ML analysis.
     Only the client (who recorded) can upload.
+    Optionally include a transcript for improved text-based analysis.
     """
     user = get_user_from_token(authorization)
     
@@ -464,22 +466,58 @@ async def upload_recording(
     
     now = datetime.now(timezone.utc)
     
-    # Run ML analysis on the recording
+    # Run ML analysis on the recording (Intent Classification + Deception Detection)
     try:
+        # Step 1: Intent Classification
         classifier = get_classifier()
         if not classifier.is_loaded:
             classifier.load_model()
         
-        prediction_result, audio_duration = classifier.predict(contents)
+        prediction_result, audio_duration = classifier.predict(contents, transcript=transcript)
         
-        analysis = {
+        intent_analysis = {
             "intentLabel": prediction_result.predicted_intent,
             "confidence": prediction_result.confidence,
             "scores": {score.label: score.score for score in prediction_result.all_scores},
+        }
+        
+        # Step 2: Deception Analysis (NEW)
+        from app.services.inference import get_deception_detector
+        deception_detector = get_deception_detector()
+        if not deception_detector.is_loaded:
+            deception_detector.load_model()
+        
+        deception_result = deception_detector.predict(contents)
+        
+        # Step 3: Combine Intent + Deception Analysis (NEW)
+        from app.services.combined_analysis import combine_intent_and_deception
+        
+        combined_decision = combine_intent_and_deception(
+            intent_analysis,
+            deception_result,
+        )
+        
+        # Store combined analysis
+        analysis = {
+            "intentLabel": intent_analysis["intentLabel"],
+            "confidence": intent_analysis["confidence"],
+            "scores": intent_analysis["scores"],
+            "deceptionLabel": deception_result.get("label", "unknown"),
+            "deceptionConfidence": deception_result.get("confidence", 0.0),
+            "deceptionSignals": deception_result.get("signals", []),
+            "finalDecision": combined_decision.get("finalDecision"),
+            "finalRecommendation": combined_decision.get("recommendation"),
+            "trustScore": combined_decision.get("trustScore", 0.0),
+            "reasoning": combined_decision.get("reasoning"),
+            "riskLevel": combined_decision.get("riskLevel", "MEDIUM"),
             "analyzedAt": now,
         }
         
-        logger.info(f"Analysis complete for call {call_id}: {prediction_result.predicted_intent}")
+        logger.info(
+            f"Analysis complete for call {call_id}: Intent={intent_analysis['intentLabel']}, "
+            f"Truthfulness={deception_result.get('label')}, "
+            f"FinalDecision={combined_decision.get('finalDecision')}"
+        )
         
     except Exception as e:
         logger.error(f"ML analysis failed: {e}")
@@ -488,6 +526,10 @@ async def upload_recording(
             "intentLabel": "unknown",
             "confidence": 0.0,
             "scores": {},
+            "finalDecision": "VERIFY",
+            "finalRecommendation": "manual_verify",
+            "reasoning": "Analysis failed - manual review required",
+            "riskLevel": "MEDIUM",
             "analyzedAt": now,
         }
     
@@ -513,10 +555,16 @@ async def upload_recording(
         "adminId": call["adminUserId"],
         "callStartedAt": call.get("startedAt"),
         "callEndedAt": call.get("endedAt"),
-        "decision": analysis["intentLabel"],
-        "confidence": analysis["confidence"],
+        "decision": analysis.get("finalDecision", analysis.get("intentLabel", "unknown")),
+        "recommendation": analysis.get("finalRecommendation", "manual_verify"),
+        "confidence": analysis.get("confidence", 0.0),
+        "trustScore": analysis.get("trustScore", 0.0),
+        "riskLevel": analysis.get("riskLevel", "MEDIUM"),
+        "reasoning": analysis.get("reasoning", ""),
         "reasons": list(analysis.get("scores", {}).keys()),
         "scores": analysis.get("scores", {}),
+        "deceptionLabel": analysis.get("deceptionLabel"),
+        "deceptionConfidence": analysis.get("deceptionConfidence"),
         "createdAt": now,
     }
     

@@ -1,5 +1,5 @@
 /**
- * Incoming Call Screen - Displayed when client receives a call from admin
+ * Incoming Call Screen - Displayed when cultivator receives a call from interviewer
  * Shows legal notice about recording before allowing acceptance
  */
 
@@ -20,7 +20,7 @@ import { api, AgoraTokenInfo } from '../services/api';
 
 interface RouteParams {
   callId: string;
-  adminUsername: string;
+  interviewerUsername: string;
   jobTitle: string;
   agora?: AgoraTokenInfo;
   // Legacy
@@ -30,7 +30,7 @@ interface RouteParams {
 export default function IncomingCallScreen() {
   const route = useRoute();
   const navigation = useNavigation<any>();
-  const { callId, adminUsername, jobTitle, agora } = route.params as RouteParams;
+  const { callId, interviewerUsername, jobTitle, agora } = route.params as RouteParams;
 
   const [showLegalNotice, setShowLegalNotice] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
@@ -84,7 +84,7 @@ export default function IncomingCallScreen() {
     try {
       const response = await api.acceptCall(callId);
 
-      // Navigate to ClientCallScreen with Agora details
+      // Navigate to ClientCallScreen (cultivator view) with Agora details
       navigation.replace('ClientCall', {
         callId,
         jobTitle,
@@ -128,7 +128,7 @@ export default function IncomingCallScreen() {
             <Text style={styles.avatarText}>📞</Text>
           </Animated.View>
           <Text style={styles.incomingText}>Incoming Call</Text>
-          <Text style={styles.callerName}>{adminUsername || 'Admin'}</Text>
+          <Text style={styles.callerName}>{interviewerUsername || 'Interviewer'}</Text>
           <Text style={styles.jobTitle}>Re: {jobTitle || 'Job Application'}</Text>
         </View>
 
@@ -261,11 +261,11 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 30,
-    shadowColor: '#5C9A9A',
+    shadowColor: '#27ae60',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 20,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   incomingText: {
     fontSize: 16,
-    color: '#5C9A9A',
+    color: '#27ae60',
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 2,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   },
   modalSubtitle: {
     fontSize: 16,
-    color: '#5C9A9A',
+    color: '#27ae60',
     textAlign: 'center',
     marginBottom: 20,
   },

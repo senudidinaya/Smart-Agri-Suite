@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
   container: {
     flex: 1,
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
   },
   title: {
-    color: '#C4A35A',
+    color: '#27ae60',
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
@@ -269,28 +269,28 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#5C9A9A',
+    borderColor: '#27ae60',
     alignItems: 'center',
   },
   roleButtonActive: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
   },
   roleButtonText: {
-    color: '#5C9A9A',
+    color: '#27ae60',
     fontSize: 14,
   },
   roleButtonTextActive: {
     color: '#fff',
   },
   button: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     borderRadius: 25,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 10,
   },
   buttonDisabled: {
-    backgroundColor: '#99C1C1',
+    backgroundColor: '#a3d9a5',
   },
   buttonText: {
     color: '#fff',

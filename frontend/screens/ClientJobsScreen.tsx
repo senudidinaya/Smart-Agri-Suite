@@ -143,7 +143,7 @@ export default function ClientJobsScreen() {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={!loading ? renderEmpty : null}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#5C9A9A']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#27ae60']} />
         }
       />
     </SafeAreaView>
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 20,
     paddingVertical: 25,
     paddingTop: 15,
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   applyButton: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     borderRadius: 20,
     paddingVertical: 10,
     alignItems: 'center',

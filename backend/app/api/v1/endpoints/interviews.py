@@ -26,9 +26,12 @@ from app.schemas.interview import (
     InterviewStatusResponse,
     CallAssessmentResponse,
     Gate2AnalysisStats,
+    DeceptionAnalysis,
+    SafetyAssessment,
 )
-from app.services.inference import get_risk_classifier
-from app.services.gate2_inference import get_gate2_inference_service
+from app.services.inference import get_risk_classifier, get_deception_detector
+from app.services.gate2_inference import get_gate2_inference_service, get_gate2_deception_service
+from app.services.safety_assessment import SafetyAssessmentService
 from app.api.v1.endpoints.notifications import create_notification
 
 logger = get_logger(__name__)
@@ -114,11 +117,32 @@ def _serialize_interview(doc: dict) -> InterviewResponse:
         from app.schemas.interview import Gate2AnalysisStats
         stats = Gate2AnalysisStats(**raw_stats)
 
+    # Build deception analysis results if present
+    g1_dec = None
+    raw_g1 = doc.get("gate1_deception")
+    if raw_g1 and isinstance(raw_g1, dict):
+        g1_dec = DeceptionAnalysis(**raw_g1)
+
+    g2_dec = None
+    raw_g2 = doc.get("gate2_deception")
+    if raw_g2 and isinstance(raw_g2, dict):
+        g2_dec = DeceptionAnalysis(**raw_g2)
+
+    # Build safety assessment if present
+    safety = None
+    raw_safety = doc.get("safety_assessment")
+    if raw_safety and isinstance(raw_safety, dict):
+        safety = SafetyAssessment(**raw_safety)
+
+    # determine cultivator/interviewer ids with backward compatibility
+    cultivator_id = doc.get("cultivatorId") or doc.get("clientId")
+    interviewer_id = doc.get("interviewerId") or doc.get("adminId")
+
     return InterviewResponse(
         id=str(doc["_id"]),
         jobId=doc["jobId"],
-        clientId=doc["clientId"],
-        adminId=doc["adminId"],
+        cultivatorId=cultivator_id,
+        interviewerId=interviewer_id,
         interviewScheduledAt=doc.get("interviewScheduledAt"),
         interviewCompletedAt=doc.get("interviewCompletedAt"),
         videoDurationSeconds=doc.get("videoDurationSeconds"),
@@ -132,16 +156,21 @@ def _serialize_interview(doc: dict) -> InterviewResponse:
         top_signals=doc.get("gate2_top_signals"),
         stats=stats,
         model_version=doc.get("gate2_model_version"),
+        gate1_deception=g1_dec,
+        gate2_deception=g2_dec,
+        safety_assessment=safety,
     )
 
 
 def _serialize_call_assessment(doc: dict) -> CallAssessmentResponse:
     """Convert MongoDB document to CallAssessmentResponse."""
+    cultivator_id = doc.get("cultivatorId") or doc.get("clientId")
+    interviewer_id = doc.get("interviewerId") or doc.get("adminId")
     return CallAssessmentResponse(
         id=str(doc["_id"]),
         jobId=doc["jobId"],
-        clientId=doc["clientId"],
-        adminId=doc["adminId"],
+        cultivatorId=cultivator_id,
+        interviewerId=interviewer_id,
         callStartedAt=doc.get("callStartedAt"),
         callEndedAt=doc.get("callEndedAt"),
         decision=doc["decision"],
@@ -330,26 +359,172 @@ async def analyze_interview_video(
         logger.info(f"Gate 2 analysis: {decision} ({confidence:.2%}), "
                    f"dominant={result.dominant_emotion}")
         
+        # === DECEPTION DETECTION ===
+        # Gate 1 (audio) deception: extract audio from video, then analyze
+        gate1_deception_result = None
+        try:
+            audio_path = str(temp_dir / "interview_audio.wav")
+            audio_extracted = extract_audio_from_video(temp_video_path, audio_path)
+            if audio_extracted and os.path.exists(audio_path):
+                deception_detector = get_deception_detector()
+                with open(audio_path, "rb") as af:
+                    audio_bytes = af.read()
+                g1_result = await asyncio.to_thread(
+                    deception_detector.predict, audio_bytes
+                )
+                gate1_deception_result = DeceptionAnalysis(
+                    deception_label=g1_result["label"],
+                    deception_confidence=g1_result["confidence"],
+                    deception_scores=g1_result["scores"],
+                    deception_signals=g1_result["signals"],
+                    deception_model_type=g1_result["model_type"],
+                )
+                reasons.append(
+                    f"Audio deception analysis: {g1_result['label']} "
+                    f"({g1_result['confidence']:.0%})"
+                )
+                logger.info(
+                    f"Gate 1 deception: {g1_result['label']} "
+                    f"({g1_result['confidence']:.2%})"
+                )
+        except Exception as e:
+            logger.warning(f"Gate 1 deception analysis failed: {e}")
+
+        # Gate 2 (visual) deception: analyze video frames
+        gate2_deception_result = None
+        try:
+            gate2_deception_service = get_gate2_deception_service()
+            g2_dec_result = await asyncio.to_thread(
+                gate2_deception_service.predict, temp_video_path
+            )
+            gate2_deception_result = DeceptionAnalysis(
+                deception_label=g2_dec_result.deception_label,
+                deception_confidence=g2_dec_result.deception_confidence,
+                deception_scores=g2_dec_result.deception_scores,
+                deception_signals=g2_dec_result.signals,
+                deception_model_type=(
+                    "ml" if gate2_deception_service.is_loaded else "rules"
+                ),
+            )
+            reasons.append(
+                f"Visual deception analysis: {g2_dec_result.deception_label} "
+                f"({g2_dec_result.deception_confidence:.0%})"
+            )
+            logger.info(
+                f"Gate 2 deception: {g2_dec_result.deception_label} "
+                f"({g2_dec_result.deception_confidence:.2%})"
+            )
+        except Exception as e:
+            logger.warning(f"Gate 2 deception analysis failed: {e}")
+        
+        # Adjust final decision based on deception results
+        deception_detected = False
+        if gate1_deception_result and gate1_deception_result.deception_label == "deceptive":
+            if gate1_deception_result.deception_confidence >= 0.6:
+                deception_detected = True
+        if gate2_deception_result and gate2_deception_result.deception_label == "deceptive":
+            if gate2_deception_result.deception_confidence >= 0.6:
+                deception_detected = True
+
+        if deception_detected and decision == "APPROVE":
+            decision = "VERIFY"
+            reasons.append(
+                "Decision adjusted to VERIFY due to deception indicators"
+            )
+
+        # === SAFETY ASSESSMENT ===
+        # Combine intent (from Gate 1 / CallAssessment) with deception signals
+        safety_assessment_result = None
+        try:
+            safety_service = SafetyAssessmentService()
+            
+            # Try to get Gate 1 call assessment for intent data
+            gate1_intent = "MEDIUM_INTENT"  # Default assumption
+            gate1_intent_confidence = 0.5
+            
+            call_assessment = await db.call_assessments.find_one({
+                "jobId": job_id,
+                "clientId": client_id,
+            })
+            
+            if call_assessment:
+                # Extract intent from call assessment
+                decision_label = call_assessment.get("decision", "")
+                if decision_label == "PROCEED":
+                    gate1_intent = "HIGH_INTENT"
+                    gate1_intent_confidence = call_assessment.get("confidence", 0.7)
+                elif decision_label == "VERIFY":
+                    gate1_intent = "MEDIUM_INTENT"
+                    gate1_intent_confidence = call_assessment.get("confidence", 0.5)
+                else:  # REJECT
+                    gate1_intent = "LOW_INTENT"
+                    gate1_intent_confidence = call_assessment.get("confidence", 0.3)
+            
+            # Calculate Gate 1 safety assessment
+            gate1_safety = safety_service.assess_gate1_safety(
+                intent=gate1_intent,
+                intent_confidence=gate1_intent_confidence,
+                deception_label=gate1_deception_result.deception_label if gate1_deception_result else None,
+                deception_confidence=gate1_deception_result.deception_confidence if gate1_deception_result else None,
+            )
+            
+            # Calculate Gate 2 safety assessment
+            gate2_safety = safety_service.assess_gate2_safety(
+                dominant_emotion=result.dominant_emotion,
+                emotion_distribution=result.emotion_distribution,
+                deception_label=gate2_deception_result.deception_label if gate2_deception_result else None,
+                deception_confidence=gate2_deception_result.deception_confidence if gate2_deception_result else None,
+            )
+            
+            # Combine both assessments
+            safety_assessment_result = safety_service.combine_gate_assessments(
+                gate1_safety, gate2_safety
+            )
+            
+            logger.info(
+                f"Safety Assessment: {safety_assessment_result.admin_action} "
+                f"(score: {safety_assessment_result.safety_score:.2f})"
+            )
+            
+            # Add safety recommendation to reasons
+            reasons.append(
+                f"Safety Assessment: {safety_assessment_result.admin_action} - "
+                f"{safety_assessment_result.admin_recommendation[:100]}..."
+            )
+            
+        except Exception as e:
+            logger.warning(f"Safety assessment failed: {e}")
+
         # Update interview record with Gate 2 results
+        update_fields = {
+            "interviewCompletedAt": now,
+            "videoDurationSeconds": duration_seconds,
+            "analysisDecision": decision,
+            "confidence": confidence,
+            "reasons": reasons,
+            "status": "completed",
+            "updatedAt": now,
+            # Gate 2 specific fields
+            "gate2_emotion_distribution": result.emotion_distribution,
+            "gate2_dominant_emotion": result.dominant_emotion,
+            "gate2_top_signals": result.top_signals,
+            "gate2_stats": result.stats,
+            "gate2_model_version": result.model_version,
+        }
+
+        # Add deception results if available
+        if gate1_deception_result:
+            update_fields["gate1_deception"] = gate1_deception_result.model_dump()
+        if gate2_deception_result:
+            update_fields["gate2_deception"] = gate2_deception_result.model_dump()
+        
+        # Add safety assessment if available
+        if safety_assessment_result:
+            update_fields["safety_assessment"] = safety_assessment_result.model_dump()
+
         await db.inperson_interviews.update_one(
             {"_id": interview["_id"]},
-            {
-                "$set": {
-                    "interviewCompletedAt": now,
-                    "videoDurationSeconds": duration_seconds,
-                    "analysisDecision": decision,
-                    "confidence": confidence,
-                    "reasons": reasons,
-                    "status": "completed",
-                    "updatedAt": now,
-                    # Gate 2 specific fields
-                    "gate2_emotion_distribution": result.emotion_distribution,
-                    "gate2_dominant_emotion": result.dominant_emotion,
-                    "gate2_top_signals": result.top_signals,
-                    "gate2_stats": result.stats,
-                    "gate2_model_version": result.model_version,
-                }
-            }
+            {"$set": update_fields},
         )
         
         # Update application status based on decision
@@ -381,6 +556,11 @@ async def analyze_interview_video(
             top_signals=result.top_signals,
             stats=Gate2AnalysisStats(**result.stats) if result.stats else None,
             model_version=result.model_version,
+            # Deception detection results
+            gate1_deception=gate1_deception_result,
+            gate2_deception=gate2_deception_result,
+            # Safety assessment
+            safety_assessment=safety_assessment_result,
         )
         
     finally:

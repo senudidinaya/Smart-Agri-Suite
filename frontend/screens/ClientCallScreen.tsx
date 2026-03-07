@@ -318,7 +318,7 @@ export default function ClientCallScreen() {
 
           {isUploading && (
             <View style={styles.uploadingContainer}>
-              <ActivityIndicator size="large" color="#5C9A9A" />
+              <ActivityIndicator size="large" color="#27ae60" />
               <Text style={styles.uploadingText}>Processing recording...</Text>
             </View>
           )}
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 18,
-    color: '#5C9A9A',
+    color: '#27ae60',
   },
   instructionBox: {
     backgroundColor: 'rgba(92, 154, 154, 0.2)',
@@ -536,10 +536,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginHorizontal: 20,
     borderWidth: 1,
-    borderColor: '#5C9A9A',
+    borderColor: '#27ae60',
   },
   instructionTitle: {
-    color: '#5C9A9A',
+    color: '#27ae60',
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   uploadingText: {
-    color: '#5C9A9A',
+    color: '#27ae60',
     marginTop: 10,
     fontSize: 14,
   },
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   closeButton: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 40,
     paddingVertical: 15,
     borderRadius: 10,

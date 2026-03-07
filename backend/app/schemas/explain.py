@@ -65,3 +65,51 @@ class InsightResponse(BaseModel):
     insight: str = Field(
         description="AI-generated professional paragraph explaining the analysis results",
     )
+
+
+# ---------------------------------------------------------------------------
+# Question generation for calls and interviews
+# ---------------------------------------------------------------------------
+
+class QuestionGenerationRequest(BaseModel):
+    """Request body for generating interview/call questions."""
+
+    job_title: str = Field(
+        description="The type of work (e.g., Harvesting, Planting, Irrigation)",
+        examples=["Harvesting"],
+    )
+    plantation_type: str = Field(
+        description="The plantation type(s) requiring experience",
+        examples=["Cinnamon, Cardamom"],
+    )
+    gate: str = Field(
+        description="The gate type: 'gate1' for introductory call, 'gate2' for interview",
+        examples=["gate1"],
+    )
+    num_questions: int = Field(
+        default=5,
+        description="Number of questions to generate (default: 5)",
+        ge=3,
+        le=10,
+    )
+
+
+class Question(BaseModel):
+    """A single generated question."""
+
+    question: str = Field(description="The question text")
+    purpose: str = Field(description="Brief explanation of what this question assesses")
+    follow_up_hint: Optional[str] = Field(
+        default=None,
+        description="Optional hint for follow-up if the answer is unclear",
+    )
+
+
+class QuestionGenerationResponse(BaseModel):
+    """Response containing generated questions for the admin."""
+
+    success: bool = Field(default=True, description="Whether question generation succeeded")
+    gate: str = Field(description="The gate type (gate1 or gate2)")
+    job_title: str = Field(description="The job title/work type")
+    plantation_type: str = Field(description="The plantation type(s)")
+    questions: List[Question] = Field(description="List of generated questions")

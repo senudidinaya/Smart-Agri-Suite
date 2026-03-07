@@ -31,7 +31,7 @@ InterviewDecision = Literal["APPROVE", "VERIFY", "REJECT"]
 class CallAssessmentCreate(BaseModel):
     """Create a call assessment record."""
     jobId: str
-    clientId: str
+    cultivatorId: str
     decision: Literal["PROCEED", "VERIFY", "REJECT"]
     confidence: float = Field(..., ge=0.0, le=1.0)
     reasons: List[str] = []
@@ -41,8 +41,8 @@ class CallAssessmentResponse(BaseModel):
     """Call assessment response."""
     id: str
     jobId: str
-    clientId: str
-    adminId: str
+    cultivatorId: str
+    interviewerId: str
     callStartedAt: Optional[datetime] = None
     callEndedAt: Optional[datetime] = None
     decision: str
@@ -87,6 +87,24 @@ class Gate2AnalysisStats(BaseModel):
     predictions_count: int = 0
 
 
+class DeceptionAnalysis(BaseModel):
+    """Deception detection analysis result."""
+    deception_label: str  # truthful / deceptive
+    deception_confidence: float = Field(0.0, ge=0.0, le=1.0)
+    deception_scores: Optional[Dict[str, float]] = None
+    deception_signals: List[str] = []
+    deception_model_type: Optional[str] = None  # ml / rules
+
+
+class SafetyAssessment(BaseModel):
+    """Combined safety/trustworthiness assessment from intent + deception."""
+    safety_score: float = Field(..., ge=0.0, le=1.0)  # 0=unsafe, 1=safe
+    primary_signals: List[str] = []  # Intent + deception combination
+    risk_flags: List[str] = []  # Inconsistencies, deception detected, etc.
+    admin_action: Literal["PROCEED", "VERIFY", "REJECT"]
+    admin_recommendation: str
+
+
 class InterviewAnalyzeResponse(BaseModel):
     """Response after analyzing interview video with Gate 2."""
     success: bool
@@ -96,20 +114,25 @@ class InterviewAnalyzeResponse(BaseModel):
     reasons: List[str]
     applicationStatus: str
     message: str
-    # Gate 2 specific fields
+    # Gate 2 emotion analysis fields
     emotion_distribution: Optional[dict] = None
     dominant_emotion: Optional[str] = None
     top_signals: Optional[List[str]] = None
     stats: Optional[Gate2AnalysisStats] = None
     model_version: Optional[str] = None
+    # Deception detection fields (Gate 1 audio + Gate 2 visual)
+    gate1_deception: Optional[DeceptionAnalysis] = None
+    gate2_deception: Optional[DeceptionAnalysis] = None
+    # Safety assessment (combined intent + deception)
+    safety_assessment: Optional[SafetyAssessment] = None
 
 
 class InterviewResponse(BaseModel):
     """Full interview record response."""
     id: str
     jobId: str
-    clientId: str
-    adminId: str
+    cultivatorId: str
+    interviewerId: str
     interviewScheduledAt: Optional[datetime] = None
     interviewCompletedAt: Optional[datetime] = None
     videoDurationSeconds: Optional[float] = None
@@ -124,6 +147,11 @@ class InterviewResponse(BaseModel):
     top_signals: Optional[List[str]] = None
     stats: Optional[Gate2AnalysisStats] = None
     model_version: Optional[str] = None
+    # Deception detection fields
+    gate1_deception: Optional[DeceptionAnalysis] = None
+    gate2_deception: Optional[DeceptionAnalysis] = None
+    # Safety assessment
+    safety_assessment: Optional[SafetyAssessment] = None
 
 
 class InterviewStatusResponse(BaseModel):

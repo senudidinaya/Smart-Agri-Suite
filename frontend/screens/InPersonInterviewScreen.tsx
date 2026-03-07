@@ -21,7 +21,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
-import { api, InterviewAnalyzeResponse, InsightResponse } from '../services/api';
+import { api, InterviewAnalyzeResponse, InsightResponse, Question } from '../services/api';
 
 type RouteParams = {
   InPersonInterview: {
@@ -29,13 +29,14 @@ type RouteParams = {
     clientId: string;
     clientName: string;
     jobTitle: string;
+    priorExperience?: string;
   };
 };
 
 export default function InPersonInterviewScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'InPersonInterview'>>();
-  const { jobId, clientId, clientName, jobTitle } = route.params;
+  const { jobId, clientId, clientName, jobTitle, priorExperience } = route.params;
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
@@ -49,6 +50,12 @@ export default function InPersonInterviewScreen() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [deepseekInsight, setDeepseekInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
+  
+  // Questions state
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [questionsExpanded, setQuestionsExpanded] = useState(true);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
   
   const cameraRef = useRef<CameraView>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -74,6 +81,39 @@ export default function InPersonInterviewScreen() {
   useEffect(() => {
     requestPermissions();
   }, []);
+
+  // Fetch AI-generated questions for Gate-2 interview
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      if (!jobTitle || !priorExperience) {
+        console.log('Skipping questions fetch - missing job info');
+        return;
+      }
+      
+      setQuestionsLoading(true);
+      setQuestionsError(null);
+      
+      try {
+        const response = await api.generateQuestions(
+          jobTitle,
+          priorExperience,
+          'gate2',  // Gate-2 is the formal interview
+          5
+        );
+        
+        if (response.success) {
+          setQuestions(response.questions);
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch questions:', err);
+        setQuestionsError(err.message || 'Failed to load questions');
+      } finally {
+        setQuestionsLoading(false);
+      }
+    };
+    
+    fetchQuestions();
+  }, [jobTitle, priorExperience]);
 
   // Fetch DeepSeek insight when analysis results arrive
   useEffect(() => {
@@ -502,7 +542,7 @@ export default function InPersonInterviewScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.analyzingContainer}>
-          <ActivityIndicator size="large" color="#5C9A9A" />
+          <ActivityIndicator size="large" color="#27ae60" />
           <Text style={styles.analyzingText}>Analyzing Interview...</Text>
           <Text style={styles.analyzingSubtext}>
             Processing video with Gate 2 AI
@@ -597,6 +637,50 @@ export default function InPersonInterviewScreen() {
         <Text style={styles.detailLabel}>For Job:</Text>
         <Text style={styles.detailValue}>{jobTitle}</Text>
       </View>
+
+      {/* AI-Generated Questions Panel for Gate-2 Interview */}
+      <View style={styles.questionsSection}>
+        <TouchableOpacity 
+          style={styles.questionsHeader}
+          onPress={() => setQuestionsExpanded(!questionsExpanded)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.questionsTitle}>📋 Interview Questions</Text>
+          <Text style={styles.questionsToggle}>{questionsExpanded ? '▼' : '▶'}</Text>
+        </TouchableOpacity>
+        
+        {questionsExpanded && (
+          <ScrollView style={styles.questionsList} nestedScrollEnabled>
+            {questionsLoading ? (
+              <View style={styles.questionsLoadingContainer}>
+                <ActivityIndicator size="small" color="#27ae60" />
+                <Text style={styles.questionsLoadingText}>Generating questions...</Text>
+              </View>
+            ) : questionsError ? (
+              <Text style={styles.questionsErrorText}>{questionsError}</Text>
+            ) : questions.length > 0 ? (
+              questions.map((q, index) => (
+                <View key={index} style={styles.questionItem}>
+                  <View style={styles.questionNumberBadge}>
+                    <Text style={styles.questionNumber}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.questionContent}>
+                    <Text style={styles.questionText}>{q.question}</Text>
+                    <Text style={styles.questionPurpose}>💡 {q.purpose}</Text>
+                    {q.follow_up_hint && (
+                      <Text style={styles.questionFollowUp}>↪ Follow-up: {q.follow_up_hint}</Text>
+                    )}
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noQuestionsText}>
+                No questions available. Job details may be missing.
+              </Text>
+            )}
+          </ScrollView>
+        )}
+      </View>
       
       <View style={styles.controls}>
         {!isRecording ? (
@@ -668,7 +752,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   grantButton: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -845,7 +929,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   agreeButton: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     paddingVertical: 14,
     borderRadius: 25,
     alignItems: 'center',
@@ -908,7 +992,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   retryButton: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     paddingVertical: 15,
     borderRadius: 25,
     alignItems: 'center',
@@ -990,7 +1074,7 @@ const styles = StyleSheet.create({
   },
   reasonBullet: {
     fontSize: 14,
-    color: '#5C9A9A',
+    color: '#27ae60',
     marginRight: 8,
   },
   reasonText: {
@@ -1014,10 +1098,10 @@ const styles = StyleSheet.create({
   statusValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#5C9A9A',
+    color: '#27ae60',
   },
   doneButton: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     paddingVertical: 15,
     paddingHorizontal: 50,
     borderRadius: 25,
@@ -1043,7 +1127,7 @@ const styles = StyleSheet.create({
   },
   dominantEmotion: {
     fontSize: 14,
-    color: '#5C9A9A',
+    color: '#27ae60',
     fontWeight: '500',
     marginBottom: 12,
   },
@@ -1071,7 +1155,7 @@ const styles = StyleSheet.create({
   },
   emotionBarFill: {
     height: '100%',
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     borderRadius: 6,
   },
   emotionPercent: {
@@ -1091,7 +1175,7 @@ const styles = StyleSheet.create({
   statsTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#5C9A9A',
+    color: '#27ae60',
     marginBottom: 10,
   },
   statsRow: {
@@ -1143,5 +1227,97 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#7B7B7B',
     fontStyle: 'italic',
+  },
+  // Questions panel styles
+  questionsSection: {
+    backgroundColor: 'rgba(92, 154, 154, 0.15)',
+    borderRadius: 12,
+    marginHorizontal: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 154, 154, 0.3)',
+    overflow: 'hidden',
+  },
+  questionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: 'rgba(92, 154, 154, 0.25)',
+  },
+  questionsTitle: {
+    color: '#27ae60',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  questionsToggle: {
+    color: '#27ae60',
+    fontSize: 11,
+  },
+  questionsList: {
+    maxHeight: 180,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
+  questionsLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  questionsLoadingText: {
+    color: '#27ae60',
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  questionsErrorText: {
+    color: '#e74c3c',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  questionItem: {
+    flexDirection: 'row',
+    marginTop: 8,
+    alignItems: 'flex-start',
+  },
+  questionNumberBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#27ae60',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  questionNumber: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  questionContent: {
+    flex: 1,
+  },
+  questionText: {
+    color: '#fff',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  questionPurpose: {
+    color: '#8BC4C4',
+    fontSize: 10,
+    marginTop: 3,
+    fontStyle: 'italic',
+  },
+  questionFollowUp: {
+    color: '#6BA3A3',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  noQuestionsText: {
+    color: '#999',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 12,
   },
 });

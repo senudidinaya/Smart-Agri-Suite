@@ -48,6 +48,49 @@ GATE2_SYSTEM_PROMPT = (
     "write a single cohesive paragraph."
 )
 
+# ---------------------------------------------------------------------------
+# Question Generation Prompts
+# ---------------------------------------------------------------------------
+
+GATE1_QUESTIONS_SYSTEM_PROMPT = (
+    "You are an expert agricultural recruitment advisor. Your role is to help "
+    "admin recruiters conduct effective introductory screening calls with "
+    "cultivator (farm worker) applicants.\n\n"
+    "For Gate-1 (introductory call), the goal is to:\n"
+    "1. Verify the applicant's basic interest and availability\n"
+    "2. Understand their relevant experience at a high level\n"
+    "3. Assess communication skills and professionalism\n"
+    "4. Determine if they should proceed to a formal interview\n\n"
+    "Questions should be conversational, welcoming, and not too technical. "
+    "This is a brief screening call, not a detailed interview.\n\n"
+    "Generate questions in JSON format with this exact structure:\n"
+    "[\n"
+    '  {"question": "...", "purpose": "...", "follow_up_hint": "..."}\n'
+    "]\n"
+    "Each question object must have: question (the text), purpose (what it assesses), "
+    "and follow_up_hint (optional clarification prompt)."
+)
+
+GATE2_QUESTIONS_SYSTEM_PROMPT = (
+    "You are an expert agricultural recruitment advisor. Your role is to help "
+    "admin recruiters conduct thorough in-person interviews with "
+    "cultivator (farm worker) applicants.\n\n"
+    "For Gate-2 (formal interview), the goal is to:\n"
+    "1. Deeply assess technical knowledge and hands-on experience\n"
+    "2. Evaluate problem-solving abilities in agricultural contexts\n"
+    "3. Understand work ethic, reliability, and commitment\n"
+    "4. Assess cultural fit and teamwork capabilities\n"
+    "5. Verify specific skills relevant to the plantation type\n\n"
+    "Questions should be detailed, scenario-based where appropriate, and "
+    "designed to reveal practical expertise. This is a comprehensive interview.\n\n"
+    "Generate questions in JSON format with this exact structure:\n"
+    "[\n"
+    '  {"question": "...", "purpose": "...", "follow_up_hint": "..."}\n'
+    "]\n"
+    "Each question object must have: question (the text), purpose (what it assesses), "
+    "and follow_up_hint (optional clarification prompt)."
+)
+
 
 # ---------------------------------------------------------------------------
 # Service functions
@@ -133,6 +176,78 @@ async def generate_gate2_insight(
     )
 
     return await _call_deepseek(GATE2_SYSTEM_PROMPT, user_content)
+
+
+async def generate_questions(
+    job_title: str,
+    plantation_type: str,
+    gate: str,
+    num_questions: int = 5,
+) -> list:
+    """
+    Generate AI-powered questions for admin to ask during calls/interviews.
+
+    Args:
+        job_title: The type of work (e.g., Harvesting, Planting).
+        plantation_type: The plantation type(s) (e.g., Cinnamon, Cardamom).
+        gate: Either 'gate1' (introductory call) or 'gate2' (formal interview).
+        num_questions: Number of questions to generate (default: 5).
+
+    Returns:
+        A list of question objects with question, purpose, and follow_up_hint.
+    """
+    import json
+
+    # Select the appropriate prompt based on gate
+    if gate.lower() == "gate1":
+        system_prompt = GATE1_QUESTIONS_SYSTEM_PROMPT
+        context = "introductory screening call"
+    else:
+        system_prompt = GATE2_QUESTIONS_SYSTEM_PROMPT
+        context = "formal in-person interview"
+
+    user_content = (
+        f"Generate {num_questions} questions for a {context} with a cultivator applicant.\n\n"
+        f"Job Details:\n"
+        f"• Work Type: {job_title}\n"
+        f"• Plantation Experience Required: {plantation_type}\n\n"
+        f"The questions should be tailored to assess the applicant's suitability "
+        f"for {job_title} work in {plantation_type} plantations.\n\n"
+        f"Return ONLY a valid JSON array with {num_questions} question objects. "
+        f"No additional text or explanation."
+    )
+
+    response_text = await _call_deepseek(system_prompt, user_content)
+
+    # Parse the JSON response
+    try:
+        # Clean up response - remove markdown code blocks if present
+        clean_response = response_text.strip()
+        if clean_response.startswith("```json"):
+            clean_response = clean_response[7:]
+        if clean_response.startswith("```"):
+            clean_response = clean_response[3:]
+        if clean_response.endswith("```"):
+            clean_response = clean_response[:-3]
+        clean_response = clean_response.strip()
+
+        questions = json.loads(clean_response)
+
+        # Validate structure
+        validated_questions = []
+        for q in questions:
+            validated_questions.append({
+                "question": q.get("question", ""),
+                "purpose": q.get("purpose", ""),
+                "follow_up_hint": q.get("follow_up_hint"),
+            })
+
+        return validated_questions
+
+    except json.JSONDecodeError as exc:
+        logger.error("Failed to parse DeepSeek question response: %s", exc)
+        logger.debug("Raw response: %s", response_text)
+        raise RuntimeError("Failed to parse AI-generated questions") from exc
 
 
 # ---------------------------------------------------------------------------

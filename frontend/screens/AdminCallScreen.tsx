@@ -14,13 +14,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { api, AnalysisResult, AgoraTokenInfo, InsightResponse } from '../services/api';
+import { api, AnalysisResult, AgoraTokenInfo, InsightResponse, Question, QuestionGenerationResponse } from '../services/api';
 import { useAgora, AgoraConfig } from '../hooks/useAgora';
 
 interface RouteParams {
   callId: string;
   clientUsername?: string;
   jobTitle?: string;
+  priorExperience?: string;
   // Agora connection info
   agora?: AgoraTokenInfo;
   // Legacy fields
@@ -32,7 +33,7 @@ interface RouteParams {
 export default function AdminCallScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { callId, clientUsername, jobTitle, agora } = route.params as RouteParams;
+  const { callId, clientUsername, jobTitle, priorExperience, agora } = route.params as RouteParams;
 
   const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'connected' | 'ended'>('connecting');
   const [callDuration, setCallDuration] = useState(0);
@@ -41,6 +42,12 @@ export default function AdminCallScreen() {
   const [isCloudRecording, setIsCloudRecording] = useState(false);
   const [deepseekInsight, setDeepseekInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
+  
+  // Questions state
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [questionsExpanded, setQuestionsExpanded] = useState(true);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
@@ -142,6 +149,39 @@ export default function AdminCallScreen() {
     };
     fetchInsight();
   }, [analysisResult]);
+
+  // Fetch AI-generated questions when call is initiated
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      if (!jobTitle || !priorExperience) {
+        console.log('Skipping questions fetch - missing job info');
+        return;
+      }
+      
+      setQuestionsLoading(true);
+      setQuestionsError(null);
+      
+      try {
+        const response = await api.generateQuestions(
+          jobTitle,
+          priorExperience,
+          'gate1',  // Gate-1 is the introductory call
+          5
+        );
+        
+        if (response.success) {
+          setQuestions(response.questions);
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch questions:', err);
+        setQuestionsError(err.message || 'Failed to load questions');
+      } finally {
+        setQuestionsLoading(false);
+      }
+    };
+    
+    fetchQuestions();
+  }, [jobTitle, priorExperience]);
 
   const cleanup = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -334,7 +374,7 @@ export default function AdminCallScreen() {
 
           {waitingForAnalysis && !analysisResult && (
             <View style={styles.waitingContainer}>
-              <ActivityIndicator size="large" color="#5C9A9A" />
+              <ActivityIndicator size="large" color="#27ae60" />
               <Text style={styles.waitingText}>Waiting for voice analysis...</Text>
               <Text style={styles.waitingSubtext}>Client is uploading the recording</Text>
             </View>
@@ -443,6 +483,52 @@ export default function AdminCallScreen() {
           )}
         </View>
 
+        {/* AI-Generated Questions Panel */}
+        {(callStatus === 'ringing' || callStatus === 'connected') && (
+          <View style={styles.questionsSection}>
+            <TouchableOpacity 
+              style={styles.questionsHeader}
+              onPress={() => setQuestionsExpanded(!questionsExpanded)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.questionsTitle}>📋 Suggested Questions</Text>
+              <Text style={styles.questionsToggle}>{questionsExpanded ? '▼' : '▶'}</Text>
+            </TouchableOpacity>
+            
+            {questionsExpanded && (
+              <ScrollView style={styles.questionsList} nestedScrollEnabled>
+                {questionsLoading ? (
+                  <View style={styles.questionsLoadingContainer}>
+                    <ActivityIndicator size="small" color="#27ae60" />
+                    <Text style={styles.questionsLoadingText}>Generating questions...</Text>
+                  </View>
+                ) : questionsError ? (
+                  <Text style={styles.questionsErrorText}>{questionsError}</Text>
+                ) : questions.length > 0 ? (
+                  questions.map((q, index) => (
+                    <View key={index} style={styles.questionItem}>
+                      <View style={styles.questionNumberBadge}>
+                        <Text style={styles.questionNumber}>{index + 1}</Text>
+                      </View>
+                      <View style={styles.questionContent}>
+                        <Text style={styles.questionText}>{q.question}</Text>
+                        <Text style={styles.questionPurpose}>💡 {q.purpose}</Text>
+                        {q.follow_up_hint && (
+                          <Text style={styles.questionFollowUp}>↪ Follow-up: {q.follow_up_hint}</Text>
+                        )}
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.noQuestionsText}>
+                    No questions available. Job details may be missing.
+                  </Text>
+                )}
+              </ScrollView>
+            )}
+          </View>
+        )}
+
         <View style={styles.controls}>
           {/* Mute Button */}
           <TouchableOpacity
@@ -506,7 +592,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -524,7 +610,7 @@ const styles = StyleSheet.create({
   },
   clientName: {
     fontSize: 16,
-    color: '#5C9A9A',
+    color: '#27ae60',
     marginBottom: 10,
   },
   statusText: {
@@ -544,10 +630,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginHorizontal: 20,
     borderWidth: 1,
-    borderColor: '#5C9A9A',
+    borderColor: '#27ae60',
   },
   instructionTitle: {
-    color: '#5C9A9A',
+    color: '#27ae60',
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -595,7 +681,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   noticeText: {
-    color: '#5C9A9A',
+    color: '#27ae60',
     fontSize: 12,
     textAlign: 'center',
   },
@@ -627,7 +713,7 @@ const styles = StyleSheet.create({
   },
   callerInfo: {
     fontSize: 16,
-    color: '#5C9A9A',
+    color: '#27ae60',
     marginBottom: 5,
   },
   durationText: {
@@ -728,7 +814,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   closeButton: {
-    backgroundColor: '#5C9A9A',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 40,
     paddingVertical: 15,
     borderRadius: 10,
@@ -807,5 +893,97 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  // Questions panel styles
+  questionsSection: {
+    marginHorizontal: 15,
+    marginVertical: 10,
+    backgroundColor: 'rgba(92, 154, 154, 0.15)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 154, 154, 0.3)',
+    overflow: 'hidden',
+  },
+  questionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'rgba(92, 154, 154, 0.2)',
+  },
+  questionsTitle: {
+    color: '#27ae60',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  questionsToggle: {
+    color: '#27ae60',
+    fontSize: 12,
+  },
+  questionsList: {
+    maxHeight: 200,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  questionsLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+  },
+  questionsLoadingText: {
+    color: '#27ae60',
+    fontSize: 13,
+    marginLeft: 10,
+  },
+  questionsErrorText: {
+    color: '#e74c3c',
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: 15,
+  },
+  questionItem: {
+    flexDirection: 'row',
+    marginTop: 10,
+    alignItems: 'flex-start',
+  },
+  questionNumberBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#27ae60',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  questionNumber: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  questionContent: {
+    flex: 1,
+  },
+  questionText: {
+    color: '#fff',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  questionPurpose: {
+    color: '#8BC4C4',
+    fontSize: 11,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  questionFollowUp: {
+    color: '#6BA3A3',
+    fontSize: 11,
+    marginTop: 3,
+  },
+  noQuestionsText: {
+    color: '#999',
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: 15,
   },
 });
