@@ -74,7 +74,7 @@ models/*.bin
 models/*.onnx
 models/gate2/*.keras
 models/gate2/*.h5
-models/gate2/*.pkl
+# models/gate2/*.pkl
 
 # Gate 2 dataset (large)
 data/gate2/dataset/
