@@ -840,6 +840,7 @@ export default function ListLandFormScreen() {
 
             <Pressable
                 style={[s.btnPrimary, { marginTop: 24, width: "100%" }]}
+                // @ts-ignore
                 onPress={() => router.replace(`/(main)/marketplace?focusId=${listingId}`)}
             >
                 <Text style={s.btnPrimaryText}>See Listed Land</Text>

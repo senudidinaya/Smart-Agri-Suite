@@ -1,0 +1,17 @@
+﻿app/(tabs)/simulator.tsx(2,1725): error TS1005: ',' expected.
+app/(tabs)/simulator.tsx(2,1732): error TS1131: Property or signature expected.
+app/(tabs)/simulator.tsx(2,1758): error TS1005: ';' expected.
+app/(tabs)/simulator.tsx(2,1771): error TS1005: ')' expected.
+app/(tabs)/simulator.tsx(2,1772): error TS1109: Expression expected.
+app/(tabs)/simulator.tsx(2,7051): error TS1005: ';' expected.
+app/(tabs)/simulator.tsx(2,7053): error TS1109: Expression expected.
+app/(tabs)/simulator.tsx(2,7057): error TS1109: Expression expected.
+app/(tabs)/simulator.tsx(2,7060): error TS1128: Declaration or statement expected.
+app/(tabs)/srilanka-demand-map.tsx(2,1964): error TS1005: ';' expected.
+app/(tabs)/srilanka-demand-map.tsx(2,2017): error TS1005: ';' expected.
+app/(tabs)/srilanka-demand-map.tsx(2,2068): error TS1005: ';' expected.
+app/(tabs)/srilanka-demand-map.tsx(2,2118): error TS1005: ';' expected.
+app/(tabs)/srilanka-demand-map.tsx(2,2171): error TS1005: ';' expected.
+app/(tabs)/srilanka-demand-map.tsx(2,2223): error TS1005: ';' expected.
+app/(tabs)/srilanka-demand-map.tsx(2,2270): error TS1128: Declaration or statement expected.
+app/(tabs)/srilanka-demand-map.tsx(2,3388): error TS1005: ',' expected.

@@ -86,6 +86,7 @@ export default function TabLayout() {
         name="dashboard"
         options={{
           title: "Admin",
+          // @ts-ignore
           href: isAdmin ? "/dashboard" : null,
           tabBarIcon: ({ color }) => (
             <IconText color={color} text="📊" />

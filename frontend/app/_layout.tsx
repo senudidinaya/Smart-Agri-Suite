@@ -55,6 +55,8 @@ function RootLayoutNav() {
         <Stack.Screen name="listings/detail" options={{ headerShown: false }} />
         <Stack.Screen name="listings/all" options={{ headerShown: false }} />
         <Stack.Screen name="land/list-land-form" options={{ headerShown: false, presentation: "fullScreenModal" }} />
+        <Stack.Screen name="(tabs)/seasonal-price-analytics" options={{ headerShown: false }} />
+        <Stack.Screen name="price-result" options={{ headerShown: false }} />
       </Stack>
     </AuthGate>
   );

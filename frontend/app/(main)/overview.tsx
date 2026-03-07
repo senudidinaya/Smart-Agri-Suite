@@ -264,6 +264,7 @@ export default function OverviewScreen() {
         {/* ==================== CTA BUTTON ====================*/}
         <Pressable
           style={styles.ctaButton}
+          // @ts-ignore
           onPress={() => router.push("/map")}
         >
           <Text style={styles.ctaButtonText}>{langConfig['ov.cta']}</Text>

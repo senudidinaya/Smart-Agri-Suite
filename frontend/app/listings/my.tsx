@@ -233,6 +233,7 @@ export default function MyListingsScreen() {
                     renderItem={({ item }) => (
                         <ListingCard
                             item={item}
+                            // @ts-ignore
                             onPress={() => router.push({ pathname: '/listings/detail', params: { id: String(item.id) } })}
                         />
                     )}

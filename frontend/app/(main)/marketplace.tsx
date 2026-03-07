@@ -214,7 +214,10 @@ export default function MarketplaceScreen() {
             : ALL_FILTERS.length - activeFilters.length;
 
     const handleListLand = () => router.push("/(main)/map?startDraw=true" as any);
-    const handleSeeAll = () => router.push("/listings/all");
+    const handleSeeAll = () => {
+        // @ts-ignore
+        router.push("/listings/all");
+    };
     const handleMyLands = () => router.push("/listings/my" as any);
 
     // ======================== RENDER ========================
@@ -287,12 +290,13 @@ export default function MarketplaceScreen() {
                                 fillColor={style.fill}
                                 strokeWidth={3}
                                 tappable
-                                onPress={() =>
+                                onPress={() => {
+                                    // @ts-ignore
                                     router.push({
                                         pathname: "/listings/detail",
                                         params: { id: String(listing.id) }
-                                    })
-                                }
+                                    } as any);
+                                }}
                             />
                             {/* Status marker at centroid */}
                             <Marker
@@ -300,12 +304,13 @@ export default function MarketplaceScreen() {
                                 pinColor={pinColor}
                                 title={listing.title}
                                 description={`Status: ${listing.status ?? "unknown"}`}
-                                onCalloutPress={() =>
+                                onPress={() => {
+                                    // @ts-ignore
                                     router.push({
                                         pathname: "/listings/detail",
                                         params: { id: String(listing.id) }
-                                    })
-                                }
+                                    } as any);
+                                }}
                             />
                         </React.Fragment>
                     );

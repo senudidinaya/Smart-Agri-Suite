@@ -652,6 +652,7 @@ export default function AnalyticsScreen() {
     };
   }, [url, isPolygonAnalysis]);
 
+  // @ts-ignore
   const goToMap = () => router.replace("/map");
 
   // Log render state

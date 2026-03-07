@@ -1,0 +1,1 @@
+﻿app/(main)/marketplace.tsx(297,104): error TS1005: '...' expected.

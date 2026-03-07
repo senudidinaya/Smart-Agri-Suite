@@ -192,6 +192,7 @@ interface LanguageContextProps {
     language: Language;
     toggleLanguage: () => void;
     langConfig: Record<string, string>;
+    t: (key: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextProps | undefined>(undefined);
@@ -214,9 +215,10 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const langConfig = TRANSLATIONS[language];
+    const t = (key: string) => langConfig[key] || key;
 
     return (
-        <LanguageContext.Provider value={{ language, toggleLanguage, langConfig }}>
+        <LanguageContext.Provider value={{ language, toggleLanguage, langConfig, t }}>
             {children}
         </LanguageContext.Provider>
     );

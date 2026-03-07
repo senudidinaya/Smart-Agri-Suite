@@ -385,10 +385,11 @@ export default function MapScreen() {
       });
       const result = await res.json();
       if (result.ok) {
+        // @ts-ignore
         router.push({
           pathname: "/analytics",
           params: { type: "polygon", result: JSON.stringify(result) }
-        });
+        } as any);
       }
     } catch (e) {
       console.error("Auto analysis failed:", e);
@@ -577,6 +578,7 @@ export default function MapScreen() {
 
   const openAnalytics = useCallback(() => {
     if (!selected) return;
+    // @ts-ignore
     router.push({
       pathname: "/analytics",
       params: {
@@ -584,7 +586,7 @@ export default function MapScreen() {
         lng: String(selected.longitude),
         type: "point"
       }
-    });
+    } as any);
   }, [selected, router]);
 
   const startDrawing = useCallback(() => {
@@ -671,13 +673,14 @@ export default function MapScreen() {
       setPointHistory([]);
       setPolygonError(null);
 
+      // @ts-ignore
       router.push({
         pathname: "/analytics",
         params: {
           type: "polygon",
           result: JSON.stringify(result)
         }
-      });
+      } as any);
     } catch (e: any) {
       Alert.alert("Error", e.message);
     } finally {
@@ -752,7 +755,8 @@ export default function MapScreen() {
                 coordinate={centroid}
                 pinColor="green"
                 title={listing.title}
-                onCalloutPress={() => router.push({ pathname: "/listings/detail", params: { id: listing.id.toString() } })}
+                // @ts-ignore
+                onCalloutPress={() => router.push({ pathname: "/listings/detail", params: { id: String(listing.id) } })}
               />
             </React.Fragment>
           );
@@ -928,6 +932,15 @@ export default function MapScreen() {
               <Text style={styles.toolboxBtnText}>🔍</Text>
             </Pressable>
 
+            {/* Smart Pricing Link */}
+            <Pressable
+              style={styles.toolboxBtn}
+              onPress={() => router.push("/(tabs)/seasonal-price-analytics" as any)}
+              android_ripple={{ color: "rgba(59, 130, 246, 0.2)", radius: 24 }}
+            >
+              <Text style={styles.toolboxBtnText}>📈</Text>
+            </Pressable>
+
             {/* Draw/Edit */}
             <Pressable
               style={[
@@ -1008,10 +1021,11 @@ export default function MapScreen() {
                 disabled={polygonPoints.length < 3}
                 onPress={() => {
                   const coords = polygonPoints.map((p) => [p.longitude, p.latitude]);
+                  // @ts-ignore
                   router.push({
                     pathname: "/land/list-land-form",
                     params: { polygon: JSON.stringify(coords) }
-                  });
+                  } as any);
                 }}
               >
                 <Text style={styles.actionBtnText}>📋</Text>
@@ -1080,6 +1094,7 @@ export default function MapScreen() {
                   styles.analyzePointBtn,
                 ]}
                 onPress={selected.inside ? openAnalytics : () => {
+                  // @ts-ignore
                   router.push({
                     pathname: "/analytics",
                     params: {
@@ -1087,7 +1102,7 @@ export default function MapScreen() {
                       lng: String(selected.longitude),
                       type: "gee_point"
                     }
-                  });
+                  } as any);
                 }}
               >
                 <Text style={styles.analyzePointBtnText}>

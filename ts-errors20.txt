@@ -1,0 +1,9 @@
+﻿app/(main)/map.tsx(390,11): error TS2322: Type '"/analytics"' is not assignable to type 'RelativePathString | ExternalPathString | "/invoice" | "/modal" | "/price-result" | "/_sitemap" | "/(tabs)" | "/(tabs)/demand-prediction" | ... 24 more ... | "/yield-analytics"'.
+app/(main)/map.tsx(582,7): error TS2322: Type '"/analytics"' is not assignable to type 'RelativePathString | ExternalPathString | "/invoice" | "/modal" | "/price-result" | "/_sitemap" | "/(tabs)" | "/(tabs)/demand-prediction" | ... 24 more ... | "/yield-analytics"'.
+app/(main)/map.tsx(676,9): error TS2322: Type '"/analytics"' is not assignable to type 'RelativePathString | ExternalPathString | "/invoice" | "/modal" | "/price-result" | "/_sitemap" | "/(tabs)" | "/(tabs)/demand-prediction" | ... 24 more ... | "/yield-analytics"'.
+app/(main)/map.tsx(759,42): error TS2339: Property 'actionBtnPrimary' does not exist on type '{ overlay: { justifyContent: "space-between"; position: "absolute"; left: 0; right: 0; top: 0; bottom: 0; }; headerContainer: { backgroundColor: string; paddingBottom: number; }; dashboardContainer: { ...; }; ... 46 more ...; safeArea: { ...; }; }'.
+app/(main)/map.tsx(760,11): error TS2578: Unused '@ts-expect-error' directive.
+app/(main)/map.tsx(958,13): error TS2578: Unused '@ts-expect-error' directive.
+app/(main)/map.tsx(1100,21): error TS2322: Type '"/analytics"' is not assignable to type 'RelativePathString | ExternalPathString | "/invoice" | "/modal" | "/price-result" | "/_sitemap" | "/(tabs)" | "/(tabs)/demand-prediction" | ... 24 more ... | "/yield-analytics"'.
+app/(main)/marketplace.tsx(299,37): error TS2578: Unused '@ts-expect-error' directive.
+app/(main)/marketplace.tsx(311,41): error TS2322: Type '"/listings/detail"' is not assignable to type 'RelativePathString | ExternalPathString | "/invoice" | "/modal" | "/price-result" | "/_sitemap" | "/(tabs)" | "/(tabs)/demand-prediction" | ... 24 more ... | "/yield-analytics"'.
