@@ -43,8 +43,8 @@ const COMPONENTS = [
         title: "Supply Chain & Market",
         subtitle: "Forecast pricing and manage logistics for agricultural outputs",
         icon: "📈",
-        route: null,
-        active: false,
+        route: "/pricing/insights",
+        active: true,
         colors: ["#f59e0b", "#d97706"], // Amber
         image: "https://images.unsplash.com/photo-1586528116311-ad8ed7c80a30?q=80&w=600&auto=format&fit=crop",
     },
