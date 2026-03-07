@@ -1,0 +1,63 @@
+# Cultivator Intention Prediction API
+# Dependencies for Smart Agri-Suite Backend
+
+# Web Framework
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+python-multipart==0.0.9
+
+# Settings & Validation
+pydantic==2.6.1
+pydantic-settings==2.1.0
+python-dotenv==1.0.1
+
+# HTTP Client (for testing and Agora RESTful API)
+httpx==0.26.0
+aiohttp==3.9.3
+
+# Testing
+pytest>=7.4.0,<8.0.0
+pytest-asyncio==0.23.4
+
+# Typing Extensions
+typing-extensions==4.9.0
+
+# MongoDB
+motor==3.3.2
+pymongo==4.6.1
+
+# Timezone handling
+pytz==2024.1
+
+# Authentication
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+
+# Agora Token Generation
+agora-token-builder==1.0.0
+
+# ML Dependencies (for intent risk model training and inference)
+scikit-learn>=1.4.0
+joblib>=1.3.0
+numpy>=1.26.0
+pandas>=2.2.0
+
+# Audio Feature Extraction (for dataset generation)
+librosa>=0.10.1
+scipy>=1.12.0
+
+# =============================================================================
+# Gate 2: Video Interview Analysis Dependencies
+# (Uses scikit-learn + HOG features, no TensorFlow required)
+# =============================================================================
+
+# Computer Vision (includes Haar cascade for face detection)
+opencv-python>=4.9.0
+Pillow>=10.2.0
+
+# Image/Video Processing
+imageio>=2.34.0
+
+# =============================================================================
+# End Gate 2 Dependencies
+# =============================================================================

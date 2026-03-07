@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Smart Agri-Suite",
+    "slug": "smartagri-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#27ae60"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartagri.mobile",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone for voice calls with agricultural advisors.",
+        "NSCameraUsageDescription": "This app may need camera access for future features."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#27ae60"
+      },
+      "package": "com.smartagri.mobile",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_CONNECT"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "66237b3e-3f4e-42b8-8d55-2d5cb2cbd0e6"
+      }
+    }
+  }
+}
