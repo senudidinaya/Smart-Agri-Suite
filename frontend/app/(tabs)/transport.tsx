@@ -61,6 +61,21 @@ const useScaleAnimation = () => {
   return { style, onPressIn, onPressOut };
 };
 
+function ScalePressable({ children, style: customStyle, onPress, ...rest }: any) {
+  const { style, onPressIn, onPressOut } = useScaleAnimation();
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={[customStyle, style]}
+      {...rest}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
+
 
 export default function LogisticsScreen() {
   const router = useRouter();
@@ -93,15 +108,12 @@ export default function LogisticsScreen() {
         <View style={styles.vehicleRow}>
           {(Object.keys(VEHICLES) as VehicleType[]).map((v) => {
              const active = selected === v;
-             const { style, onPressIn, onPressOut } = useScaleAnimation();
              
              return (
-              <AnimatedPressable
+              <ScalePressable
                 key={v}
                 onPress={() => setSelected(v)}
-                onPressIn={onPressIn}
-                onPressOut={onPressOut}
-                style={[styles.vehicleCard, active && styles.vehicleActive, style]}
+                style={[styles.vehicleCard, active && styles.vehicleActive]}
               >
                 <Ionicons
                   name={VEHICLES[v].icon}
@@ -117,7 +129,7 @@ export default function LogisticsScreen() {
                   {VEHICLES[v].label}
                 </Text>
                 <Text style={styles.vehicleMeta}>{VEHICLES[v].time} min</Text>
-              </AnimatedPressable>
+              </ScalePressable>
             );
           })}
         </View>

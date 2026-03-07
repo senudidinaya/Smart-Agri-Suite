@@ -11,7 +11,7 @@ import { LanguageProvider } from "../context/LanguageContext";
 import LanguageToggle from "../components/LanguageToggle";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View } from "react-native";
-import FallingLeavesBackground from "../components/FallingLeavesBackground";
+
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -28,7 +28,6 @@ export default function RootLayout() {
       <LanguageProvider>
         <OrderProvider>
           <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
-            <FallingLeavesBackground />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
             <LanguageToggle />
           </View>

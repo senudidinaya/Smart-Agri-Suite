@@ -52,6 +52,21 @@ const useScaleAnimation = () => {
   return { style, onPressIn, onPressOut };
 };
 
+function ScalePressable({ children, style: customStyle, onPress, ...rest }: any) {
+  const { style, onPressIn, onPressOut } = useScaleAnimation();
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={[customStyle, style]}
+      {...rest}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
+
 /* ================= SCREEN ================= */
 
 export default function OrderScreen() {
@@ -143,19 +158,16 @@ export default function OrderScreen() {
               ] as SpiceKey[]
             ).map((s) => {
                const active = spice === s;
-               const { style, onPressIn, onPressOut } = useScaleAnimation();
                return (
-                <AnimatedPressable
+                <ScalePressable
                   key={s}
-                  style={[styles.chip, active && styles.activeChip, style]}
+                  style={[styles.chip, active && styles.activeChip]}
                   onPress={() => setSpice(s)}
-                  onPressIn={onPressIn}
-                  onPressOut={onPressOut}
                 >
                   <Text style={[styles.chipText, active && styles.activeText]}>
                     {s}
                   </Text>
-                </AnimatedPressable>
+                </ScalePressable>
               )
             })}
           </View>
@@ -217,17 +229,14 @@ export default function OrderScreen() {
               ["Colombo", "Kandy", "Dambulla", "Kurunegala"] as RegionKey[]
             ).map((r) => {
               const active = customer === r;
-              const { style, onPressIn, onPressOut } = useScaleAnimation();
               return (
-                <AnimatedPressable
+                <ScalePressable
                   key={r}
-                  style={[styles.chip, active && styles.activeChip, style]}
+                  style={[styles.chip, active && styles.activeChip]}
                   onPress={() => setCustomer(r)}
-                  onPressIn={onPressIn}
-                  onPressOut={onPressOut}
                 >
                   <Text style={[styles.chipText, active && styles.activeText]}>{r}</Text>
-                </AnimatedPressable>
+                </ScalePressable>
               )
             })}
           </View>
@@ -239,17 +248,14 @@ export default function OrderScreen() {
           <View style={styles.row}>
             {(["Bike", "Threewheel", "Van", "Lorry"] as ModeKey[]).map((m) => {
               const active = mode === m;
-              const { style, onPressIn, onPressOut } = useScaleAnimation();
               return (
-                <AnimatedPressable
+                <ScalePressable
                   key={m}
-                  style={[styles.chip, active && styles.activeChip, style]}
+                  style={[styles.chip, active && styles.activeChip]}
                   onPress={() => setMode(m)}
-                  onPressIn={onPressIn}
-                  onPressOut={onPressOut}
                 >
                   <Text style={[styles.chipText, active && styles.activeText]}>{m}</Text>
-                </AnimatedPressable>
+                </ScalePressable>
               )
             })}
           </View>

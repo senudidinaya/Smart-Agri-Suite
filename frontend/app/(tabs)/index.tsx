@@ -20,7 +20,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useLanguage } from "../../context/LanguageContext";
-import AnimatedBackground from "../../components/AnimatedBackground";
+
 import WelcomeCard from "../../components/WelcomeCard";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -42,6 +42,21 @@ const useScaleAnimation = () => {
 
   return { style, onPressIn, onPressOut };
 };
+
+function ScalePressable({ children, style: customStyle, onPress, ...rest }: any) {
+  const { style, onPressIn, onPressOut } = useScaleAnimation();
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={[customStyle, style]}
+      {...rest}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
 
 export default function Dashboard() {
   const { t } = useLanguage();
@@ -118,7 +133,6 @@ export default function Dashboard() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
-      <AnimatedBackground />
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={styles.container}
@@ -387,17 +401,14 @@ export default function Dashboard() {
 
             <View style={styles.moduleGrid}>
               {quickLinks.map((link) => {
-                const { style, onPressIn, onPressOut } = useScaleAnimation();
                 return (
-                  <AnimatedPressable
+                  <ScalePressable
                     key={link.titleKey}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       router.push(link.route as any);
                     }}
-                    onPressIn={onPressIn}
-                    onPressOut={onPressOut}
-                    style={[styles.moduleCard, style]}
+                    style={styles.moduleCard}
                   >
                     <View
                       style={[
@@ -414,7 +425,7 @@ export default function Dashboard() {
                     <Text style={styles.moduleText}>
                       {String(t(link.titleKey as any))}
                     </Text>
-                  </AnimatedPressable>
+                  </ScalePressable>
                 );
               })}
             </View>

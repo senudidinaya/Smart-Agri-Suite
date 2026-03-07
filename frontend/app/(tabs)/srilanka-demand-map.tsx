@@ -24,6 +24,21 @@ const useScaleAnimation = () => {
     return { style, onPressIn, onPressOut };
 };
 
+function ScalePressable({ children, style: customStyle, onPress, ...rest }: any) {
+  const { style, onPressIn, onPressOut } = useScaleAnimation();
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={[customStyle, style]}
+      {...rest}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
+
 type DemandLevel = "VERY_HIGH" | "HIGH" | "MEDIUM" | "LOW";
 
 const COLORS = {
@@ -91,24 +106,20 @@ export default function SriLankaDemandMap() {
         <Animated.View entering={FadeInDown.delay(200).springify()}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
             {spices.map((spice) => {
-              const { style, onPressIn, onPressOut } = useScaleAnimation();
               const isSelected = selectedSpice === spice;
               return (
-                <AnimatedPressable
+                <ScalePressable
                   key={spice}
                   onPress={() => setSelectedSpice(spice)}
-                  onPressIn={onPressIn}
-                  onPressOut={onPressOut}
                   style={[
                     styles.chip,
-                    isSelected && styles.chipActive,
-                    style
+                    isSelected && styles.chipActive
                   ]}
                 >
                   <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
                     {t(spice.toLowerCase() as any)}
                   </Text>
-                </AnimatedPressable>
+                </ScalePressable>
               );
             })}
           </ScrollView>
