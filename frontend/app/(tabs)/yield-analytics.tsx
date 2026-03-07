@@ -81,7 +81,7 @@ export default function AnalyticsScreen() {
         <Pressable 
            onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/");
+              router.push("/(tabs)/smartindex" as any);
            }} 
            style={({pressed}) => [{ opacity: pressed ? 0.7 : 1, paddingBottom: 16 }]}
         >

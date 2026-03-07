@@ -163,7 +163,7 @@ export default function PriceResult() {
         <Text style={styles.btnText}>Review Analytics Upon Completion</Text>
       </Pressable>
 
-      <Pressable style={styles.backBtn} onPress={() => router.push("/")}>
+      <Pressable style={styles.backBtn} onPress={() => router.push("/(tabs)/smartindex" as any)}>
         <Text style={styles.btnText}>Back to Dashboard</Text>
       </Pressable>
     </ScrollView>

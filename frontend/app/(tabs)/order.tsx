@@ -293,7 +293,7 @@ export default function OrderScreen() {
               style={({pressed}) => [styles.backBtn, pressed && { opacity: 0.8 }]} 
               onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push("/");
+                  router.push("/(tabs)/smartindex" as any);
               }}
           >
             <Text style={styles.backText}>{t("cancel" as any) || "Cancel & Return"}</Text>
