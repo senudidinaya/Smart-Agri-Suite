@@ -1,0 +1,244 @@
+Smart-Agri-Suite/
+├── .gitignore
+├── backend/
+│   ├── config/
+│   │   ├── config/
+│   │   │   └── db.js
+│   │   └── db.js
+│   ├── controllers/
+│   │   ├── demandController.js
+│   │   ├── forecastController.js
+│   │   ├── marketController.js
+│   │   ├── orderController.js
+│   │   ├── seasonalController.js
+│   │   └── transportController.js
+│   ├── error.log
+│   ├── main.py
+│   ├── ml/
+│   │   ├── data/
+│   │   │   ├── pricing_dataset.csv
+│   │   │   └── spice_weather_price_dataset.csv
+│   │   ├── preprocess.py
+│   │   ├── train_demand.py
+│   │   ├── train_model.py
+│   │   └── train_price.py
+│   ├── models/
+│   │   ├── Market.js
+│   │   ├── Order.js
+│   │   └── TransportLog.js
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── pricing_dataset.csv
+│   ├── requirements.txt
+│   ├── routes/
+│   │   ├── demandRoutes.js
+│   │   ├── forecast.js
+│   │   ├── forecasts.js
+│   │   ├── markets.js
+│   │   ├── orders.js
+│   │   ├── seasonalRoutes.js
+│   │   └── transportRoutes.js
+│   ├── server.js
+│   ├── services/
+│   │   ├── insights.service.ts
+│   │   ├── pricing.service.ts
+│   │   └── routing.service.ts
+│   ├── tsconfig.json
+│   ├── utils/
+│   │   └── csvLoader.ts
+│   └── __pycache__/
+│       └── main.cpython-314.pyc
+├── frontend/
+│   ├── .gitignore
+│   ├── .vscode/
+│   │   ├── extensions.json
+│   │   └── settings.json
+│   ├── android/
+│   │   ├── .gitignore
+│   │   ├── .gradle/
+│   │   │   ├── 8.14.3/
+│   │   │   │   ├── checksums/
+│   │   │   │   │   ├── checksums.lock
+│   │   │   │   │   ├── md5-checksums.bin
+│   │   │   │   │   └── sha1-checksums.bin
+│   │   │   │   ├── expanded/
+│   │   │   │   ├── fileChanges/
+│   │   │   │   │   └── last-build.bin
+│   │   │   │   ├── fileHashes/
+│   │   │   │   │   └── fileHashes.lock
+│   │   │   │   ├── gc.properties
+│   │   │   │   └── vcsMetadata/
+│   │   │   ├── buildOutputCleanup/
+│   │   │   │   ├── buildOutputCleanup.lock
+│   │   │   │   └── cache.properties
+│   │   │   ├── noVersion/
+│   │   │   │   └── buildLogic.lock
+│   │   │   └── vcs-1/
+│   │   │       └── gc.properties
+│   │   ├── app/
+│   │   │   ├── build.gradle
+│   │   │   ├── debug.keystore
+│   │   │   ├── proguard-rules.pro
+│   │   │   └── src/
+│   │   │       ├── debug/
+│   │   │       │   └── AndroidManifest.xml
+│   │   │       ├── debugOptimized/
+│   │   │       │   └── AndroidManifest.xml
+│   │   │       └── main/
+│   │   │           ├── AndroidManifest.xml
+│   │   │           ├── java/
+│   │   │           │   └── com/
+│   │   │           │       └── anonymous/
+│   │   │           │           └── smartagrimobile/
+│   │   │           │               ├── MainActivity.kt
+│   │   │           │               └── MainApplication.kt
+│   │   │           └── res/
+│   │   │               ├── drawable/
+│   │   │               │   ├── ic_launcher_background.xml
+│   │   │               │   └── rn_edit_text_material.xml
+│   │   │               ├── drawable-hdpi/
+│   │   │               │   └── splashscreen_logo.png
+│   │   │               ├── drawable-mdpi/
+│   │   │               │   └── splashscreen_logo.png
+│   │   │               ├── drawable-xhdpi/
+│   │   │               │   └── splashscreen_logo.png
+│   │   │               ├── drawable-xxhdpi/
+│   │   │               │   └── splashscreen_logo.png
+│   │   │               ├── drawable-xxxhdpi/
+│   │   │               │   └── splashscreen_logo.png
+│   │   │               ├── mipmap-anydpi-v26/
+│   │   │               │   ├── ic_launcher.xml
+│   │   │               │   └── ic_launcher_round.xml
+│   │   │               ├── mipmap-hdpi/
+│   │   │               │   ├── ic_launcher.webp
+│   │   │               │   ├── ic_launcher_background.webp
+│   │   │               │   ├── ic_launcher_foreground.webp
+│   │   │               │   ├── ic_launcher_monochrome.webp
+│   │   │               │   └── ic_launcher_round.webp
+│   │   │               ├── mipmap-mdpi/
+│   │   │               │   ├── ic_launcher.webp
+│   │   │               │   ├── ic_launcher_background.webp
+│   │   │               │   ├── ic_launcher_foreground.webp
+│   │   │               │   ├── ic_launcher_monochrome.webp
+│   │   │               │   └── ic_launcher_round.webp
+│   │   │               ├── mipmap-xhdpi/
+│   │   │               │   ├── ic_launcher.webp
+│   │   │               │   ├── ic_launcher_background.webp
+│   │   │               │   ├── ic_launcher_foreground.webp
+│   │   │               │   ├── ic_launcher_monochrome.webp
+│   │   │               │   └── ic_launcher_round.webp
+│   │   │               ├── mipmap-xxhdpi/
+│   │   │               │   ├── ic_launcher.webp
+│   │   │               │   ├── ic_launcher_background.webp
+│   │   │               │   ├── ic_launcher_foreground.webp
+│   │   │               │   ├── ic_launcher_monochrome.webp
+│   │   │               │   └── ic_launcher_round.webp
+│   │   │               ├── mipmap-xxxhdpi/
+│   │   │               │   ├── ic_launcher.webp
+│   │   │               │   ├── ic_launcher_background.webp
+│   │   │               │   ├── ic_launcher_foreground.webp
+│   │   │               │   ├── ic_launcher_monochrome.webp
+│   │   │               │   └── ic_launcher_round.webp
+│   │   │               ├── values/
+│   │   │               │   ├── colors.xml
+│   │   │               │   ├── strings.xml
+│   │   │               │   └── styles.xml
+│   │   │               └── values-night/
+│   │   │                   └── colors.xml
+│   │   ├── build.gradle
+│   │   ├── gradle/
+│   │   │   └── wrapper/
+│   │   │       ├── gradle-wrapper.jar
+│   │   │       └── gradle-wrapper.properties
+│   │   ├── gradle.properties
+│   │   ├── gradlew
+│   │   ├── gradlew.bat
+│   │   └── settings.gradle
+│   ├── app/
+│   │   ├── (tabs)/
+│   │   │   ├── demand-prediction.tsx
+│   │   │   ├── farmer.tsx
+│   │   │   ├── index.tsx
+│   │   │   ├── order.tsx
+│   │   │   ├── price-result.tsx
+│   │   │   ├── route-planner.tsx
+│   │   │   ├── seasonal-price-analytics.tsx
+│   │   │   ├── simulator.tsx
+│   │   │   ├── srilanka-demand-map.tsx
+│   │   │   ├── transport-analytics.tsx
+│   │   │   ├── transport-optimizer.tsx
+│   │   │   ├── transport-tracking.tsx
+│   │   │   ├── transport.tsx
+│   │   │   ├── yield-analytics.tsx
+│   │   │   └── _layout.tsx
+│   │   ├── invoice.tsx
+│   │   ├── modal.tsx
+│   │   ├── price-result.tsx
+│   │   └── _layout.tsx
+│   ├── app.json
+│   ├── babel.config.js
+│   ├── components/
+│   │   ├── Card.tsx
+│   │   ├── external-link.tsx
+│   │   ├── haptic-tab.tsx
+│   │   ├── hello-wave.tsx
+│   │   ├── LanguageToggle.tsx
+│   │   ├── LogisticsMap.native.tsx
+│   │   ├── LogisticsMap.web.tsx
+│   │   ├── parallax-scroll-view.tsx
+│   │   ├── themed-text.tsx
+│   │   ├── themed-view.tsx
+│   │   ├── ui/
+│   │   │   ├── collapsible.tsx
+│   │   │   ├── icon-symbol.ios.tsx
+│   │   │   └── icon-symbol.tsx
+│   │   └── WelcomeCard.tsx
+│   ├── constants/
+│   │   ├── theme.ts
+│   │   └── ui.ts
+│   ├── context/
+│   │   ├── LanguageContext.tsx
+│   │   └── OrderContext.tsx
+│   ├── data/
+│   │   └── market.json
+│   ├── eslint.config.js
+│   ├── expo-env.d.ts
+│   ├── hooks/
+│   │   ├── use-color-scheme.ts
+│   │   ├── use-color-scheme.web.ts
+│   │   └── use-theme-color.ts
+│   ├── lib/
+│   │   ├── apiConfig.ts
+│   │   ├── dataLoader.ts
+│   │   ├── distanceTable.ts
+│   │   ├── forecastEngine.ts
+│   │   ├── marketAnalytics.ts
+│   │   ├── marketRecommendationEngine.ts
+│   │   ├── npvEngine.ts
+│   │   ├── pricingEngine.ts
+│   │   ├── profitEngine.ts
+│   │   └── transportEngine.ts
+│   ├── localization/
+│   │   ├── en.ts
+│   │   └── si.ts
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── scripts/
+│   │   └── reset-project.js
+│   ├── services/
+│   │   └── api.ts
+│   └── tsconfig.json
+├── generate_tree.js
+├── migrate.ps1
+├── ml/
+│   ├── preprocess.py
+│   ├── train_model.py
+│   ├── X.csv
+│   └── y.csv
+├── package-lock.json
+├── push_log.txt
+├── README.md
+├── run-backend.bat
+├── run-backend.ps1
+├── run-frontend.bat
+└── run-frontend.ps1

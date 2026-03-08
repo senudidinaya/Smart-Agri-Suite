@@ -1,399 +1,261 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useState } from 'react';
 
 type Language = 'en' | 'si';
 
-export const TRANSLATIONS: Record<string, Record<string, string>> = {
-    en: {
-        // AppHome
-        "dash.title": "Smart Farmer Dashboard",
-        "dash.growSmarter": "Grow smarter,",
-        "dash.yieldBetter": "Yield better.",
-        "dash.subtitle": "Use these tools to analyze your idle lands, predict crops, and understand the market.",
-        "dash.upcoming": "Upcoming",
-        "dash.online": "Online",
-        "dash.launch": "Launch Module  →",
-        "dash.logoutPrompt": "Are you sure you want to sign out?",
-        "dash.logout": "Sign Out",
-        "dash.cancel": "Cancel",
-        "dash.notifications": "Notifications",
-        "dash.hello": "👋",
-
-        // Modules
-        "mod.idleLand.title": "Idle Land Mobilization",
-        "mod.idleLand.sub": "Identify & optimize unused land parcels using GEE & AI-driven analytics",
-        "mod.buyerIntent.title": "Buyer Intent Analysis",
-        "mod.buyerIntent.sub": "Predict market demand and match buyers with agricultural opportunities",
-        "mod.cropRec.title": "Crop Recommendation",
-        "mod.cropRec.sub": "AI-based insights for maximum yield and optimal resource usage",
-        "mod.supplyChain.title": "Supply Chain & Market",
-        "mod.supplyChain.sub": "Forecast pricing and manage logistics for agricultural outputs",
-
-        // Common
-        "common.loading": "Loading...",
-        "common.retrying": "Retrying...",
-        "common.backToHub": "Back to Hub",
-
-        // Overview
-        "ov.heroTitle": "🌱 Spice Cultivation Optimization",
-        "ov.heroSub": "Through Idle Land Mobilization",
-        "ov.heroDesc": "Understand your land condition and get simple farming guidance using satellite data. Tap a location on the map to analyze its potential for spice cultivation.",
-        "ov.whatAppDo": "What can this app help you with?",
-        "ov.f1.title": "Check land type",
-        "ov.f1.desc": "Vegetation / Idle / Built-up",
-        "ov.f2.title": "Water & vegetation",
-        "ov.f2.desc": "Health indicators",
-        "ov.f3.title": "Crop suitability",
-        "ov.f3.desc": "Which spices fit best",
-        "ov.f4.title": "Intercropping advice",
-        "ov.f4.desc": "Grow multiple crops",
-        "ov.studyArea": "Study Area",
-        "ov.studyDesc1": "This analysis covers land inside the ",
-        "ov.studyDescBlue": "blue AOI boundary (Malabe area)",
-        "ov.studyDesc2": "Satellite imagery is used to assess land conditions and potential.",
-        "ov.studyTip": "💡 Higher resolution data helps us understand terrain, vegetation health, and moisture levels.",
-        "ov.howToUse": "How to use this app",
-        "ov.step1.title": "Go to Map",
-        "ov.step1.desc": "Tap the Map tab at the bottom",
-        "ov.step2.title": "Select a location",
-        "ov.step2.desc": "Tap inside the blue AOI boundary",
-        "ov.step3.title": "View analytics",
-        "ov.step3.desc": "Get land health & crop recommendations",
-        "ov.helperText": "✓ No technical knowledge needed. Tap and explore!",
-        "ov.colors": "Color meanings",
-        "ov.color1": "Green (Good)",
-        "ov.color1Desc": "Good for farming • Healthy conditions",
-        "ov.color2": "Amber (Moderate)",
-        "ov.color2Desc": "Needs care • With management possible",
-        "ov.color3": "Red (Poor)",
-        "ov.color3Desc": "Improvement needed • Plan ahead",
-        "ov.colorTip": "💡 Colors appear in charts, scores, and status indicators to help you quickly understand land conditions.",
-        "ov.whoCanUse": "Who can use this app?",
-        "ov.user1": "Farmers & Landowners",
-        "ov.user2": "Agriculture Officers",
-        "ov.user3": "Students & Researchers",
-        "ov.user4": "Environmental Planners",
-        "ov.userNote": "This tool is designed for anyone interested in understanding land potential for agricultural use.",
-        "ov.keyFeatures": "Key features",
-        "ov.kf1.title": "Satellite Analytics",
-        "ov.kf1.desc": "Real-time vegetation, moisture & terrain data",
-        "ov.kf2.title": "ML Model",
-        "ov.kf2.desc": "Predicts land type: Vegetation, Idle, or Built-up",
-        "ov.kf3.title": "Spice Scoring",
-        "ov.kf3.desc": "Personalized suitability for Cinnamon, Pepper, Clove & Cardamom",
-        "ov.kf4.title": "Intercropping",
-        "ov.kf4.desc": "Smart recommendations for growing multiple crops together",
-        "ov.kf5.title": "Farmer-Friendly",
-        "ov.kf5.desc": "Simple language & practical guidance, no jargon",
-        "ov.tips": "Tips for best results",
-        "ov.tip1": "Tap multiple points across your land to see variations",
-        "ov.tip2": "Zoom in for more detailed analysis in specific areas",
-        "ov.tip3": "Check satellite view for visual context",
-        "ov.tip4": "Compare scores with field observations",
-        "ov.tip5": "Use recommendations as a starting point for planning",
-        "ov.tipsFooter": "Remember: Satellite analysis is a tool to help planning, not a replacement for field knowledge and local expertise.",
-        "ov.cta": "🗺️ Open Map & Analyze",
-        "ov.footerTip": "🌍 Tip: Tap anywhere inside the blue boundary on the map to start analyzing land!",
-
-        // ─── Smart Pricing & Logistics (groupmate's keys) ───
-        // Farmer Dashboard
-        "farmer": "Farmer Analytics",
-        "marketOverview": "Business Overview",
-        "revenue": "Revenue",
-        "profit": "Profit",
-        "orders": "Orders",
-        "activeOrdersList": "Active Pipeline",
-        "noActivePipeline": "No active orders in pipeline",
-        "pendingStatus": "PENDING",
-        "confirmedStatus": "CONFIRMED",
-        "dispatchedStatus": "DISPATCHED",
-        "deliveredStatus": "DELIVERED",
-        "targetMarket": "Target Market",
-        "netOutput": "Net Output",
-        "profitTrend": "Profit Trend",
-        "profitTrendSub": "Cumulative profit per order",
-        "demandPieSub": "Order distribution by spice category",
-        "noOrdersYet": "No orders yet. Place your first order!",
-        "marketHeatmap": "Market Heatmap",
-        "marketHeatmapSub": "Regional demand intensity overview",
-        "forecast": "Forecast Insights",
-        "cinnamonPriceJump": "Cinnamon price expected to jump by ",
-        "targetPriceLkr": "Target price: LKR ",
-        "profitProjectionShift": "Profit projection shift: ",
-        "risingDemandMappedIn": "Rising demand mapped in ",
-        "smartMarketMove": "Smart Market Move",
-        "optimalTargetMarket": "Optimal Target Market",
-        "via": " via ",
-        "projectedYield": "Projected Yield",
-
-        // Spices
-        "cinnamon": "Cinnamon",
-        "pepper": "Pepper",
-        "cardamom": "Cardamom",
-        "clove": "Clove",
-        "nutmeg": "Nutmeg",
-
-        // Common keys
-        "currencySymbol": "LKR",
-        "kg": "kg",
-        "loading": "Loading...",
-        "cancel": "Cancel",
-        "demand": "Demand Map",
-        "analytics": "Analytics",
-        "performance": "Performance",
-        "eta": "ETA",
-        "transport": "Transport",
-
-        // Order / Simulator / Market
-        "simulateHarvest": "Harvest Simulator",
-        "simulator": "Profit Analyzer",
-        "harvestScenario": "Estimate returns across harvest scales",
-        "harvestScenarios": "Harvest Scenarios",
-        "potentialProfit": "Profit Projection",
-        "profitProjectionSub": "Projected net profit forecast",
-        "grossRevenue": "Gross Revenue",
-        "netProfitSimulator": "Net Profit",
-        "recommendedMarket": "Optimal",
-        "selectSpice": "Spice",
-        "expectedYield": "Quantity",
-        "quantity": "Quantity",
-        "totalRevenue": "Total Revenue",
-        "totalCost": "Total Cost",
-
-        // Transport & Tracking
-        "tracking": "Transport Tracking",
-        "optimizeTransport": "Logistics Engine",
-        "fastestRoute": "Fastest Route",
-        "cheapestRoute": "Smart Suggestion",
-        "modeUsage": "Mode Comparison",
-
-        // Demand & Seasonal
-        "topRegion": "Top Region",
-        "highestDemand": "Highest Demand",
-        "seasonalAnalytics": "Seasonal Analytics",
-
-        // Yield Analytics
-        "confirmedYield": "CONFIRMED",
-        "netProfitYield": "Net Profit",
-        "margin": "Margin: ",
-        "totalRevenueYield": "Total Revenue",
-        "pricingPatternFor": "Pricing pattern for ",
-        "trackOrderDash": "Track Order",
-    },
-    si: {
-        // AppHome
-        "dash.title": "ස්මාර්ට් ගොවි දත්ත පුවරුව",
-        "dash.growSmarter": "බුද්ධිමත්ව වවන්න,",
-        "dash.yieldBetter": "හොඳ අස්වැන්නක් ලබාගන්න.",
-        "dash.subtitle": "ඔබගේ හිස් ඉඩම් විශ්ලේෂණය කිරීමට, භෝග පුරෝකථනය කිරීමට සහ වෙළඳපොළ තේරුම් ගැනීමට මෙම මෙවලම් භාවිතා කරන්න.",
-        "dash.upcoming": "ඉදිරියට",
-        "dash.online": "සක්‍රීයයි",
-        "dash.launch": "ආරම්භ කරන්න →",
-        "dash.logoutPrompt": "ඔබට නිසැකවම ඉවත් වීමට අවශ්‍යද?",
-        "dash.logout": "ඉවත් වන්න",
-        "dash.cancel": "අවලංගු කරන්න",
-        "dash.notifications": "දැනුම්දීම්",
-        "dash.hello": "ආයුබෝවන්",
-
-        // Modules
-        "mod.idleLand.title": "හිස් ඉඩම් බල ගැන්වීම",
-        "mod.idleLand.sub": "GEE සහ AI දත්ත විශ්ලේෂණ හරහා භාවිතයට නොගත් ඉඩම් හඳුනාගැනීම සහ ප්‍රශස්ත කිරීම",
-        "mod.buyerIntent.title": "ගැනුම්කරුවන්ගේ නැඹුරුව විශ්ලේෂණය",
-        "mod.buyerIntent.sub": "වෙළඳපොළ ඉල්ලුම පුරෝකථනය කර ගැනුම්කරුවන් කෘෂිකාර්මික අවස්ථා සමඟ ගලපන්න",
-        "mod.cropRec.title": "භෝග නිර්දේශය",
-        "mod.cropRec.sub": "උපරිම අස්වැන්න සහ සම්පත් භාවිතය සඳහා AI මගින් ලබා දෙන උපදෙස්",
-        "mod.supplyChain.title": "සැපයුම් දාමය සහ වෙළඳපොළ",
-        "mod.supplyChain.sub": "කෘෂිකාර්මික නිෂ්පාදන සඳහා මිල පුරෝකථනය කර ප්‍රවාහනය කළමනාකරණය කරන්න",
-
-        // Common
-        "common.loading": "පූරණය වෙමින්...",
-        "common.retrying": "නැවත උත්සාහ කරමින්...",
-        "common.backToHub": "ආපසු මුල් පිටුවට",
-
-        // Overview
-        "ov.heroTitle": "🌱 කුළුබඩු වගා ප්‍රශස්ත කිරීම",
-        "ov.heroSub": "හිස් ඉඩම් බල ගැන්වීම හරහා",
-        "ov.heroDesc": "ඔබේ ඉඩමේ තත්ත්වය අවබෝධ කරගෙන චන්ද්‍රිකා දත්ත භාවිතයෙන් සරල ගොවිතැන් මාර්ගෝපදේශ ලබා ගන්න. කුළුබඩු වගාව සඳහා එහි ඇති හැකියාව විශ්ලේෂණය කිරීමට සිතියමේ ස්ථානයක් ස්පර්ශ කරන්න.",
-        "ov.whatAppDo": "මෙම යෙදුම ඔබට කුමක් සඳහා උදව් කරයිද?",
-        "ov.f1.title": "ඉඩම් වර්ගය පරීක්ෂා කිරීම",
-        "ov.f1.desc": "වෘක්ෂලතාදිය / හිස්බිම් / ගොඩනැගිලි ආවරණය",
-        "ov.f2.title": "ජලය සහ ශාක වර්ධනය",
-        "ov.f2.desc": "ඉඩමේ සෞඛ්‍ය දර්ශක",
-        "ov.f3.title": "භෝග යෝග්‍යතාවය",
-        "ov.f3.desc": "වඩාත් ගැලපෙන කුළුබඩු වර්ග මොනවාදැයි බැලීම",
-        "ov.f4.title": "අන්තර් භෝග උපදෙස්",
-        "ov.f4.desc": "භෝග කිහිපයක් එකට වගා කිරීම",
-        "ov.studyArea": "අධ්‍යයන ප්‍රදේශය (Study Area)",
-        "ov.studyDesc1": "මෙම විශ්ලේෂණය ආවරණය කරන්නේ ",
-        "ov.studyDescBlue": "නිල් පැහැති මායිම් රේඛාව (මාලඹේ ප්‍රදේශය)",
-        "ov.studyDesc2": " ඇතුළත ඉඩම් සඳහාය. ඉඩම් වල තත්ත්වය සහ විභවය තක්සේරු කිරීමට චන්ද්‍රිකා ඡායාරූප භාවිතා වේ.",
-        "ov.studyTip": "💡 ඉහළ ගුණාත්මක දත්ත මගින් භූමි ලක්ෂණ, ශාක සෞඛ්‍යය, සහ තෙතමනය මට්ටම් අවබෝධ කර ගැනීමට උපකාරී වේ.",
-        "ov.howToUse": "යෙදුම (App) භාවිතා කරන්නේ කෙසේද?",
-        "ov.step1.title": "සිතියමට යන්න",
-        "ov.step1.desc": "පහත Map අංශය ස්පර්ශ කරන්න",
-        "ov.step2.title": "ස්ථානයක් තෝරන්න",
-        "ov.step2.desc": "නිල් පැහැති මායිමට ඇතුළත ස්පර්ශ කරන්න",
-        "ov.step3.title": "විශ්ලේෂණය බලන්න",
-        "ov.step3.desc": "භූමියේ සෞඛ්‍යය සහ වගා නිර්දේශ ලබා ගන්න",
-        "ov.helperText": "✓ භාවිතයට තාක්ෂණික දැනුමක් අවශ්‍ය නොවේ. ස්පර්ශ කර ගවේෂණය කරන්න!",
-        "ov.colors": "වර්ණ වල තේරුම",
-        "ov.color1": "කොළ පැහැය (හොඳයි)",
-        "ov.color1Desc": "වගාව සඳහා සුදුසුයි • යහපත් තත්ත්වයන්",
-        "ov.color2": "කහ පැහැය (මධ්‍යම)",
-        "ov.color2Desc": "රැකබලා ගැනීම අවශ්‍යයි • නිසි කළමනාකරණයෙන් වගා කළ හැකිය",
-        "ov.color3": "රතු පැහැය (දුර්වල)",
-        "ov.color3Desc": "වැඩිදියුණු කළ යුතුයි • සැලසුම්කර වැඩ කරන්න",
-        "ov.colorTip": "💡 ඉඩමේ තත්ත්වය කඩිනමින් අවබෝධ කරගැනීමට උදව් වන පරිදි වර්ණ සටහන් වල දක්වා ඇත.",
-        "ov.whoCanUse": "මෙය භාවිත කළ හැක්කේ කාටද?",
-        "ov.user1": "ගොවීන් සහ ඉඩම් හිමියන්",
-        "ov.user2": "කෘෂිකර්ම නිලධාරීන්",
-        "ov.user3": "සිසුන් සහ පර්යේෂකයන්",
-        "ov.user4": "පරිසර සැලසුම්කරුවන්",
-        "ov.userNote": "මෙම මෙවලම භූමි විශ්ලේෂණය කෙරෙහි උනන්දුවක් දක්වන ඕනෑම කෙනෙකුට භාවිතා කිරීමට හැකි පරිදි නිර්මාණය කර ඇත.",
-        "ov.keyFeatures": "ප්‍රධාන ලක්ෂණ",
-        "ov.kf1.title": "චන්ද්‍රිකා දත්ත",
-        "ov.kf1.desc": "තත්‍ය කාලීන ශාක, තෙතමනය සහ භූ දත්ත",
-        "ov.kf2.title": "ML ආකෘතිය",
-        "ov.kf2.desc": "ශාක සහිතද, හිස් බිමක්ද, ගොඩනැගිලි සහිතද යන්න පුරෝකථනය කරයි.",
-        "ov.kf3.title": "කුළුබඩු වර්ගීකරණය",
-        "ov.kf3.desc": "කුරුඳු, ගම්මිරිස්, කරාබුනැටි සහ එනසාල් සඳහා පුද්ගලික යෝග්‍යතාවය",
-        "ov.kf4.title": "අන්තර් වගාව (Intercropping)",
-        "ov.kf4.desc": "බහු භෝග වගාවට අදාළ ස්මාර්ට් නිර්දේශ",
-        "ov.kf5.title": "ගොවි මිතුරු (Farmer-Friendly)",
-        "ov.kf5.desc": "අවබෝධ කරගැනීමට පහසු සරල භාෂාව",
-        "ov.tips": "හොඳ ප්‍රතිඵල සඳහා උපදෙස්",
-        "ov.tip1": "වෙනස්කම් බැලීමට ඉඩම පුරා විවිධ ලක්ෂ්‍ය ස්පර්ශ කරන්න.",
-        "ov.tip2": "විශේෂිත ප්‍රදේශ පිළිබඳ විස්තරාත්මකව බැලීම සඳහා 'Zoom in' කරන්න.",
-        "ov.tip3": "වඩාත් පැහැදිලි දැක්මක් සඳහා චන්ද්‍රිකා ඡායාරූප (satellite view) බලන්න.",
-        "ov.tip4": "සිතියමේ ඇති දත්ත ක්ෂේත්‍රයේ ඇති දත්ත සමඟ සසඳා බලන්න.",
-        "ov.tip5": "වගා සැලසුම් කිරීමේදී නිර්දේශ ආරම්භක ලක්ෂ්‍යයක් ලෙස පාවිච්චි කරන්න.",
-        "ov.tipsFooter": "සැලකිය යුතුයි: චන්ද්‍රිකා විශ්ලේෂණය යනු සැලසුම්කිරීමට උපකාරී වන මෙවලමක් මිස, ඔබේ ක්ෂේත්‍ර දැනුම සහ ප්‍රායෝගික පළපුරුද්ද සඳහා වූ ආදේශකයක් නොවේ.",
-        "ov.cta": "🗺️ සිතියම (Map) වෙත ගොස් පරීක්ෂා කරන්න",
-        "ov.footerTip": "🌍 විස්තර: භූමිය විශ්ලේෂණය කිරීම ආරම්භ කිරීමට සිතියමේ නිල් පැහැති රේඛාව ඇතුළත ඕනෑම තැනක ස්පර්ශ කරන්න!",
-
-        // ─── Smart Pricing & Logistics (groupmate's keys) ───
-        "farmer": "ගොවි විශ්ලේෂණ",
-        "marketOverview": "ව්‍යාපාර දළ විసිතුරු",
-        "revenue": "ආදායම",
-        "profit": "ලාභය",
-        "orders": "ඇණවුම්",
-        "activeOrdersList": "සක්‍රීය නල මාර්ගය",
-        "noActivePipeline": "සක්‍රීය ඇණවුම් නැත",
-        "pendingStatus": "බලාපොරොත්තුවෙන්",
-        "confirmedStatus": "තහවුරු කළා",
-        "dispatchedStatus": "යැව්වා",
-        "deliveredStatus": "ලැබුණා",
-        "targetMarket": "ඉලක්ක වෙළඳපොළ",
-        "netOutput": "ශුද්ධ ප්‍රතිදානය",
-        "profitTrend": "ලාභ ප්‍රවණතා",
-        "profitTrendSub": "ඇණවුමකට සමුච්චිත ලාභය",
-        "demandPieSub": "කුළුබඩු කාණ්ඩය අනුව ඇණවුම් බෙදීම",
-        "noOrdersYet": "තවම ඇණවුම් නැත. ඔබේ පළමු ඇණවුම තබන්න!",
-        "marketHeatmap": "වෙළඳපොළ තාප සිතියම",
-        "marketHeatmapSub": "කලාපීය ඉල්ලුම් තීව්‍රතා දළ දැක්ම",
-        "forecast": "පුරෝකථන තීක්ෂ්ණ බුද්ධිය",
-        "cinnamonPriceJump": "කුරුඳු මිල ඉහළ යනු ඇතැයි අපේක්ෂා කෙරේ: ",
-        "targetPriceLkr": "ඉලක්ක මිල: රු. ",
-        "profitProjectionShift": "ලාභ පුරෝකථන වෙනස: ",
-        "risingDemandMappedIn": "වැඩිවන ඉල්ලුම: ",
-        "smartMarketMove": "බුද්ධිමත් වෙළඳපොළ පියවර",
-        "optimalTargetMarket": "ප්‍රශස්ත ඉලක්ක වෙළඳපොළ",
-        "via": " හරහා ",
-        "projectedYield": "පුරෝකථිත අස්වැන්න",
-        "cinnamon": "කුරුඳු",
-        "pepper": "ගම්මිරිස්",
-        "cardamom": "එනසාල්",
-        "clove": "කරාබුනැටි",
-        "nutmeg": "සාදික්කා",
-        "currencySymbol": "රු.",
-        "kg": "kg",
-        "loading": "පූරණය වෙමින්...",
-        "cancel": "අවලංගු කරන්න",
-        "demand": "ඉල්ලුම් සිතියම",
-        "analytics": "විශ්ලේෂණ",
-        "performance": "කාර්ය සාධනය",
-        "eta": "පැමිණීමේ වේලාව",
-        "transport": "ප්‍රවාහනය",
-        "simulateHarvest": "අස්වනු අනුකරණය",
-        "simulator": "ලාභ විශ්ලේෂකය",
-        "harvestScenario": "අස්වනු පරිමාණ හරහා ප්‍රතිලාභ ඇස්තමේන්තු",
-        "harvestScenarios": "අස්වනු සටහන්",
-        "potentialProfit": "ලාභ පුරෝකථනය",
-        "profitProjectionSub": "පුරෝකථිත ශුද්ධ ලාභ අනාවැකිය",
-        "grossRevenue": "මුළු ආදායම",
-        "netProfitSimulator": "ශුද්ධ ලාභය",
-        "recommendedMarket": "ප්‍රශස්ත",
-        "selectSpice": "කුළුබඩු",
-        "expectedYield": "ප්‍රමාණය",
-        "quantity": "ප්‍රමාණය",
-        "totalRevenue": "මුළු ආදායම",
-        "totalCost": "මුළු පිරිවැය",
-        "tracking": "ප්‍රවාහන ලුහුබැඳීම",
-        "optimizeTransport": "සැපයුම් කළමනාකරණය",
-        "fastestRoute": "වේගවත්ම මාර්ගය",
-        "cheapestRoute": "බුද්ධිමත් යෝජනාව",
-        "modeUsage": "ප්‍රවාහන ක්‍රම සැසඳීම",
-        "topRegion": "හොඳම කලාපය",
-        "highestDemand": "වැඩිම ඉල්ලුම",
-        "seasonalAnalytics": "සෘතු විශ්ලේෂණ",
-        "confirmedYield": "තහවුරු කළා",
-        "netProfitYield": "ශුද්ධ ලාභය",
-        "margin": "ලාභ ආන්තිකය: ",
-        "totalRevenueYield": "මුළු ආදායම",
-        "pricingPatternFor": "මිල ප්‍රවණතා: ",
-        "trackOrderDash": "ඇණවුම ලුහුබඳින්න",
-    }
-};
-
 interface LanguageContextProps {
-    language: Language;
-    setLanguage: (lang: Language) => void;
-    toggleLanguage: () => void;
-    langConfig: Record<string, string>;
-    /** Groupmate's translation helper — wraps langConfig lookup */
-    t: (key: string) => string;
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
 }
+
+const translations = {
+  en: {
+    // Header & Greeting
+    ayubowanFarmer: "Ayubowan, Farmer",
+    goodMorning: "Good Morning",
+    goodAfternoon: "Good Afternoon",
+    goodEvening: "Good Evening",
+    farmerTitle: "Farmer",
+    live: "LIVE",
+    welcome: "Welcome to Smart Agri-Suite",
+    welcomeDescription: "Smart Agri-Suite analyzes market demand, pricing trends, logistics costs, and seasonal conditions to help Sri Lankan spice farmers maximize profits.",
+    smartPricingBadge: "Smart Pricing & Logistics",
+    trending: "Trending",
+    startExploring: "Start Exploring",
+    
+    // Modules
+    exploreModules: "Explore Modules",
+    exploreModulesSub: "Tap any module to dive deeper into analytics, pricing, and logistics",
+    simulateHarvest: "Harvest Simulator",
+    simulator: "Profit Projection",
+    farmer: "Farmer Dashboard",
+    prices: "Market Intelligence",
+    demandPrediction: "Demand Prediction",
+    demand: "Demand Heatmap",
+    seasonalAnalytics: "Seasonal Trends",
+    routePlanner: "Logistics Router",
+    transport: "Transport Fleet",
+    analytics: "Transit Analytics",
+    optimizeTransport: "Fleet Optimizer",
+    tracking: "Live Tracking",
+    yieldAnalytics: "Yield Analytics",
+    
+    // Descriptions (Sub-text)
+    harvestScenario: "Simulate yields & transport costs",
+    profitProjectionSub: "Calc potential ROI per season",
+    farmerDashDesc: "Track your active spice pipeline",
+    priceResultDesc: "Real-time market price benchmarks",
+    demandPredictionDesc: "AI-driven future demand forecasts",
+    demandMapDesc: "Regional spice demand distribution",
+    seasonalAnalyticsDesc: "Best times to harvest & sell",
+    routePlannerDesc: "Optimized multi-stop delivery",
+    transportDesc: "Manage available vehicle types",
+    transportAnalyticsDesc: "Fuel Efficiency & Speed metrics",
+    transportOptimizerDesc: "Load & Capacity optimization",
+    transportTrackingDesc: "Real-time GPS cargo monitoring",
+    yieldAnalyticsDesc: "Growth quality & soil metrics",
+
+    // Dashboard
+    farmerDashboard: "Farmer Dashboard",
+    overviewTitle: "Your Spice Empire Overview",
+    estimatedProfit: "Estimated Profit",
+    activeOrders: "Active Pipeline",
+    profitTrend: "Profit by Spice Type",
+    demandMap: "Demand Distribution",
+    activePipeline: "Active Pipeline",
+    vsLastMonth: "vs last month",
+    inTransit: "In Transit",
+    delivered: "Delivered",
+    harvested: "Harvested",
+    profitBySpiceDesc: "Cumulative profit breakdown by spice type (LKR '000)",
+    regionalDemandDesc: "Market demand percentage distribution across key regions",
+
+    // Market / Prices
+    livePrices: "Live Spice Prices",
+    liveMarketAnalysis: "Live Market Analysis",
+    marketVolatility: "Market Volatility",
+    demandPressure: "Demand Pressure",
+    priceMomentum: "Price Momentum",
+    currentPriceIn: "Current Price in",
+    today: "today",
+    priceTrend: "Price Trend (24h)",
+    selectRegion: "Select Region",
+    marketIntelligence: "Market Intelligence",
+
+    // Simulator / Order
+    selectSpiceType: "1. Select Spice Type",
+    harvestQuantity: "2. Harvest Quantity",
+    selectLogistics: "3. Selection Logistics",
+    orderSummary: "Order Summary",
+    confirmOrder: "Confirm & Start Simulation",
+    back: "Back",
+    next: "Next",
+    spice: "Spice",
+    quantity: "Quantity",
+    transportLabel: "Transport",
+    orderConfirmedTitle: "Order Confirmed!",
+    orderConfirmedDesc: "Thank you for ordering with us. Your harvest simulation has been recorded and added to your dashboard for tracking.",
+    goToDashboard: "Go to Dashboard",
+
+    // Regions
+    colombo: "Colombo",
+    kandy: "Kandy",
+    matale: "Matale",
+    kurunegala: "Kurunegala",
+    dambulla: "Dambulla",
+    other: "Other",
+
+    // Spices
+    cinnamon: "Cinnamon",
+    pepper: "Pepper",
+    cardamom: "Cardamom",
+    clove: "Clove",
+    nutmeg: "Nutmeg",
+    
+    // Units
+    kg: "kg",
+    currencySymbol: "LKR",
+
+    // Tips
+    tip1: "Sell when demand is high & supply is low for best prices",
+    tip2: "Choose the right vehicle — bikes save cost for short distances",
+    tip3: "Colombo & Kandy consistently offer the highest spice prices",
+    tip4: "Monitor seasonal trends to time your harvest sales perfectly",
+    modules: "Modules",
+    regions: "Regions",
+    spices: "Spices",
+    profit: "Profit",
+  },
+  si: {
+    // Ayubowan
+    ayubowanFarmer: "ආයුබෝවන්, ගොවි මහතා",
+    goodMorning: "සුබ උදෑසනක්",
+    goodAfternoon: "සුබ දහවලක්",
+    goodEvening: "සුබ සන්ධ්‍යාවක්",
+    farmerTitle: "ගොවිමහතා",
+    live: "සජීවී",
+    welcome: "Smart Agri-Suite වෙත සාදරයෙන් පිළිගනිමු",
+    welcomeDescription: "ශ්‍රී ලංකාවේ කුළුබඩු ගොවීන්ට ලාභය උපරිම කර ගැනීමට වෙළඳපල ඉල්ලුම, මිල ප්‍රවණතා සහ ප්‍රවාහන පිරිවැය විශ්ලේෂණය කරයි.",
+    smartPricingBadge: "මිලකරණය සහ ප්‍රවාහනය",
+    trending: "ප්‍රචලිත",
+    startExploring: "පරීක්ෂා කිරීම ආරම්භ කරන්න",
+
+    exploreModules: "අංශ ගවේෂණය කරන්න",
+    exploreModulesSub: "විශ්ලේෂණ සහ මිලකරණ තොරතුරු බැලීමට ඕනෑම අංශයක් ස්පර්ශ කරන්න",
+    simulateHarvest: "අස්වනු සිමියුලේටරය",
+    simulator: "ලාභ පුරෝකථනය",
+    farmer: "ගොවි පුවරුව",
+    prices: "වෙළඳපල බුද්ධිය",
+    demandPrediction: "ඉල්ලුම් පුරෝකථනය",
+    demand: "ඉල්ලුම් සිතියම",
+    seasonalAnalytics: "කාලීන ප්‍රවණතා",
+    routePlanner: "ප්‍රවාහන මාර්ග",
+    transport: "ප්‍රවාහන සේවා",
+    analytics: "ගමන් විශ්ලේෂණය",
+    optimizeTransport: "ප්‍රවාහන කළමනාකරණය",
+    tracking: "සජීවී ලුහුබැඳීම",
+    yieldAnalytics: "අස්වනු විශ්ලේෂණය",
+
+    harvestScenario: "අස්වැන්න සහ ප්‍රවාහන පිරිවැය",
+    profitProjectionSub: "සෑම කාලයකටම අදාළ ලාභය",
+    farmerDashDesc: "ක්‍රියාකාරී කුළුබඩු නල මාර්ගය",
+    priceResultDesc: "වෙළඳපල මිල මට්ටම්",
+    demandPredictionDesc: "AI මගින් අනාගත ඉල්ලුම",
+    demandMapDesc: "ප්‍රාදේශීය ඉල්ලුම බෙදා හැරීම",
+    seasonalAnalyticsDesc: "අස්වනු නෙළීමට සුදුසුම කාලය",
+    routePlannerDesc: "ප්‍රශස්ත ප්‍රවාහන මාර්ග",
+    transportDesc: "පවතින වාහන වර්ග කළමනාකරණය",
+    transportAnalyticsDesc: "ඉන්ධන සහ වේග දත්ත",
+    transportOptimizerDesc: "ධාරිතාව උපරිම කිරීම",
+    transportTrackingDesc: "සජීවී GPS නිරීක්ෂණය",
+    yieldAnalyticsDesc: "අස්වැන්නේ ගුණාත්මකභාවය",
+
+    farmerDashboard: "ගොවි උපකරණ පුවරුව",
+    overviewTitle: "ඔබගේ ව්‍යාපාරික දළ විශ්ලේෂණය",
+    estimatedProfit: "ඇස්තමේන්තුගත ලාභය",
+    activeOrders: "ක්‍රියාකාරී ඇණවුම්",
+    profitTrend: "කුළුබඩු වර්ගය අනුව ලාභය",
+    demandMap: "ඉල්ලුම බෙදා හැරීම",
+    activePipeline: "ක්‍රියාකාරී නල මාර්ගය",
+    vsLastMonth: "පසුගිය මාසයට සාපේක්ෂව",
+    inTransit: "ගමනේ යෙදේ",
+    delivered: "භාර දෙන ලදී",
+    harvested: "අස්වනු නෙළන ලද",
+    profitBySpiceDesc: "කුළුබඩු වර්ගය අනුව ලාභය (රු. '000)",
+    regionalDemandDesc: "ප්‍රධාන ප්‍රදේශ අනුව වෙළඳපල ඉල්ලුම ප්‍රතිශතය",
+
+    livePrices: "සජීවී කුළුබඩු මිල",
+    liveMarketAnalysis: "සජීවී වෙළඳපල විශ්ලේෂණය",
+    marketVolatility: "වෙළඳපල විචලනය",
+    demandPressure: "ඉල්ලුම් පීඩනය",
+    priceMomentum: "මිල වේගය",
+    currentPriceIn: "දැනට පවතින මිල",
+    today: "අද",
+    priceTrend: "මිල ප්‍රවණතාවය (පැය 24)",
+    selectRegion: "ප්‍රදේශය තෝරන්න",
+    marketIntelligence: "වෙළඳපල බුද්ධිය",
+
+    selectSpiceType: "1. කුළුබඩු වර්ගය තෝරන්න",
+    harvestQuantity: "2. අස්වනු ප්‍රමාණය",
+    selectLogistics: "3. ප්‍රවාහන ක්‍රමය",
+    orderSummary: "ඇණවුම් සාරාංශය",
+    confirmOrder: "තහවුරු කර ආරම්භ කරන්න",
+    back: "ආපසු",
+    next: "මීළඟ",
+    spice: "කුළුබඩු",
+    quantity: "ප්‍රමාණය",
+    transportLabel: "ප්‍රවාහනය",
+    orderConfirmedTitle: "ඇණවුම තහවුරු කරන ලදී!",
+    orderConfirmedDesc: "සෑම ඇණවුමක්ම අප සමඟ සිදු කිරීම ගැන ස්තූතියි. ඔබගේ දත්ත පුවරුවට එකතු කරන ලදී.",
+    goToDashboard: "පුවරුවට යන්න",
+
+    colombo: "කොළඹ",
+    kandy: "මහනුවර",
+    matale: "මාතලේ",
+    kurunegala: "කුරුණෑගල",
+    dambulla: "දඹුල්ල",
+    other: "වෙනත්",
+
+    cinnamon: "කුරුඳු",
+    pepper: "ගම්මිරිස්",
+    cardamom: "කරදමුංගු",
+    clove: "කරාබුනැටි",
+    nutmeg: "සාදික්කා",
+
+    kg: "කි.ග්‍රෑ.",
+    currencySymbol: "රු.",
+
+    tip1: "ඉල්ලුම වැඩි විට සහ සැපයුම අඩු විට විකුණන්න",
+    tip2: "නිවැරදි වාහනය තෝරාගන්න — යතුරුපැදි ලාභදායී වේ",
+    tip3: "කොළඹ සහ මහනුවර වැඩිම මිලක් ලබා දෙයි",
+    tip4: "කාලීන ප්‍රවණතා නිරීක්ෂණය කරන්න",
+    modules: "අංශ",
+    regions: "ප්‍රදේශ",
+    spices: "කුළුබඩු",
+    profit: "ලාභය",
+  },
+};
 
 const LanguageContext = createContext<LanguageContextProps | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>('en');
 
-    useEffect(() => {
-        AsyncStorage.getItem('appLanguage').then(storedLang => {
-            if (storedLang === 'en' || storedLang === 'si') {
-                setLanguage(storedLang);
-            }
-        });
-    }, []);
+  const t = (key: string) => {
+    return (translations[language] as any)[key] || key;
+  };
 
-    const toggleLanguage = () => {
-        const newLang = language === 'en' ? 'si' : 'en';
-        setLanguage(newLang);
-        AsyncStorage.setItem('appLanguage', newLang);
-    };
-
-    const langConfig = TRANSLATIONS[language];
-
-    /** Translation helper used by groupmate's screens */
-    const t = (key: string): string => langConfig[key] ?? key;
-
-    const handleSetLanguage = (lang: Language) => {
-        setLanguage(lang);
-        AsyncStorage.setItem('appLanguage', lang);
-    };
-
-    return (
-        <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, toggleLanguage, langConfig, t }}>
-            {children}
-        </LanguageContext.Provider>
-    );
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
 };
 
 export const useLanguage = () => {
-    const context = useContext(LanguageContext);
-    if (!context) {
-        throw new Error('useLanguage must be used within a LanguageProvider');
-    }
-    return context;
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
 };

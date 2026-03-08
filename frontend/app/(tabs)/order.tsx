@@ -1,472 +1,274 @@
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { useLanguage } from "../../context/LanguageContext";
-import { useEffect, useState } from "react";
+import { router } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Dimensions,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import Animated, {
-  FadeInDown,
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring
-} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-/* 🔹 IMPORT ENGINES */
-import { loadMarketData } from "../../lib/dataLoader";
-import {
-  calculateDemand,
-  calculateSupply,
-  getBasePrice,
-} from "../../lib/marketAnalytics";
-import { calculatePrice } from "../../lib/pricingEngine";
-import { calculateProfit } from "../../lib/profitEngine";
-import { calculateTransportCost } from "../../lib/transportEngine";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
-/* ================= TYPES ================= */
+import { useLanguage } from "../../context/LanguageContext";
 
-type SpiceKey = "Cinnamon" | "Pepper" | "Clove" | "Cardamom" | "Nutmeg";
-type RegionKey = "Dambulla" | "Kandy" | "Matale" | "Colombo" | "Kurunegala";
-type ModeKey = "Bike" | "Threewheel" | "Van" | "Lorry";
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
-/* ================= ANIMATED HELPERS ================= */
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const SPICE_TYPES = [
+  { id: "cinnamon", icon: "🌿", color: "#8B4513" },
+  { id: "pepper", icon: "🌑", color: "#333333" },
+  { id: "cardamom", icon: "🍃", color: "#2E8B57" },
+  { id: "clove", icon: "🍂", color: "#5D4037" },
+  { id: "nutmeg", icon: "🌰", color: "#A0522D" },
+];
 
-const useScaleAnimation = () => {
-  const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-  const onPressIn = () => {
-    scale.value = withSpring(0.95);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-  const onPressOut = () => {
-    scale.value = withSpring(1);
-  };
-  return { style, onPressIn, onPressOut };
-};
+const VEHICLES = [
+  { id: "bike", icon: "motorcycle", label: "Bike", capacity: 50, cost: 20 },
+  { id: "tuk", icon: "auto-fix", label: "TukTuk", capacity: 150, cost: 45 },
+  { id: "lorry", icon: "bus", label: "Lorry", capacity: 1000, cost: 120 },
+];
 
-function ScalePressable({ children, style: customStyle, onPress, ...rest }: any) {
-  const { style, onPressIn, onPressOut } = useScaleAnimation();
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      style={[customStyle, style]}
-      {...rest}
-    >
-      {children}
-    </AnimatedPressable>
-  );
-}
-
-/* ================= SCREEN ================= */
-
-export default function OrderScreen() {
-  const router = useRouter();
+export default function HarvestSimulator() {
   const { t } = useLanguage();
+  const [step, setStep] = useState(1);
+  const [selectedSpice, setSelectedSpice] = useState(SPICE_TYPES[0].id);
+  const [quantity, setQuantity] = useState(100);
+  const [selectedVehicle, setSelectedVehicle] = useState(VEHICLES[1].id);
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
-  /* DATA STATE */
-  const [marketData, setMarketData] = useState<any[]>([]);
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    async function init() {
-      const data = await loadMarketData();
-      setMarketData(data);
-    }
-    init();
-  }, []);
+    Animated.spring(slideAnim, {
+      toValue: 1,
+      tension: 50,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  }, [step]);
 
-  /* USER STATE */
-  const [spice, setSpice] = useState<SpiceKey>("Cinnamon");
-  const [quantity, setQuantity] = useState(50);
-  const [customer, setCustomer] = useState<RegionKey>("Colombo");
-  const [mode, setMode] = useState<ModeKey>("Van");
-
-  const farmerLocation: RegionKey = "Matale";
-
-  /* ================= SMART CALCULATIONS ================= */
-
-  const Pb = getBasePrice(spice, marketData);
-  const D = calculateDemand(spice, marketData);
-  const S = calculateSupply(spice, marketData);
-  const Pf = calculatePrice(Pb, D, S);
-  const transport = calculateTransportCost(farmerLocation, customer, mode);
-  const Ct = transport.cost;
-  const total = Pf * quantity + Ct;
-  const baseCost = Pb * 0.6 * quantity; // assumed cost model
-  const profitData = calculateProfit(Pf, quantity, Ct, baseCost);
-  const profit = profitData.profit;
-
-  /* ================= NAV ================= */
-
-  const handleGenerate = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.push({
-      pathname: "/price-result",
-      params: {
-        spice,
-        quantity,
-        customer,
-        mode,
-        distance: transport.distance,
-        Pf,
-        Ct,
-        total,
-        D,
-        S,
-        revenue: profitData.revenue,
-        cost: profitData.cost,
-        profit,
-      },
-    });
+  const nextStep = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (step < 3) setStep(step + 1);
   };
 
-  const staggerDelay = 100;
+  const prevStep = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (step > 1) setStep(step - 1);
+  };
 
-  /* ================= UI ================= */
+  const handleConfirm = () => {
+    // Logic: Validate vehicle capacity before confirming
+    const vehicle = VEHICLES.find(v => v.id === selectedVehicle);
+    if (vehicle && quantity > vehicle.capacity) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      alert(`Capacity Exceeded! The ${vehicle.label} can only carry ${vehicle.capacity}kg.`);
+      return;
+    }
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIsConfirmed(true);
+  };
+
+  if (isConfirmed) {
+    return (
+      <SafeAreaView style={styles.confirmedContainer}>
+        <View style={styles.successCard}>
+          <View style={styles.checkWrap}>
+            <Ionicons name="checkmark-circle" size={80} color="#10B981" />
+          </View>
+          <Text style={styles.confirmedTitle}>{t("orderConfirmedTitle") || "Order Confirmed!"}</Text>
+          <Text style={styles.confirmedDesc}>
+            {t("orderConfirmedDesc") || "Thank you for ordering with us. Your harvest simulation has been recorded and added to your dashboard for tracking. We're optimizing the best route for your delivery."}
+          </Text>
+          
+          <Pressable 
+            style={styles.doneButton}
+            onPress={() => router.replace("/(tabs)/farmer")}
+          >
+            <Text style={styles.doneText}>{t("goToDashboard") || "Go to Dashboard"}</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 120 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <Animated.View entering={FadeInDown.delay(staggerDelay * 1).springify()}>
-        <Text style={styles.title}>{t("simulateHarvest" as any) || "Harvest Simulator"}</Text>
-        <Text style={styles.subtitle}>{t("harvestScenario" as any) || "Configure logistics to estimate market selling price"}</Text>
-      </Animated.View>
-
-      {/* SPICE */}
-      <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 2).springify()}>
-        <Text style={styles.label}>{t("selectSpice" as any) || "Spice Category"}</Text>
-        <View style={styles.row}>
-          {(
-            [
-              "Cinnamon",
-              "Pepper",
-              "Clove",
-              "Cardamom",
-              "Nutmeg",
-            ] as SpiceKey[]
-          ).map((s) => {
-            const active = spice === s;
-            return (
-              <ScalePressable
-                key={s}
-                style={[styles.chip, active && styles.activeChip]}
-                onPress={() => setSpice(s)}
-              >
-                <Text style={[styles.chipText, active && styles.activeText]}>
-                  {s}
-                </Text>
-              </ScalePressable>
-            )
-          })}
-        </View>
-      </Animated.View>
-
-      {/* QUANTITY */}
-      <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 3).springify()}>
-        <Text style={styles.label}>{t("expectedYield" as any) || "Quantity (kg)"}</Text>
-        <View style={styles.qtyRow}>
-          <Pressable
-            style={({ pressed }) => [styles.btn, pressed && { opacity: 0.7 }]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              if (quantity >= 5) setQuantity(quantity - 5)
-            }}
-          >
-            <Text style={styles.btnText}>-5</Text>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color="#0F172A" />
           </Pressable>
+          <Text style={styles.title}>{t("simulateHarvest")}</Text>
+        </View>
 
-          <Pressable
-            style={({ pressed }) => [styles.btnSmall, pressed && { opacity: 0.7 }]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              if (quantity >= 1) setQuantity(quantity - 1)
-            }}
+        {/* Progress Dots */}
+        <View style={styles.progressRow}>
+          {[1, 2, 3].map((s) => (
+            <View 
+              key={s} 
+              style={[
+                styles.dot, 
+                step >= s && styles.dotActive,
+                step === s && { width: 24, backgroundColor: "#F59E0B" }
+              ]} 
+            />
+          ))}
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+          
+          {step === 1 && (
+            <Animated.View style={{ transform: [{ scale: slideAnim }] }}>
+              <Text style={styles.stepTitle}>{t("selectSpiceType")}</Text>
+              <View style={styles.spiceGrid}>
+                {SPICE_TYPES.map((s) => (
+                  <Pressable 
+                    key={s.id}
+                    onPress={() => setSelectedSpice(s.id)}
+                    style={[styles.spiceCard, selectedSpice === s.id && { borderColor: "#F59E0B", backgroundColor: "#FFFBEB" }]}
+                  >
+                    <Text style={{ fontSize: 32 }}>{s.icon}</Text>
+                    <Text style={styles.spiceLabel}>{t(s.id as any)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.stepTitle}>{t("harvestQuantity")} (kg)</Text>
+              <View style={styles.qtyContainer}>
+                {[50, 100, 250, 500].map((q) => (
+                  <Pressable 
+                    key={q}
+                    onPress={() => setQuantity(q)}
+                    style={[styles.qtyBtn, quantity === q && styles.qtyBtnActive]}
+                  >
+                    <Text style={[styles.qtyText, quantity === q && { color: "#fff" }]}>{q}kg</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Animated.View>
+          )}
+
+          {step === 2 && (
+            <Animated.View style={{ transform: [{ translateX: Animated.multiply(slideAnim, 0) }] }}>
+              <Text style={styles.stepTitle}>{t("selectLogistics")}</Text>
+              {VEHICLES.map((v) => (
+                <Pressable 
+                  key={v.id}
+                  onPress={() => setSelectedVehicle(v.id)}
+                  style={[styles.vehicleCard, selectedVehicle === v.id && styles.vehicleActive]}
+                >
+                  <Ionicons name={v.icon as any} size={28} color={selectedVehicle === v.id ? "#F59E0B" : "#64748B"} />
+                  <View style={{ flex: 1, marginLeft: 16 }}>
+                    <Text style={styles.vLabel}>{v.label}</Text>
+                    <Text style={styles.vSub}>Capacity: {v.capacity}kg</Text>
+                  </View>
+                  <Text style={styles.vCost}>LKR {v.cost}/km</Text>
+                </Pressable>
+              ))}
+            </Animated.View>
+          )}
+
+          {step === 3 && (
+            <Animated.View style={styles.summaryCard}>
+              <Text style={[styles.stepTitle, { marginBottom: 12 }]}>{t("orderSummary")}</Text>
+              
+              <View style={styles.summaryRow}>
+                <Text style={styles.sumLabel}>{t("spice")}</Text>
+                <Text style={styles.sumValue}>{t(selectedSpice as any)}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.sumLabel}>{t("quantity")}</Text>
+                <Text style={styles.sumValue}>{quantity} kg</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.sumLabel}>{t("transport")}</Text>
+                <Text style={styles.sumValue}>{VEHICLES.find(v => v.id === selectedVehicle)?.label}</Text>
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.summaryRow}>
+                <Text style={[styles.sumLabel, { fontSize: 18, color: "#0F172A" }]}>{t("estimatedProfit")}</Text>
+                <Text style={styles.totalValue}>LKR {quantity * 250}</Text>
+              </View>
+            </Animated.View>
+          )}
+
+        </ScrollView>
+
+        {/* Bottom Nav */}
+        <View style={styles.footer}>
+          {step > 1 && (
+            <Pressable onPress={prevStep} style={styles.backButton}>
+              <Text style={styles.backButtonText}>{t("back")}</Text>
+            </Pressable>
+          )}
+          <Pressable 
+            onPress={step === 3 ? handleConfirm : nextStep} 
+            style={[styles.nextButton, step === 1 && { width: "100%" }]}
           >
-            <Text style={styles.btnSmallText}>-1</Text>
-          </Pressable>
-
-          <Text style={styles.qty}>{quantity}</Text>
-
-          <Pressable
-            style={({ pressed }) => [styles.btnSmall, pressed && { opacity: 0.7 }]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setQuantity(quantity + 1)
-            }}
-          >
-            <Text style={styles.btnSmallText}>+1</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.btn, pressed && { opacity: 0.7 }]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setQuantity(quantity + 5)
-            }}
-          >
-            <Text style={styles.btnText}>+5</Text>
+            <Text style={styles.nextText}>{step === 3 ? t("confirmOrder") : t("next")}</Text>
           </Pressable>
         </View>
-      </Animated.View>
-
-      {/* CUSTOMER */}
-      <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 4).springify()}>
-        <Text style={styles.label}>Customer Market Location</Text>
-        <View style={styles.row}>
-          {(
-            ["Colombo", "Kandy", "Dambulla", "Kurunegala"] as RegionKey[]
-          ).map((r) => {
-            const active = customer === r;
-            return (
-              <ScalePressable
-                key={r}
-                style={[styles.chip, active && styles.activeChip]}
-                onPress={() => setCustomer(r)}
-              >
-                <Text style={[styles.chipText, active && styles.activeText]}>{r}</Text>
-              </ScalePressable>
-            )
-          })}
-        </View>
-      </Animated.View>
-
-      {/* MODE */}
-      <Animated.View style={styles.card} entering={FadeInDown.delay(staggerDelay * 5).springify()}>
-        <Text style={styles.label}>Transport Method</Text>
-        <View style={styles.row}>
-          {(["Bike", "Threewheel", "Van", "Lorry"] as ModeKey[]).map((m) => {
-            const active = mode === m;
-            return (
-              <ScalePressable
-                key={m}
-                style={[styles.chip, active && styles.activeChip]}
-                onPress={() => setMode(m)}
-              >
-                <Text style={[styles.chipText, active && styles.activeText]}>{m}</Text>
-              </ScalePressable>
-            )
-          })}
-        </View>
-      </Animated.View>
-
-      {/* INFO */}
-      <Animated.View style={styles.priceCard} entering={FadeInDown.delay(staggerDelay * 6).springify()}>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Route Distance:</Text>
-          <Text style={styles.priceValue}>{transport.distance} km</Text>
-        </View>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Logistics Cost:</Text>
-          <Text style={styles.priceValue}>LKR {Math.round(Ct).toLocaleString()}</Text>
-        </View>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Gross Revenue:</Text>
-          <Text style={styles.priceValue}>LKR {Math.round(total).toLocaleString()}</Text>
-        </View>
-        <View style={[styles.priceRow, { borderBottomWidth: 0, paddingBottom: 0, marginTop: 8, paddingTop: 16, borderTopWidth: 1, borderColor: '#E2E8F0' }]}>
-          <Text style={styles.profitLabel}>Net Profit Estimate:</Text>
-          <Text style={styles.profitValue}>LKR {Math.round(profit).toLocaleString()}</Text>
-        </View>
-      </Animated.View>
-
-      <Animated.View entering={FadeInUp.delay(staggerDelay * 7).springify()}>
-        <Pressable
-          style={({ pressed }) => [styles.generate, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-          onPress={handleGenerate}
-        >
-          <Text style={styles.genText}>{t("submit" as any) || "Generate Full Analysis"}</Text>
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.8 }]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/index" as any);
-          }}
-        >
-          <Text style={styles.backText}>{t("cancel" as any) || "Cancel & Return"}</Text>
-        </Pressable>
-      </Animated.View>
-    </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
-/* ================= STYLES ================= */
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-    padding: 16,
-    paddingTop: 24,
-  },
-  title: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 26,
-    color: "#0F172A",
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    color: "#64748B",
-    fontSize: 15,
-    fontFamily: "Poppins_400Regular",
-    marginBottom: 20
-  },
-  card: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 16,
-    shadowColor: "#64748b",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-  },
-  label: {
-    fontSize: 15,
-    fontFamily: "Poppins_600SemiBold",
-    color: "#1E293B",
-  },
-  row: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 12,
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  activeChip: {
-    backgroundColor: "#ECFDF5",
-    borderColor: "#10B981"
-  },
-  chipText: {
-    fontFamily: "Poppins_500Medium",
-    color: "#64748B",
-    fontSize: 14,
-  },
-  activeText: {
-    color: "#10B981",
-    fontFamily: "Poppins_600SemiBold",
-  },
-  qtyRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 16,
-    backgroundColor: "#F8FAFC",
-    padding: 12,
-    borderRadius: 16,
-  },
-  btn: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#E2E8F0",
-    borderRadius: 12,
-  },
-  btnText: {
-    fontFamily: "Poppins_600SemiBold",
-    color: "#334155",
-    fontSize: 15
-  },
-  btnSmall: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 12,
-  },
-  btnSmallText: {
-    fontFamily: "Poppins_500Medium",
-    color: "#475569",
-    fontSize: 14
-  },
-  qty: {
-    fontSize: 24,
-    fontFamily: "Poppins_700Bold",
-    color: "#0F172A",
-    minWidth: 50,
-    textAlign: 'center'
-  },
-  priceCard: {
-    backgroundColor: "#fff",
-    padding: 24,
-    borderRadius: 24,
-    marginTop: 8,
-    shadowColor: "#64748b",
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  priceLabel: {
-    fontFamily: "Poppins_500Medium",
-    color: "#64748B",
-    fontSize: 14
-  },
-  priceValue: {
-    fontFamily: "Poppins_600SemiBold",
-    color: "#1E293B",
-    fontSize: 15
-  },
-  profitLabel: {
-    fontFamily: "Poppins_700Bold",
-    color: "#0F172A",
-    fontSize: 16
-  },
-  profitValue: {
-    fontFamily: "Poppins_700Bold",
-    color: "#10B981",
-    fontSize: 20
-  },
-  generate: {
-    backgroundColor: "#10B981",
-    padding: 18,
-    borderRadius: 16,
-    marginTop: 24,
-    shadowColor: "#10B981",
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  backBtn: {
-    padding: 18,
-    borderRadius: 16,
-    marginTop: 8,
-  },
-  genText: {
-    color: "white",
-    textAlign: "center",
-    fontFamily: "Poppins_700Bold",
-    fontSize: 16,
-  },
-  backText: {
-    color: "#64748B",
-    textAlign: "center",
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 15,
-  }
+  safe: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, padding: 20 },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
+  title: { fontSize: 20, fontFamily: "Poppins_700Bold", color: "#0F172A", marginLeft: 16 },
+  
+  progressRow: { flexDirection: "row", gap: 8, marginBottom: 30 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#E2E8F0" },
+  dotActive: { backgroundColor: "#F59E0B" },
+
+  stepTitle: { fontSize: 18, fontFamily: "Poppins_600SemiBold", color: "#0F172A", marginBottom: 16 },
+  
+  spiceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 24 },
+  spiceCard: { width: (screenWidth - 52) / 2, padding: 20, borderRadius: 20, borderWidth: 2, borderColor: "#F1F5F9", alignItems: "center" },
+  spiceLabel: { fontSize: 14, fontFamily: "Poppins_600SemiBold", color: "#1E293B", marginTop: 8 },
+
+  qtyContainer: { flexDirection: "row", justifyContent: "space-between", marginBottom: 24 },
+  qtyBtn: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, backgroundColor: "#F1F5F9" },
+  qtyBtnActive: { backgroundColor: "#0F172A" },
+  qtyText: { fontFamily: "Poppins_600SemiBold", color: "#64748B" },
+
+  vehicleCard: { flexDirection: "row", alignItems: "center", padding: 20, borderRadius: 20, borderWidth: 2, borderColor: "#F1F5F9", marginBottom: 12 },
+  vehicleActive: { borderColor: "#F59E0B", backgroundColor: "#FFFBEB" },
+  vLabel: { fontSize: 16, fontFamily: "Poppins_600SemiBold", color: "#1E293B" },
+  vSub: { fontSize: 12, color: "#64748B" },
+  vCost: { fontSize: 14, fontFamily: "Poppins_700Bold", color: "#0F172A" },
+
+  summaryCard: { backgroundColor: "#F8FAFC", padding: 24, borderRadius: 24 },
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
+  sumLabel: { fontSize: 14, fontFamily: "Poppins_400Regular", color: "#64748B" },
+  sumValue: { fontSize: 14, fontFamily: "Poppins_600SemiBold", color: "#0F172A" },
+  divider: { height: 1, backgroundColor: "#E2E8F0", marginVertical: 8 },
+  totalValue: { fontSize: 22, fontFamily: "Poppins_700Bold", color: "#16A34A" },
+
+  footer: { position: "absolute", bottom: 20, left: 20, right: 20, flexDirection: "row", gap: 12 },
+  nextButton: { flex: 1, backgroundColor: "#0F172A", height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  nextText: { color: "#fff", fontSize: 16, fontFamily: "Poppins_600SemiBold" },
+  backButton: { flex: 1, height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#E2E8F0" },
+  backButtonText: { fontSize: 16, fontFamily: "Poppins_600SemiBold", color: "#64748B" },
+
+  confirmedContainer: { flex: 1, backgroundColor: "#10B981", justifyContent: "center", padding: 20 },
+  successCard: { backgroundColor: "#fff", padding: 32, borderRadius: 32, alignItems: "center" },
+  checkWrap: { width: 100, height: 100, borderRadius: 50, backgroundColor: "#F0FDF4", alignItems: "center", justifyContent: "center", marginBottom: 24 },
+  confirmedTitle: { fontSize: 24, fontFamily: "Poppins_700Bold", color: "#0F172A", marginBottom: 12 },
+  confirmedDesc: { fontSize: 15, fontFamily: "Poppins_400Regular", color: "#64748B", textAlign: "center", lineHeight: 22, marginBottom: 30 },
+  doneButton: { backgroundColor: "#0F172A", paddingVertical: 16, paddingHorizontal: 32, borderRadius: 16, width: "100%", alignItems: "center" },
+  doneText: { color: "#fff", fontSize: 16, fontFamily: "Poppins_600SemiBold" },
 });

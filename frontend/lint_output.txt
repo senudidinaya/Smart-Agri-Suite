@@ -1,0 +1,40 @@
+
+> smart-agri-mobile@1.0.0 lint
+> expo lint
+
+
+C:\Users\USER\.gemini\antigravity\scratch\Smart-Agri-Suite\frontend\app\(tabs)\farmer.tsx
+  52:9  warning  'completedOrders' is assigned a value but never used                                                          @typescript-eslint/no-unused-vars
+  56:9  warning  'pending' is assigned a value but never used                                                                  @typescript-eslint/no-unused-vars
+  93:5  warning  React Hook useMemo has an unnecessary dependency: 'orders'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\USER\.gemini\antigravity\scratch\Smart-Agri-Suite\frontend\app\(tabs)\price-result.tsx
+  34:9  warning  'total' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\USER\.gemini\antigravity\scratch\Smart-Agri-Suite\frontend\app\(tabs)\seasonal-price-analytics.tsx
+  12:21  warning  'BarChart' is defined but never used                                                                             @typescript-eslint/no-unused-vars
+  73:6   warning  React Hook useEffect has a missing dependency: 'fallbackData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\USER\.gemini\antigravity\scratch\Smart-Agri-Suite\frontend\app\(tabs)\simulator.tsx
+  35:6  warning  React Hook useMemo has a missing dependency: 'harvestOptions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  44:7  warning  React Hook useMemo has a missing dependency: 'harvestOptions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\USER\.gemini\antigravity\scratch\Smart-Agri-Suite\frontend\app\(tabs)\transport-optimizer.tsx
+  2:556   warning  'AnimatedPressable' is assigned a value but never used                                                     @typescript-eslint/no-unused-vars
+  2:628   warning  'useScaleAnimation' is assigned a value but never used                                                     @typescript-eslint/no-unused-vars
+  2:2358  warning  React Hook useMemo has a missing dependency: 'distance'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\USER\.gemini\antigravity\scratch\Smart-Agri-Suite\frontend\app\(tabs)\transport-tracking.tsx
+  2:205   warning  'Haptics' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+  2:453   warning  'width' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+  2:779   warning  'setCurrentStatus' is assigned a value but never used                                                        @typescript-eslint/no-unused-vars
+  2:1202  warning  React Hook useEffect has a missing dependency: 'progress'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\USER\.gemini\antigravity\scratch\Smart-Agri-Suite\frontend\app\(tabs)\yield-analytics.tsx
+  40:8  warning  React Hook useEffect has missing dependencies: 'animValue' and 'duration'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\USER\.gemini\antigravity\scratch\Smart-Agri-Suite\frontend\app\price-result.tsx
+  18:9  warning  'total' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 17 problems (0 errors, 17 warnings)
+
