@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from 'expo-status-bar';
 import { useFonts } from "expo-font";
 import {
   Poppins_400Regular,
@@ -14,9 +15,12 @@ import {
 import { AuthProvider, useAuth } from "../context/AuthContext";       // gee-xgboost branch
 import { LanguageProvider } from "../context/LanguageContext";        // shared
 import { OrderProvider } from "../context/OrderContext";              // pricing branch
+import { UserModeProvider } from '../context/UserModeContext';         // stock branch
+import { GlobalProvider } from '../context/GlobalContext';             // stock branch
 
 // Components
 import LanguageToggle from "../components/LanguageToggle";            // pricing branch
+import { PushProvider } from '../components/common/PushNotificationService'; // stock branch
 
 /**
  * Auth gate — from gee-xgboost branch.
@@ -38,7 +42,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       (segments[0] as string) === "(tabs)" ||
       (segments[0] as string) === "invoice" ||
       (segments[0] as string) === "modal" ||
-      (segments[0] as string) === "price-result";
+      (segments[0] as string) === "price-result" ||
+      (segments[0] as string) === "customer-dashboard" ||
+      (segments[0] as string) === "cart" ||
+      (segments[0] as string) === "stock-prediction" ||
+      (segments[0] as string) === "customer-login" ||
+      (segments[0] as string) === "farmer-login";
 
     if (!user && !inAuthGroup && !inPublicGroup) {
       router.replace("/auth/login" as any);
@@ -65,7 +74,11 @@ function RootLayoutNav() {
   return (
     <AuthGate>
       <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
-        <Stack screenOptions={{ contentStyle: { backgroundColor: "transparent" } }}>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ 
+          contentStyle: { backgroundColor: "transparent" },
+          headerShown: false 
+        }}>
 
           {/* ─────────────────────────────────────────────────
               Auth screens  (gee-xgboost branch)
@@ -88,19 +101,21 @@ function RootLayoutNav() {
 
           {/* ─────────────────────────────────────────────────
               Standalone pricing screens  (pricing branch — app/)
-              Files: invoice.tsx | modal.tsx | price-result.tsx
           ───────────────────────────────────────────────── */}
           <Stack.Screen name="invoice" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ headerShown: false, presentation: "modal" }} />
           <Stack.Screen name="price-result" options={{ headerShown: false }} />
 
           {/* ─────────────────────────────────────────────────
+              Marketplace screens (New stock branch)
+          ───────────────────────────────────────────────── */}
+          <Stack.Screen name="customer-dashboard" options={{ headerShown: false }} />
+          <Stack.Screen name="cart" options={{ headerShown: false }} />
+          <Stack.Screen name="customer-login" options={{ headerShown: false }} />
+          <Stack.Screen name="farmer-login" options={{ headerShown: false }} />
+
+          {/* ─────────────────────────────────────────────────
               Pricing & Logistics tab group  (pricing branch — app/(tabs)/)
-              Tabs: demand-prediction, farmer, order, price-result,
-                    route-planner, seasonal-price-analytics, simulator,
-                    srilanka-demand-map, transport, transport-analytics,
-                    transport-optimizer, transport-tracking, yield-analytics
-              The (tabs)/_layout.tsx handles the tab bar internally.
           ───────────────────────────────────────────────── */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
@@ -121,22 +136,23 @@ export default function RootLayout() {
     Poppins_700Bold,
   });
 
-  // Block render until Poppins fonts are ready (required by pricing branch)
   if (!fontsLoaded) return null;
 
   return (
-    // SafeAreaProvider — pricing branch requirement
     <SafeAreaProvider>
-      {/* AuthProvider — gee-xgboost branch */}
-      <AuthProvider>
-        {/* LanguageProvider — shared by both branches */}
-        <LanguageProvider>
-          {/* OrderProvider — pricing branch */}
-          <OrderProvider>
-            <RootLayoutNav />
-          </OrderProvider>
-        </LanguageProvider>
-      </AuthProvider>
+      <UserModeProvider>
+        <GlobalProvider>
+          <PushProvider>
+            <AuthProvider>
+              <LanguageProvider>
+                <OrderProvider>
+                  <RootLayoutNav />
+                </OrderProvider>
+              </LanguageProvider>
+            </AuthProvider>
+          </PushProvider>
+        </GlobalProvider>
+      </UserModeProvider>
     </SafeAreaProvider>
   );
 }
