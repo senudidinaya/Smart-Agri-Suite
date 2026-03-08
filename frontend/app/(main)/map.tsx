@@ -310,17 +310,6 @@ export default function MapScreen() {
       const targetLat = parseFloat(lat);
       const targetLng = parseFloat(lng);
 
-      const newRegion: Region = {
-        latitude: targetLat,
-        longitude: targetLng,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05
-      };
-
-      setTimeout(() => {
-        mapRef.current?.animateToRegion(newRegion, 1000);
-      }, 500);
-
       if (cityName) setTargetCity(cityName);
 
       if (geeTileUrl) {
@@ -330,39 +319,41 @@ export default function MapScreen() {
         }
       }
 
+      let boundaryCoords: LatLng[] = [];
+
       if (boundary) {
         try {
           const parsed = JSON.parse(boundary);
           if (parsed.type === "Polygon") {
-            const coords: LatLng[] = parsed.coordinates[0].map((c: any) => ({
+            boundaryCoords = parsed.coordinates[0].map((c: any) => ({
               longitude: c[0],
               latitude: c[1]
             }));
-            setCityBoundary(coords);
-
-            // If Analysis mode, trigger boundary analysis
-            if (cityMode === 'analysis') {
-              setPolygonPoints(coords);
-              setTimeout(() => {
-                analyzePolygonAuto(coords);
-              }, 1500);
-            }
-
-            if (cityMode === 'listings' && cityName) {
-              fetchCityListings(cityName);
-            }
           } else if (parsed.type === "MultiPolygon") {
-            const coords: LatLng[] = parsed.coordinates[0][0].map((c: any) => ({
+            boundaryCoords = parsed.coordinates[0][0].map((c: any) => ({
               longitude: c[0],
               latitude: c[1]
             }));
-            setCityBoundary(coords);
+          }
+
+          if (boundaryCoords.length > 0) {
+            setCityBoundary(boundaryCoords);
+
+            // Fit map to the full city boundary so all tiles are visible
+            setTimeout(() => {
+              mapRef.current?.fitToCoordinates(boundaryCoords, {
+                edgePadding: { top: 120, right: 40, bottom: 220, left: 40 },
+                animated: true
+              });
+            }, 600);
+
             if (cityMode === 'analysis') {
-              setPolygonPoints(coords);
+              setPolygonPoints(boundaryCoords);
               setTimeout(() => {
-                analyzePolygonAuto(coords);
+                analyzePolygonAuto(boundaryCoords);
               }, 1500);
             }
+
             if (cityMode === 'listings' && cityName) {
               fetchCityListings(cityName);
             }
@@ -370,6 +361,19 @@ export default function MapScreen() {
         } catch (e) {
           console.error("Failed to parse boundary GeoJSON", e);
         }
+      }
+
+      // Fallback: if no boundary, just animate to the point
+      if (boundaryCoords.length === 0) {
+        const newRegion: Region = {
+          latitude: targetLat,
+          longitude: targetLng,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05
+        };
+        setTimeout(() => {
+          mapRef.current?.animateToRegion(newRegion, 1000);
+        }, 500);
       }
     }
   }, [lat, lng, boundary, cityMode, cityName, fetchCityListings]);
@@ -841,7 +845,26 @@ export default function MapScreen() {
                   style={[styles.dashboardBtn, isActive && styles.dashboardBtnActive]}
                   onPress={() => {
                     if (type === "GEE") {
-                      setShowClassifiedOverlay(!showClassifiedOverlay);
+                      const turningOn = !showClassifiedOverlay;
+                      setShowClassifiedOverlay(turningOn);
+
+                      if (turningOn) {
+                        // Clear any city-specific state and restore Malabe AOI
+                        setDynamicTileUrl(null);
+                        setCityBoundary([]);
+                        setTargetCity(null);
+                        setNearbyListings([]);
+
+                        // Fit to Malabe AOI if available
+                        if (AOI_COORDS.length > 2) {
+                          setTimeout(() => {
+                            mapRef.current?.fitToCoordinates(AOI_COORDS, {
+                              edgePadding: { top: 120, right: 80, bottom: 220, left: 40 },
+                              animated: true
+                            });
+                          }, 200);
+                        }
+                      }
                     } else {
                       setMapType(type.toLowerCase() as any);
                     }

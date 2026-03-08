@@ -43,3 +43,6 @@ Thumbs.db
 
 expo-env.d.ts
 # @end expo-cli
+
+# Project Specific
+backend/reqdata/

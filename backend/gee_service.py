@@ -1,11 +1,44 @@
 
 import ee
 import os
+import json
+import hashlib
+import time
+import pathlib
 import joblib
 import numpy as np
 from geopy.geocoders import Nominatim
 from typing import Dict, Any, List, Optional
 from functools import lru_cache
+
+# ─── Persistent Disk Cache ──────────────────────────────────
+CACHE_DIR = pathlib.Path("reqdata/city_cache")
+CACHE_TTL_SECONDS = 7 * 24 * 3600  # 7 days
+
+
+def _cache_path(city_name: str) -> pathlib.Path:
+    key = hashlib.md5(city_name.lower().strip().encode()).hexdigest()
+    return CACHE_DIR / f"{key}.json"
+
+
+def _load_cache(city_name: str):
+    p = _cache_path(city_name)
+    if not p.exists():
+        return None
+    try:
+        data = json.loads(p.read_text())
+        if time.time() - data.get("_cached_at", 0) < CACHE_TTL_SECONDS:
+            print(f"✅ Cache hit for '{city_name}'")
+            return data
+    except:
+        pass
+    return None
+
+
+def _save_cache(city_name: str, result: dict):
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    result["_cached_at"] = time.time()
+    _cache_path(city_name).write_text(json.dumps(result))
 
 # ─── Constants ──────────────────────────────────────────────
 FEATURES = [
@@ -405,14 +438,31 @@ def analyze_city_complexity(city_name: str) -> Dict[str, Any]:
     Fast, accurate city analysis:
     - XGBoost on 200 sampled points for statistics
     - NDVI-threshold tiles for quick map visualization
+    - Persistent disk cache for instant repeated lookups
     """
+    # ── Check disk cache first ──
+    cached = _load_cache(city_name)
+    if cached:
+        cached.pop("_cached_at", None)
+        return cached
+
     geo_data = geocode_city(city_name)
     if not geo_data:
         return {"error": "City not found"}
 
-    if geo_data["geojson"] and geo_data["geojson"]["type"] in ["Polygon", "MultiPolygon"]:
-        aoi = ee.Geometry(geo_data["geojson"])
-    else:
+    # ── Build AOI with geodesic=False to prevent boundary distortion ──
+    geojson = geo_data.get("geojson")
+    try:
+        if geojson and geojson["type"] == "Polygon":
+            aoi = ee.Geometry.Polygon(geojson["coordinates"], geodesic=False)
+        elif geojson and geojson["type"] == "MultiPolygon":
+            aoi = ee.Geometry.MultiPolygon(geojson["coordinates"], geodesic=False)
+        else:
+            aoi = ee.Geometry.Point([geo_data["lng"], geo_data["lat"]]).buffer(5000)
+        # Simplify very complex geometries to avoid GEE coordinate limits
+        aoi = aoi.simplify(maxError=100)
+    except Exception as e:
+        print(f"⚠️ Geometry creation failed ({e}), falling back to buffer")
         aoi = ee.Geometry.Point([geo_data["lng"], geo_data["lat"]]).buffer(5000)
 
     cache_key = f"city_{city_name.lower().strip()}"
@@ -522,7 +572,7 @@ def analyze_city_complexity(city_name: str) -> Dict[str, Any]:
     except:
         avg_ndvi = 0
 
-    return {
+    result = {
         "city": city_name,
         "address": geo_data["address"],
         "lat": geo_data["lat"],
@@ -541,6 +591,11 @@ def analyze_city_complexity(city_name: str) -> Dict[str, Any]:
         "bbox": geo_data["bbox"],
         "boundary": geo_data["geojson"]
     }
+
+    # ── Save to disk cache ──
+    _save_cache(city_name, result)
+
+    return result
 
 
 # Initialization on import
