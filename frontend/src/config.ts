@@ -31,9 +31,19 @@ export const AUTH_API_BASE_URL = `${API_BASE_URL}/api/v1`;
 export const CULTIVATOR_API_BASE_URL = AUTH_API_BASE_URL.replace('/api/v1', '');
 export const EXPO_PUBLIC_AGORA_APP_ID = process.env.EXPO_PUBLIC_AGORA_APP_ID || '';
 
+// === AGORA RUNTIME DIAGNOSTICS ===
+export const AGORA_DEBUG = true; // Set to false after debugging
+
 // === RUNTIME DIAGNOSTICS (Temporary) ===
 console.log('=== NETWORK CONFIGURATION ===');
 console.log('API_BASE_URL:', API_BASE_URL);
 console.log('AUTH_API_BASE_URL:', AUTH_API_BASE_URL);
 console.log('CULTIVATOR_API_BASE_URL:', CULTIVATOR_API_BASE_URL);
 console.log('==========================');
+
+if (AGORA_DEBUG) {
+  console.log('=== AGORA DEBUG MODE ENABLED ===');
+  console.log('Platform:', Platform.OS);
+  console.log('EXPO_PUBLIC_AGORA_APP_ID:', EXPO_PUBLIC_AGORA_APP_ID ? 'SET' : 'NOT SET');
+  console.log('==============================');
+}

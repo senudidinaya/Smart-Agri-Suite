@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cultivatorApi as api, Job, InterviewStatusResponse, InsightResponse } from '@/api/cultivatorApi';
 
 type FilterStatus = 'all' | 'new' | 'contacted' | 'invited_interview' | 'approved' | 'rejected' | 'closed';
@@ -150,17 +151,29 @@ export default function AdminApplicationsScreen() {
       // Initiate call via API
       const response = await api.initiateCall(job.id);
       
-      // Navigate via Expo Router path
+      // PHASE 3: Frontend API response logging
+      const token = response.agora.token;
+      const startsWithOo6 = token.startsWith('006');
+      console.log(`[AGORA-FRONTEND-RECEIVE] channel=${response.agora.channelName} uid=${response.agora.uid} prefix=${token.substring(0, 10)} length=${token.length} starts_with_006=${startsWithOo6}`);
+      
+      // PHASE 4: AsyncStorage save logging
+      console.log(`[AGORA-FRONTEND-STORAGE-SAVE] prefix=${token.substring(0, 10)} length=${token.length}`);
+      
+      // Store Agora config in AsyncStorage to avoid URL encoding corruption
+      // Agora tokens contain special chars (+, /, =) that get mangled in URL params
+      await AsyncStorage.setItem(
+        `call_config_${response.callId}`,
+        JSON.stringify(response.agora)
+      );
+      
+      // Navigate with only non-sensitive data in URL params
       router.push({
         pathname: '/cultivator/admin/call',
         params: {
           callId: response.callId,
-          agora: response.agora ? JSON.stringify(response.agora) : '',
           clientUsername: job.createdByUsername,
           jobTitle: job.title,
           priorExperience: job.priorExperience,
-          roomName: response.roomName || '',
-          token: response.token || '',
         },
       });
     } catch (e: any) {

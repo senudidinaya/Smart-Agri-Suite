@@ -14,9 +14,9 @@ import {
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cultivatorApi as api, AnalysisResult, AgoraTokenInfo } from '@/api/cultivatorApi';
 import { useAgora, AgoraConfig } from '@/hooks/useAgora';
-import { EXPO_PUBLIC_AGORA_APP_ID } from '@/config';
 
 interface RouteParams {
   callId: string;
@@ -34,21 +34,12 @@ export default function ClientCallScreen() {
   const params = useLocalSearchParams<{
     callId?: string;
     jobTitle?: string;
-    agora?: string;
-    roomName?: string;
-    livekitUrl?: string;
-    token?: string;
   }>();
 
   const callId = String(params.callId || '');
   const jobTitle = params.jobTitle ? String(params.jobTitle) : undefined;
-  const agora = (() => {
-    try {
-      return params.agora ? (JSON.parse(String(params.agora)) as AgoraTokenInfo) : undefined;
-    } catch {
-      return undefined;
-    }
-  })();
+  const [agora, setAgora] = useState<AgoraTokenInfo | undefined>(undefined);
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   const [callStatus, setCallStatus] = useState<'connecting' | 'connected' | 'ended'>('connecting');
   const [callDuration, setCallDuration] = useState(0);
@@ -62,12 +53,32 @@ export default function ClientCallScreen() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingAttemptedRef = useRef(false);
 
+  // Validate Agora config
+  const validateAgoraConfig = (): { valid: boolean; error?: string } => {
+    if (!agora) {
+      return { valid: false, error: 'No Agora configuration received from backend' };
+    }
+    if (!agora.appId) {
+      return { valid: false, error: 'Agora AppID missing from backend payload - backend credential issue' };
+    }
+    if (!agora.token) {
+      return { valid: false, error: 'Missing Agora authentication token' };
+    }
+    if (!agora.channelName) {
+      return { valid: false, error: 'Missing Agora channel name' };
+    }
+    if (typeof agora.uid !== 'number' || agora.uid <= 0) {
+      return { valid: false, error: 'Invalid or missing user ID for call' };
+    }
+    return { valid: true };
+  };
+
   // Configure Agora
   const agoraConfig: AgoraConfig | null = agora ? {
-    appId: agora.appId || EXPO_PUBLIC_AGORA_APP_ID,
+    appId: agora.appId,
     channelName: agora.channelName,
     token: agora.token,
-    uid: agora.uid,
+    uid: Number(agora.uid),
   } : null;
 
   // Use Agora hook for voice calling
@@ -80,36 +91,100 @@ export default function ClientCallScreen() {
     startLocalRecording,
     stopLocalRecording,
   } = useAgora(agoraConfig);
+  // Load Agora config from AsyncStorage first
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        console.log('[CLIENT-CALL] Loading Agora config from AsyncStorage...');
+        const storedConfig = await AsyncStorage.getItem(`call_config_${callId}`);
+        if (storedConfig) {
+          const parsed = JSON.parse(storedConfig) as AgoraTokenInfo;
+          console.log('[CLIENT-CALL] Config loaded successfully from storage');
+          
+          // PHASE 5: AsyncStorage load logging (client side)
+          const token = parsed.token;
+          const startsWithOo6 = token.startsWith('006');
+          console.log(`[AGORA-FRONTEND-STORAGE-LOAD] prefix=${token.substring(0, 10)} length=${token.length} starts_with_006=${startsWithOo6}`);
+          
+          console.log('[CLIENT-CALL] Token length:', parsed.token.length);
+          console.log('[CLIENT-CALL] Token prefix:', parsed.token.substring(0, 10));
+          setAgora(parsed);
+        } else {
+          console.error('[CLIENT-CALL] No config found in AsyncStorage for callId:', callId);
+          Alert.alert('Error', 'Call configuration not found. Please try again.');
+          router.replace('/cultivator/client/profile');
+        }
+      } catch (error) {
+        console.error('[CLIENT-CALL] Failed to load config from AsyncStorage:', error);
+        Alert.alert('Error', 'Failed to load call configuration.');
+        router.replace('/cultivator/client/profile');
+      } finally {
+        setConfigLoaded(true);
+      }
+    };
+    loadConfig();
+  }, [callId]);
+
 
   // Join Agora channel on mount
   useEffect(() => {
+        if (!configLoaded || !agora) {
+          console.log('[CLIENT-CALL] Waiting for config to load...', { configLoaded, hasAgora: !!agora });
+          return;
+        }
+
     const setup = async () => {
+      console.log('[CLIENT-CALL] Setup started');
+      
+      // Validate Agora config
+      const configValidation = validateAgoraConfig();
+      if (!configValidation.valid) {
+        console.error('[CLIENT-CALL] CONFIG VALIDATION FAILED:', configValidation.error);
+        Alert.alert('Call Configuration Error', configValidation.error || 'Invalid call configuration');
+        router.replace('/cultivator/client/profile');
+        return;
+      }
+      console.log('[CLIENT-CALL] Agora config validation passed');
+
       if (!agoraConfig) {
-        Alert.alert('Error', 'No call configuration received');
+        console.error('[CLIENT-CALL] agoraConfig is null after validation');
+        Alert.alert('Error', 'Failed to configure call');
         router.replace('/cultivator/client/profile');
         return;
       }
 
-      // Refresh token before joining (safe no-op fallback to existing token on failure)
+      // Attempt token refresh
+      console.log('[CLIENT-CALL] Attempting Agora token refresh...');
+      console.log('[FRONTEND TOKEN RECEIVED]', agoraConfig.token);
+      console.log('[TOKEN PREFIX]', agoraConfig.token?.substring(0, 6));
+      console.log('[JOIN CHANNEL]', agoraConfig.channelName);
       try {
         const refreshed = await api.getAgoraToken(agoraConfig.channelName, agoraConfig.uid);
+        console.log('[CLIENT-CALL] Token refresh successful');
         agoraConfig.token = refreshed.token;
-        if (!agoraConfig.appId) {
-          agoraConfig.appId = refreshed.appId || EXPO_PUBLIC_AGORA_APP_ID;
+        agoraConfig.uid = Number(refreshed.uid);
+        console.log('[FRONTEND TOKEN RECEIVED]', agoraConfig.token);
+        console.log('[TOKEN PREFIX]', agoraConfig.token?.substring(0, 6));
+        console.log('[JOIN CHANNEL]', agoraConfig.channelName);
+        if (!agoraConfig.appId && refreshed.appId) {
+          agoraConfig.appId = refreshed.appId;
         }
       } catch (error) {
-        console.warn('Token refresh failed, using existing call token');
+        console.warn('[CLIENT-CALL] Token refresh failed, using existing token:', error);
       }
 
-      console.log('Client joining Agora channel:', agoraConfig.channelName);
-      
+      console.log('[CLIENT-CALL] Prepared config - calling joinChannel()');
       const joined = await joinChannel();
+      
       if (!joined) {
-        Alert.alert('Error', 'Failed to join the call. Please try again.');
+        console.error('[CLIENT-CALL] joinChannel() returned false');
+        const specificError = agoraState.error || 'Failed to join the call. Please try again.';
+        Alert.alert('Call Failed', specificError);
         router.replace('/cultivator/client/profile');
         return;
       }
 
+      console.log('[CLIENT-CALL] Successfully joined Agora channel');
       // Recording will start after channel is actually joined (see isJoined effect below)
       startStatusPolling();
     };
@@ -119,7 +194,7 @@ export default function ClientCallScreen() {
     return () => {
       cleanup();
     };
-  }, []);
+  }, [configLoaded, agora]);
 
   // Start recording ONLY after the Agora channel is actually joined
   // joinChannel() is async/non-blocking — isJoined becomes true when onJoinChannelSuccess fires
@@ -301,7 +376,12 @@ export default function ClientCallScreen() {
         console.warn('No recording URI available - recording may not have started');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      const msg = String(error?.message || 'Failed to end call');
+      if (msg.includes('already closed') || msg.includes('Call is not active')) {
+        setCallStatus('ended');
+        return;
+      }
+      Alert.alert('Error', msg);
     }
   };
 

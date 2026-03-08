@@ -16,6 +16,7 @@ import {
   Vibration,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cultivatorApi as api, AgoraTokenInfo } from '@/api/cultivatorApi';
 
 interface RouteParams {
@@ -100,15 +101,28 @@ export default function IncomingCallScreen() {
     try {
       const response = await api.acceptCall(callId);
 
-      // Navigate to ClientCallScreen (cultivator view) with Agora details
+      // PHASE 3: Frontend API response logging (client accept)
+      const token = response.agora.token;
+      const startsWithOo6 = token.startsWith('006');
+      console.log(`[AGORA-FRONTEND-RECEIVE] channel=${response.agora.channelName} uid=${response.agora.uid} prefix=${token.substring(0, 10)} length=${token.length} starts_with_006=${startsWithOo6}`);
+      
+      // PHASE 4: AsyncStorage save logging (client accept)
+      console.log(`[AGORA-FRONTEND-STORAGE-SAVE] prefix=${token.substring(0, 10)} length=${token.length}`);
+
+      // Store agora config in AsyncStorage to avoid URL encoding corruption
+      if (response.agora) {
+        await AsyncStorage.setItem(
+          `call_config_${callId}`,
+          JSON.stringify(response.agora)
+        );
+      }
+
+      // Navigate to ClientCallScreen with only non-sensitive data
       router.replace({
         pathname: '/cultivator/call',
         params: {
           callId,
           jobTitle,
-          agora: response.agora ? JSON.stringify(response.agora) : '',
-          roomName: response.roomName || '',
-          token: response.token || '',
         },
       });
     } catch (error: any) {

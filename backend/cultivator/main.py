@@ -20,6 +20,7 @@ from cultivator.core.logging import get_logger, setup_logging
 from cultivator.core.middleware import CorrelationIdMiddleware, RequestLoggingMiddleware, get_correlation_id
 from cultivator.core.database import connect_db, close_db
 from cultivator.services.inference import get_classifier, reset_classifier
+from cultivator.services.agora import validate_agora_credentials_at_startup
 
 # Initialize logging
 setup_logging()
@@ -51,6 +52,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             }
         },
     )
+
+    # Fail fast on invalid Agora credentials so call failures don't surface at runtime.
+    validate_agora_credentials_at_startup()
     
     # Connect to MongoDB
     try:

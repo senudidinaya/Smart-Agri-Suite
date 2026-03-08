@@ -362,7 +362,11 @@ class CultivatorApiService {
     uid: number,
     role: 'publisher' | 'subscriber' = 'publisher'
   ): Promise<AgoraTokenResponse> {
-    return this.request('POST', '/api/agora/generate-token', { channelName, uid, role });
+    const response = await this.request<AgoraTokenResponse>('POST', '/api/agora/generate-token', { channelName, uid, role });
+    console.log('[FRONTEND TOKEN RECEIVED]', response.token);
+    console.log('[TOKEN PREFIX]', response.token?.substring(0, 6));
+    console.log('[JOIN CHANNEL]', response.channelName);
+    return response;
   }
 
   async uploadRecording(

@@ -39,7 +39,8 @@ def user_to_response(user: dict) -> UserResponse:
 @router.post("/register", response_model=MessageResponse)
 async def register(data: UserRegister):
     """Register a new user."""
-    logger.info(f"[REGISTER] Request received for username: {data.username}, role: {data.role}")
+    normalized_role = "client" if data.role == "farmer" else data.role
+    logger.info(f"[REGISTER] Request received for username: {data.username}, role: {normalized_role}")
     
     db = get_db()
     if db is None:
@@ -67,7 +68,7 @@ async def register(data: UserRegister):
         "email": data.email,
         "address": data.address,
         "age": data.age,
-        "role": data.role,
+        "role": normalized_role,
         "passwordHash": hash_password(data.password),
         "createdAt": now,
         "updatedAt": now,
@@ -75,7 +76,7 @@ async def register(data: UserRegister):
     
     logger.debug(f"[REGISTER] Inserting new user: {data.username}")
     await db.users.insert_one(user_doc)
-    logger.info(f"[REGISTER] User registered successfully: {data.username} (role: {data.role})")
+    logger.info(f"[REGISTER] User registered successfully: {data.username} (role: {normalized_role})")
     
     return MessageResponse(success=True, message="Registration successful. Please login.")
 

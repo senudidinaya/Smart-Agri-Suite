@@ -14,9 +14,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cultivatorApi as api, AnalysisResult, AgoraTokenInfo, InsightResponse, Question, QuestionGenerationResponse } from '@/api/cultivatorApi';
 import { useAgora, AgoraConfig } from '@/hooks/useAgora';
-import { EXPO_PUBLIC_AGORA_APP_ID } from '@/config';
 
 interface RouteParams {
   callId: string;
@@ -38,23 +38,14 @@ export default function AdminCallScreen() {
     clientUsername?: string;
     jobTitle?: string;
     priorExperience?: string;
-    agora?: string;
-    roomName?: string;
-    livekitUrl?: string;
-    token?: string;
   }>();
 
   const callId = String(params.callId || '');
   const clientUsername = params.clientUsername ? String(params.clientUsername) : undefined;
   const jobTitle = params.jobTitle ? String(params.jobTitle) : undefined;
   const priorExperience = params.priorExperience ? String(params.priorExperience) : undefined;
-  const agora = (() => {
-    try {
-      return params.agora ? (JSON.parse(String(params.agora)) as AgoraTokenInfo) : undefined;
-    } catch {
-      return undefined;
-    }
-  })();
+  const [agora, setAgora] = useState<AgoraTokenInfo | undefined>(undefined);
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'connected' | 'ended'>('connecting');
   const [callDuration, setCallDuration] = useState(0);
@@ -73,12 +64,31 @@ export default function AdminCallScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Configure Agora
+  // Configure Agora with validation
+  const validateAgoraConfig = (): { valid: boolean; error?: string } => {
+    if (!agora) {
+      return { valid: false, error: 'No Agora configuration received from backend' };
+    }
+    if (!agora.appId) {
+      return { valid: false, error: 'Agora AppID missing from backend payload - backend credential issue' };
+    }
+    if (!agora.token) {
+      return { valid: false, error: 'Missing Agora authentication token' };
+    }
+    if (!agora.channelName) {
+      return { valid: false, error: 'Missing Agora channel name' };
+    }
+    if (typeof agora.uid !== 'number' || agora.uid <= 0) {
+      return { valid: false, error: 'Invalid or missing user ID for call' };
+    }
+    return { valid: true };
+  };
+
   const agoraConfig: AgoraConfig | null = agora ? {
-    appId: agora.appId || EXPO_PUBLIC_AGORA_APP_ID,
+    appId: agora.appId,
     channelName: agora.channelName,
     token: agora.token,
-    uid: agora.uid,
+    uid: Number(agora.uid),
   } : null;
 
   // Use Agora hook for voice calling
@@ -89,35 +99,126 @@ export default function AdminCallScreen() {
     toggleMute,
   } = useAgora(agoraConfig);
 
-  // Join Agora channel and start polling
+  // Load Agora config from AsyncStorage first
   useEffect(() => {
-    const setup = async () => {
-      if (!agoraConfig) {
-        Alert.alert('Error', 'No call configuration received');
-        router.replace('/cultivator/admin/applications');
-        return;
-      }
-
-      // Refresh token before joining (safe no-op fallback to existing token on failure)
+    const loadConfig = async () => {
       try {
-        const refreshed = await api.getAgoraToken(agoraConfig.channelName, agoraConfig.uid);
-        agoraConfig.token = refreshed.token;
-        if (!agoraConfig.appId) {
-          agoraConfig.appId = refreshed.appId || EXPO_PUBLIC_AGORA_APP_ID;
+        console.log('[ADMIN-CALL] Loading Agora config from AsyncStorage...');
+        const storedConfig = await AsyncStorage.getItem(`call_config_${callId}`);
+        if (storedConfig) {
+          const parsed = JSON.parse(storedConfig) as AgoraTokenInfo;
+          console.log('[ADMIN-CALL] Config loaded successfully from storage');
+          
+          // PHASE 5: AsyncStorage load logging
+          const token = parsed.token;
+          const startsWithOo6 = token.startsWith('006');
+          console.log(`[AGORA-FRONTEND-STORAGE-LOAD] prefix=${token.substring(0, 10)} length=${token.length} starts_with_006=${startsWithOo6}`);
+          
+          console.log('[ADMIN-CALL] Token length:', parsed.token.length);
+          console.log('[ADMIN-CALL] Token prefix:', parsed.token.substring(0, 10));
+          setAgora(parsed);
+        } else {
+          console.error('[ADMIN-CALL] No config found in AsyncStorage for callId:', callId);
+          Alert.alert('Error', 'Call configuration not found. Please try again.');
+          router.replace('/cultivator/admin/applications');
         }
       } catch (error) {
-        console.warn('Token refresh failed, using existing call token');
+        console.error('[ADMIN-CALL] Failed to load config from AsyncStorage:', error);
+        Alert.alert('Error', 'Failed to load call configuration.');
+        router.replace('/cultivator/admin/applications');
+      } finally {
+        setConfigLoaded(true);
       }
+    };
+    loadConfig();
+  }, [callId]);
 
-      console.log('Admin joining Agora channel:', agoraConfig.channelName);
+  // Join Agora channel and start polling
+  useEffect(() => {
+    if (!configLoaded || !agora) {
+      console.log('[ADMIN-CALL] Waiting for config to load...', { configLoaded, hasAgora: !!agora });
+      return;
+    }
+
+    const setup = async () => {
+      console.log('[ADMIN-CALL] Setup started');
       
-      const joined = await joinChannel();
-      if (!joined) {
-        Alert.alert('Error', 'Failed to start the call. Please try again.');
+      // Validate Agora config first
+      const configValidation = validateAgoraConfig();
+      if (!configValidation.valid) {
+        console.error('[ADMIN-CALL] CONFIG VALIDATION FAILED:', configValidation.error);
+        Alert.alert('Call Configuration Error', configValidation.error || 'Invalid call configuration');
+        router.replace('/cultivator/admin/applications');
+        return;
+      }
+      console.log('[ADMIN-CALL] Agora config validation passed');
+
+      if (!agoraConfig) {
+        console.error('[ADMIN-CALL] agoraConfig is null after validation');
+        Alert.alert('Error', 'Failed to configure call');
         router.replace('/cultivator/admin/applications');
         return;
       }
 
+      // Attempt token refresh (safe no-op if it fails)
+      console.log('[ADMIN-CALL] Attempting Agora token refresh...');
+      let tokenSource = 'initiateCall';
+      let initialTokenLength = agoraConfig.token.length;
+      console.log('[FRONTEND TOKEN RECEIVED]', agoraConfig.token);
+      console.log('[TOKEN PREFIX]', agoraConfig.token?.substring(0, 6));
+      console.log('[JOIN CHANNEL]', agoraConfig.channelName);
+      
+      try {
+        const refreshed = await api.getAgoraToken(agoraConfig.channelName, agoraConfig.uid);
+        console.log('[ADMIN-CALL] Token refresh successful, new token length:', refreshed.token.length);
+        tokenSource = 'refreshed';
+        agoraConfig.token = refreshed.token;
+        agoraConfig.uid = Number(refreshed.uid);
+        console.log('[FRONTEND TOKEN RECEIVED]', agoraConfig.token);
+        console.log('[TOKEN PREFIX]', agoraConfig.token?.substring(0, 6));
+        console.log('[JOIN CHANNEL]', agoraConfig.channelName);
+        if (!agoraConfig.appId && refreshed.appId) {
+          console.log('[ADMIN-CALL] Using refreshed Agora App ID');
+          agoraConfig.appId = refreshed.appId;
+        }
+      } catch (error) {
+        console.warn('[ADMIN-CALL] Token refresh failed, using existing token from initiateCall:', error);
+      }
+
+      // ========== PHASE 4: BACKEND TOKEN VALIDATION LOG ==========
+      console.log('[ADMIN-CALL] ===== TOKEN VALIDATION REPORT =====');
+      console.log('[ADMIN-CALL] Token Source:', tokenSource);
+      console.log('[ADMIN-CALL] Initial token length (from initiateCall):', initialTokenLength);
+      console.log('[ADMIN-CALL] Current token length:', agoraConfig.token.length);
+      console.log('[ADMIN-CALL] Token preview (first 30 chars):', agoraConfig.token.substring(0, 30) + '...');
+      console.log('[ADMIN-CALL] Token preview (last 10 chars):', '...' + agoraConfig.token.substring(agoraConfig.token.length - 10));
+      console.log('[ADMIN-CALL] Channel Name:', agoraConfig.channelName);
+      console.log('[ADMIN-CALL] UID:', agoraConfig.uid);
+      console.log('[ADMIN-CALL] App ID present:', !!agoraConfig.appId);
+      console.log('[ADMIN-CALL] App ID length:', agoraConfig.appId?.length || 0);
+      console.log('[ADMIN-CALL] App ID preview:', agoraConfig.appId?.substring(0, 10) + '...');
+      
+      if (tokenSource === 'initiateCall') {
+        console.log('[ADMIN-CALL] WARNING: Using initial token (refresh failed)');
+        console.log('[ADMIN-CALL] If call fails, check backend token generation endpoint');
+      } else {
+        console.log('[ADMIN-CALL] SUCCESS: Using refreshed token from backend');
+      }
+      console.log('[ADMIN-CALL] ===== END TOKEN VALIDATION REPORT =====');
+
+      console.log('[ADMIN-CALL] Prepared config - calling joinChannel()');
+      const joined = await joinChannel();
+      
+      if (!joined) {
+        console.error('[ADMIN-CALL] joinChannel() returned false');
+        // Use the specific error from Agora state if available
+        const specificError = agoraState.error || 'Failed to start the call. Please try again.';
+        Alert.alert('Call Failed', specificError);
+        router.replace('/cultivator/admin/applications');
+        return;
+      }
+
+      console.log('[ADMIN-CALL] Successfully joined Agora channel');
       setCallStatus('ringing');
       startStatusPolling();
     };
@@ -127,7 +228,7 @@ export default function AdminCallScreen() {
     return () => {
       cleanup();
     };
-  }, []);
+  }, [configLoaded, agora]);
 
   // Update status when client joins
   useEffect(() => {
@@ -186,10 +287,11 @@ export default function AdminCallScreen() {
   useEffect(() => {
     const fetchQuestions = async () => {
       if (!jobTitle || !priorExperience) {
-        console.log('Skipping questions fetch - missing job info');
+        console.log('[ADMIN-CALL] Skipping questions - missing job info');
         return;
       }
       
+      console.log('[ADMIN-CALL] Fetching interview questions...');
       setQuestionsLoading(true);
       setQuestionsError(null);
       
@@ -202,11 +304,13 @@ export default function AdminCallScreen() {
         );
         
         if (response.success) {
+          console.log('[ADMIN-CALL] Questions loaded successfully:', response.questions.length, 'questions');
           setQuestions(response.questions);
         }
       } catch (err: any) {
-        console.error('Failed to fetch questions:', err);
-        setQuestionsError(err.message || 'Failed to load questions');
+        // Non-blocking error: questions are nice-to-have, not critical
+        console.warn('[ADMIN-CALL] Question generation failed (non-blocking):', err.message);
+        setQuestionsError('Interview questions unavailable - continuing with call');
       } finally {
         setQuestionsLoading(false);
       }
@@ -324,7 +428,14 @@ export default function AdminCallScreen() {
         router.replace('/cultivator/admin/applications');
       }, 3000);
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      const msg = String(error?.message || 'Failed to end call');
+      if (msg.includes('already closed') || msg.includes('Call is not active')) {
+        setCallStatus('ended');
+        cleanup();
+        router.replace('/cultivator/admin/applications');
+        return;
+      }
+      Alert.alert('Error', msg);
     }
   };
 

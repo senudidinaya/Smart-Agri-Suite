@@ -52,6 +52,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         },
     )
     
+    # Validate Agora credentials at startup
+    try:
+        from app.services.agora import validate_agora_credentials_at_startup
+        validate_agora_credentials_at_startup()
+    except Exception as e:
+        logger.error(f"Agora credential validation failed: {e}")
+        raise RuntimeError(f"Failed to start application: Agora credentials invalid - {e}")
+    
     # Connect to MongoDB
     try:
         await connect_db()

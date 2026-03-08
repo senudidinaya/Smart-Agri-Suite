@@ -121,6 +121,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
 
         if (!res.ok) {
+            if (Array.isArray(data.detail)) {
+                const first = data.detail[0];
+                const field = Array.isArray(first?.loc) ? first.loc[first.loc.length - 1] : 'field';
+                const msg = first?.msg || 'Invalid value';
+                throw new Error(`${field}: ${msg}`);
+            }
             throw new Error(data.detail || 'Registration failed');
         }
 

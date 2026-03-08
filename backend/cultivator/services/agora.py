@@ -375,29 +375,154 @@ def generate_agora_token(
         RTC token string
     """
     settings = get_settings()
-    
-    if not settings.agora_app_id or not settings.agora_app_certificate:
+    app_id = settings.agora_app_id or ""
+    app_certificate = settings.agora_app_certificate or ""
+    current_ts = int(time.time())
+    privilege_expired_ts = current_ts + expire_seconds
+
+    if not app_id:
+        logger.warning("[AGORA-TOKEN-DEBUG] WARNING: app_id is empty; fallback token path may be used")
+    if not app_certificate:
+        logger.warning("[AGORA-TOKEN-DEBUG] WARNING: app_certificate is empty; fallback token path may be used")
+
+    if not app_id or not app_certificate:
         logger.warning("Agora credentials not configured, using development mode")
         # Return a dev token for testing
-        return AgoraTokenBuilder._build_dev_token(
-            settings.agora_app_id or "dev_app_id",
+        token = AgoraTokenBuilder._build_dev_token(
+            app_id or "dev_app_id",
             channel_name,
             uid,
-            int(time.time()) + expire_seconds
+            privilege_expired_ts
         )
-    
-    privilege_expired_ts = int(time.time()) + expire_seconds
-    
+        logger.info("[AGORA-TOKEN-DEBUG] Token generation")
+        logger.info(f"[AGORA-TOKEN-DEBUG] AppID length: {len(app_id)}")
+        logger.info(f"[AGORA-TOKEN-DEBUG] Certificate length: {len(app_certificate)}")
+        logger.info(f"[AGORA-TOKEN-DEBUG] Channel: {channel_name}")
+        logger.info(f"[AGORA-TOKEN-DEBUG] UID: {uid}")
+        logger.info(f"[AGORA-TOKEN-DEBUG] Role: {getattr(role, 'name', str(role))}")
+        logger.info(f"[AGORA-TOKEN-DEBUG] Current time: {current_ts}")
+        logger.info(f"[AGORA-TOKEN-DEBUG] Expiry: {privilege_expired_ts}")
+        logger.info(f"[AGORA-TOKEN-DEBUG] Token length: {len(token)}")
+        logger.info(f"[AGORA-TOKEN-DEBUG] Token preview: {token[:20]}...")
+        
+        # PHASE 1: Backend token generation logging (dev mode)
+        starts_with_006 = token.startswith('006')
+        print(f"[AGORA-BACKEND-GENERATE] channel={channel_name} uid={uid} prefix={token[:10]} length={len(token)} starts_with_006={starts_with_006}")
+        
+        print("[AGORA TOKEN GENERATED]")
+        print("channel:", channel_name)
+        print("uid:", uid)
+        print("token prefix:", token[:10])
+        print("token length:", len(token))
+        return token
+
     token = AgoraTokenBuilder.build_token_with_uid(
-        settings.agora_app_id,
-        settings.agora_app_certificate,
+        app_id,
+        app_certificate,
         channel_name,
         uid,
         role,
         privilege_expired_ts
     )
+
+    # PHASE 1: Backend token generation logging
+    starts_with_006 = token.startswith('006')
+    print(f"[AGORA-BACKEND-GENERATE] channel={channel_name} uid={uid} prefix={token[:10]} length={len(token)} starts_with_006={starts_with_006}")
     
+    logger.info("[AGORA-TOKEN-DEBUG] Token generation")
+    logger.info(f"[AGORA-TOKEN-DEBUG] AppID length: {len(app_id)}")
+    logger.info(f"[AGORA-TOKEN-DEBUG] Certificate length: {len(app_certificate)}")
+    logger.info(f"[AGORA-TOKEN-DEBUG] Channel: {channel_name}")
+    logger.info(f"[AGORA-TOKEN-DEBUG] UID: {uid}")
+    logger.info(f"[AGORA-TOKEN-DEBUG] Role: {getattr(role, 'name', str(role))}")
+    logger.info(f"[AGORA-TOKEN-DEBUG] Current time: {current_ts}")
+    logger.info(f"[AGORA-TOKEN-DEBUG] Expiry: {privilege_expired_ts}")
+    logger.info(f"[AGORA-TOKEN-DEBUG] Token length: {len(token)}")
+    logger.info(f"[AGORA-TOKEN-DEBUG] Token preview: {token[:20]}...")
+    print("[AGORA TOKEN GENERATED]")
+    print("channel:", channel_name)
+    print("uid:", uid)
+    print("token prefix:", token[:10])
+    print("token length:", len(token))
+
     return token
+
+
+def validate_agora_credentials_at_startup() -> bool:
+    """
+    Validate Agora credentials at application startup.
+    
+    This function:
+    1. Loads credentials from settings
+    2. Verifies AppID length == 32 (Agora requirement)
+    3. Verifies Certificate length == 32 (Agora requirement)
+    4. Generates a test token to verify configuration
+    5. Logs diagnostic information
+    6. Raises error if validation fails
+    
+    Returns:
+        True if validation passes
+        
+    Raises:
+        ValueError: If credentials are invalid
+    """
+    try:
+        settings = get_settings()
+        app_id = settings.agora_app_id or ""
+        app_certificate = settings.agora_app_certificate or ""
+        
+        # Log startup check header
+        logger.info("[AGORA-STARTUP-CHECK] ===== CREDENTIAL VALIDATION =====")
+        
+        # Check AppID length
+        logger.info(f"[AGORA-STARTUP-CHECK] AppID length: {len(app_id)} (required: 32)")
+        if not app_id or len(app_id) != 32:
+            error_msg = f"Invalid Agora AppID: expected 32 chars, got {len(app_id)}"
+            logger.error(f"[AGORA-STARTUP-CHECK] {error_msg}")
+            raise ValueError(error_msg)
+        
+        # Check Certificate length
+        logger.info(f"[AGORA-STARTUP-CHECK] Certificate length: {len(app_certificate)} (required: 32)")
+        if not app_certificate or len(app_certificate) != 32:
+            error_msg = f"Invalid Agora Certificate: expected 32 chars, got {len(app_certificate)}"
+            logger.error(f"[AGORA-STARTUP-CHECK] {error_msg}")
+            raise ValueError(error_msg)
+        
+        # Generate test token to verify configuration
+        logger.info("[AGORA-STARTUP-CHECK] Generating validation test token...")
+        test_token = generate_agora_token(
+            channel_name="startup_validation",
+            uid=9999,
+            expire_seconds=3600
+        )
+        
+        logger.info(f"[AGORA-STARTUP-CHECK] Test token length: {len(test_token)}")
+        logger.info(f"[AGORA-STARTUP-CHECK] Test token prefix: {test_token[:20]}...")
+        
+        # Verify token format
+        if not test_token.startswith("006"):
+            error_msg = f"Generated token has invalid format: does not start with '006'"
+            logger.error(f"[AGORA-STARTUP-CHECK] {error_msg}")
+            raise ValueError(error_msg)
+        
+        if len(test_token) < 50:
+            error_msg = f"Generated token is too short: {len(test_token)} chars (expected >= 50)"
+            logger.error(f"[AGORA-STARTUP-CHECK] {error_msg}")
+            raise ValueError(error_msg)
+        
+        # All validations passed
+        logger.info("[AGORA-STARTUP-CHECK] ✓ All credential validations PASSED")
+        logger.info("[AGORA-STARTUP-CHECK] AppID: Valid (32 chars)")
+        logger.info("[AGORA-STARTUP-CHECK] Certificate: Valid (32 chars)")
+        logger.info("[AGORA-STARTUP-CHECK] Token generation: Valid (format and length)")
+        logger.info("[AGORA-STARTUP-CHECK] ===== CREDENTIAL VALIDATION SUCCESS =====")
+        
+        return True
+        
+    except Exception as e:
+        error_msg = f"[AGORA-STARTUP-CHECK] VALIDATION FAILED: {str(e)}"
+        logger.error(error_msg)
+        raise ValueError(error_msg) from e
 
 
 def get_agora_app_id() -> str:

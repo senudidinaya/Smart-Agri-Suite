@@ -10,6 +10,7 @@ import { useRouter, Stack, usePathname } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 import { cultivatorApi as cultivatorApi } from '@/api/cultivatorApi';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CultivatorLayout() {
   const { user, loading } = useAuth();
@@ -77,14 +78,29 @@ export default function CultivatorLayout() {
       try {
         const response = await cultivatorApi.checkIncomingCall();
         if (!cancelled && response.hasIncomingCall && response.callId) {
+          // PHASE 3: Frontend API response logging (incoming call poll)
+          if (response.agora) {
+            const token = response.agora.token;
+            const startsWithOo6 = token.startsWith('006');
+            console.log(`[AGORA-FRONTEND-RECEIVE] channel=${response.agora.channelName} uid=${response.agora.uid} prefix=${token.substring(0, 10)} length=${token.length} starts_with_006=${startsWithOo6}`);
+            
+            // PHASE 4: AsyncStorage save logging (incoming call poll)
+            console.log(`[AGORA-FRONTEND-STORAGE-SAVE] prefix=${token.substring(0, 10)} length=${token.length}`);
+          }
+          
+                    // Store agora config in AsyncStorage to avoid URL encoding corruption
+                    if (response.agora) {
+                      await AsyncStorage.setItem(
+                        `call_config_${response.callId}`,
+                        JSON.stringify(response.agora)
+                      );
+                    }
           router.replace({
             pathname: '/cultivator/incoming-call',
             params: {
               callId: response.callId,
               interviewerUsername: response.adminUsername || response.interviewerUsername || 'Interviewer',
               jobTitle: response.jobTitle || 'Job Application',
-              agora: response.agora ? JSON.stringify(response.agora) : '',
-              roomName: response.roomName || '',
             },
           });
         }

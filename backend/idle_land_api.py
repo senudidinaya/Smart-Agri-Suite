@@ -272,20 +272,21 @@ async def auth_register(data: UserRegister):
         raise HTTPException(status_code=400, detail="Email already exists")
 
     now = datetime.now(timezone.utc)
+    normalized_role = "client" if data.role == "farmer" else data.role
     user_doc = {
         "fullName": data.fullName,
         "username": data.username,
         "email": data.email,
         "address": data.address,
         "age": data.age,
-        "role": data.role,
+        "role": normalized_role,
         "passwordHash": hash_password(data.password),
         "createdAt": now,
         "updatedAt": now,
     }
 
     await db.users.insert_one(user_doc)
-    print(f"✅ User registered: {data.username} (role: {data.role})")
+    print(f"✅ User registered: {data.username} (role: {normalized_role})")
 
     return JSONResponse({"success": True, "message": "Registration successful. Please login."})
 

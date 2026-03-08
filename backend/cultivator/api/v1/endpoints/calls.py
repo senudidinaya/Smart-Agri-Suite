@@ -51,6 +51,7 @@ router = APIRouter(prefix="/calls", tags=["Calls"])
 
 # Timeout for missed calls (seconds) - increased to 2 minutes to allow time for legal notice
 CALL_TIMEOUT_SECONDS = 120
+STALE_ACCEPTED_CALL_SECONDS = 15 * 60
 
 # UID ranges for Agora (to distinguish admin, client, recording bot)
 ADMIN_UID_BASE = 1000
@@ -114,13 +115,13 @@ async def initiate_call(
 ):
     """
     Initiate a call to a client using Agora RTC.
-    Only interviewer can initiate calls.
+    Allowed roles: interviewer, admin.
     """
     user = await get_current_user(user_id)
     
-    # Only interviewer can initiate calls
-    if user["role"] != "interviewer":
-        raise HTTPException(status_code=403, detail="Only interviewer can initiate calls")
+    # Allow both interviewer and admin because frontend uses admin call flow.
+    if user["role"] not in ["interviewer", "admin"]:
+        raise HTTPException(status_code=403, detail="Only interviewer or admin can initiate calls")
     
     db = get_db()
     settings = get_settings()
@@ -132,15 +133,68 @@ async def initiate_call(
     
     client_user_id = job["createdByUserId"]
     
-    # Check if there's already an active call for this job
+    now = datetime.now(timezone.utc)
+
+    # Opportunistic cleanup to prevent stale calls from blocking new sessions.
+    active_calls = await db.calls.find({
+        "jobId": data.jobId,
+        "status": {"$in": ["ringing", "accepted"]}
+    }).to_list(length=20)
+
+    for active_call in active_calls:
+        status = active_call.get("status")
+        call_id = str(active_call.get("_id"))
+
+        # Always expire leftover ringing calls; they should not block new attempts.
+        if status == "ringing":
+            await db.calls.update_one(
+                {"_id": active_call["_id"]},
+                {
+                    "$set": {
+                        "status": "missed",
+                        "updatedAt": now,
+                        "endedAt": now,
+                    }
+                }
+            )
+            logger.info(f"[CALL-CLEANUP] Marked stale ringing call as missed: {call_id}")
+            continue
+
+        # Expire accepted calls that are clearly stale.
+        if status == "accepted":
+            ref_time = active_call.get("startedAt") or active_call.get("updatedAt") or active_call.get("createdAt")
+            age_seconds = 0
+            if isinstance(ref_time, datetime):
+                try:
+                    if ref_time.tzinfo is None:
+                        ref_time = ref_time.replace(tzinfo=timezone.utc)
+                    age_seconds = max(0, int((now - ref_time).total_seconds()))
+                except Exception:
+                    age_seconds = STALE_ACCEPTED_CALL_SECONDS + 1
+
+            if age_seconds >= STALE_ACCEPTED_CALL_SECONDS:
+                await db.calls.update_one(
+                    {"_id": active_call["_id"]},
+                    {
+                        "$set": {
+                            "status": "ended",
+                            "updatedAt": now,
+                            "endedAt": now,
+                        }
+                    }
+                )
+                logger.info(f"[CALL-CLEANUP] Auto-ended stale accepted call: {call_id}, age={age_seconds}s")
+
+    # Final guard: block only if a truly active call still exists.
     existing_call = await db.calls.find_one({
         "jobId": data.jobId,
         "status": {"$in": ["ringing", "accepted"]}
     })
     if existing_call:
-        raise HTTPException(status_code=400, detail="There's already an active call for this job")
-    
-    now = datetime.now(timezone.utc)
+        raise HTTPException(
+            status_code=400,
+            detail=f"There's already an active call for this job (callId={existing_call.get('_id')}, status={existing_call.get('status')})"
+        )
     
     # Create unique channel name for Agora
     call_id = str(ObjectId())
@@ -164,6 +218,13 @@ async def initiate_call(
         role=RtcTokenRole.PUBLISHER,
         expire_seconds=3600
     )
+
+    logger.info("[AGORA-CALL-INIT]")
+    logger.info(f"[AGORA-CALL-INIT] Channel: {channel_name}")
+    logger.info(f"[AGORA-CALL-INIT] Admin UID: {admin_uid}")
+    logger.info(f"[AGORA-CALL-INIT] Client UID: {client_uid}")
+    logger.info(f"[AGORA-CALL-INIT] Admin token length: {len(admin_token)}")
+    logger.info(f"[AGORA-CALL-INIT] Client token length: {len(client_token)}")
     
     agora_app_id = get_agora_app_id()
     
@@ -195,7 +256,25 @@ async def initiate_call(
     background_tasks.add_task(check_missed_calls)
     
     logger.info(f"Call initiated: {call_id} for job {data.jobId} via Agora channel {channel_name}")
-    
+
+    # PHASE 2: Backend API response logging
+    starts_with_006 = admin_token.startswith('006')
+    print(f"[AGORA-BACKEND-RESPONSE] channel={channel_name} uid={admin_uid} prefix={admin_token[:10]} length={len(admin_token)} starts_with_006={starts_with_006}")
+
+    response_payload = {
+        "callId": call_id,
+        "agora": {
+            "appId": agora_app_id,
+            "channelName": channel_name,
+            "token": admin_token,
+            "uid": admin_uid,
+        },
+        "roomName": channel_name,
+        "token": admin_token,
+    }
+    print("[AGORA API RESPONSE]")
+    print(response_payload)
+
     return CallInitiateResponse(
         callId=call_id,
         agora=AgoraTokenInfo(
@@ -311,11 +390,16 @@ async def accept_call(
     client_uid = call.get("clientUid", 0)
     agora_app_id = get_agora_app_id()
     
+    # PHASE 2: Backend API response logging (accept call)
+    client_token = call.get("clientToken", "")
+    starts_with_006 = client_token.startswith('006') if client_token else False
+    print(f"[AGORA-BACKEND-RESPONSE] channel={channel_name} uid={client_uid} prefix={client_token[:10] if client_token else 'NONE'} length={len(client_token)} starts_with_006={starts_with_006}")
+    
     return CallAcceptResponse(
         agora=AgoraTokenInfo(
             appId=agora_app_id,
             channelName=channel_name,
-            token=call.get("clientToken", ""),
+            token=client_token,
             uid=client_uid,
         ),
         # Legacy fields
@@ -391,6 +475,10 @@ async def end_call(
     if call["clientUserId"] != user["sub"] and call["adminUserId"] != user["sub"]:
         raise HTTPException(status_code=403, detail="You are not part of this call")
     
+    # Idempotent end: if already closed, do not fail the caller.
+    if call["status"] in ["ended", "rejected", "missed"]:
+        return {"success": True, "message": f"Call already closed (status: {call['status']})"}
+
     # Verify call is active
     if call["status"] not in ["ringing", "accepted"]:
         raise HTTPException(status_code=400, detail=f"Call is not active (status: {call['status']})")
@@ -638,12 +726,12 @@ async def start_cloud_recording(
     """
     Start Agora cloud recording for a call.
     This records the audio stream server-side.
-    Only interviewer can start cloud recording.
+    Allowed roles: interviewer, admin.
     """
     user = await get_current_user(user_id)
     
-    if user["role"] != "interviewer":
-        raise HTTPException(status_code=403, detail="Only interviewer can start cloud recording")
+    if user["role"] not in ["interviewer", "admin"]:
+        raise HTTPException(status_code=403, detail="Only interviewer or admin can start cloud recording")
     
     db = get_db()
     

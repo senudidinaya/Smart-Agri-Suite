@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Platform, PermissionsAndroid } from 'react-native';
+import { AGORA_DEBUG } from '@/config';
 
 // Conditionally import Agora only on native platforms
 let createAgoraRtcEngine: any = null;
@@ -20,6 +21,9 @@ let ConnectionChangedReasonType: any = null;
 let UserOfflineReasonType: any = null;
 let AudioRecordingQualityType: any = null;
 let AudioFileRecordingType: any = null;
+
+let agoraModuleAvailable = false;
+let agoraModuleError: string | null = null;
 
 // Only import on native platforms
 if (Platform.OS !== 'web') {
@@ -36,8 +40,23 @@ if (Platform.OS !== 'web') {
     UserOfflineReasonType = agoraModule.UserOfflineReasonType;
     AudioRecordingQualityType = agoraModule.AudioRecordingQualityType;
     AudioFileRecordingType = agoraModule.AudioFileRecordingType;
-  } catch (error) {
-    console.warn('Agora SDK not available on this platform:', error);
+    
+    agoraModuleAvailable = true;
+    
+    if (AGORA_DEBUG) {
+      console.log('[AGORA-MODULE] Successfully loaded react-native-agora');
+      console.log('[AGORA-MODULE] createAgoraRtcEngine available:', !!createAgoraRtcEngine);
+      console.log('[AGORA-MODULE] ChannelProfileType available:', !!ChannelProfileType);
+      console.log('[AGORA-MODULE] ConnectionStateType available:', !!ConnectionStateType);
+    }
+  } catch (error: any) {
+    agoraModuleError = error.message || String(error);
+    console.error('[AGORA-MODULE] CRITICAL: Failed to load react-native-agora:', agoraModuleError);
+    console.error('[AGORA-MODULE] This likely means the native module is not properly linked');
+  }
+} else {
+  if (AGORA_DEBUG) {
+    console.log('[AGORA-MODULE] Running on web platform, Agora SDK not loaded');
   }
 }
 
@@ -114,49 +133,87 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
    * Initialize the Agora RTC engine
    */
   const initEngine = useCallback(async () => {
-    if (!config?.appId) {
-      console.warn('Agora App ID not provided');
+    // Phase 2: Verify native module availability
+    if (!agoraModuleAvailable) {
+      console.error('[AGORA] CRITICAL: Native module not available');
+      console.error('[AGORA] Module load error:', agoraModuleError || 'Unknown');
+      console.error('[AGORA] This means react-native-agora is not properly installed or linked');
+      setState(prev => ({
+        ...prev,
+        error: 'Agora native module not found. Please reinstall the app.',
+      }));
       return null;
     }
 
-    console.log('Initializing Agora with App ID:', config.appId.substring(0, 10) + '...');
+    if (!createAgoraRtcEngine) {
+      console.error('[AGORA] CRITICAL: createAgoraRtcEngine function not available');
+      setState(prev => ({
+        ...prev,
+        error: 'Agora SDK initialization function missing',
+      }));
+      return null;
+    }
+
+    // Validate appId before initialization
+    if (!config?.appId) {
+      console.error('[AGORA] VALIDATION ERROR: Missing Agora App ID');
+      console.log('[AGORA] Config:', { appId: config?.appId, hasConfig: !!config });
+      setState(prev => ({
+        ...prev,
+        error: 'Missing Agora App ID configuration',
+      }));
+      return null;
+    }
+
+    console.log('[AGORA] Initializing engine with appId:', config.appId.substring(0, 10) + '...');
+    
+    if (AGORA_DEBUG) {
+      console.log('[AGORA-DEBUG] Full initialization details:');
+      console.log('[AGORA-DEBUG] - Platform:', Platform.OS);
+      console.log('[AGORA-DEBUG] - App ID length:', config.appId.length);
+      console.log('[AGORA-DEBUG] - Module available:', agoraModuleAvailable);
+      console.log('[AGORA-DEBUG] - createAgoraRtcEngine type:', typeof createAgoraRtcEngine);
+    }
 
     // Check if Agora is available on this platform
     if (!createAgoraRtcEngine) {
-      console.warn('Agora SDK not available on this platform (web)');
+      console.warn('[AGORA] Native module unavailable (expected on web)');
       setState(prev => ({
         ...prev,
-        error: 'Voice calling not available on web. Please use a mobile device.',
+        error: 'Voice calling not available on this platform. Please use a mobile device.',
       }));
       return null;
     }
 
     try {
-      console.log('Creating Agora RTC engine...');
+      console.log('[AGORA] Creating RTC engine instance...');
       const engine = createAgoraRtcEngine();
       
-      console.log('Initializing engine with appId...');
+      if (AGORA_DEBUG) {
+        console.log('[AGORA-DEBUG] Engine instance created:', !!engine);
+        console.log('[AGORA-DEBUG] Engine type:', typeof engine);
+      }
+      
+      console.log('[AGORA] Initializing engine with appId...');
       engine.initialize({
         appId: config.appId,
-        // For voice calls only
         channelProfile: ChannelProfileType.ChannelProfileCommunication,
       });
 
-      console.log('Enabling audio...');
-      // Enable audio (voice call)
+      console.log('[AGORA] Enabling audio stream...');
       engine.enableAudio();
       
-      console.log('Setting client role...');
-      // Set as broadcaster to both send and receive audio
+      console.log('[AGORA] Setting client role to broadcaster...');
       engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
 
-      // Set audio profile for clear voice
-      engine.setAudioProfile(0, 0); // Default profile
+      console.log('[AGORA] Setting audio profile...');
+      engine.setAudioProfile(0, 0);
 
-      console.log('Agora engine initialized successfully');
+      console.log('[AGORA] Engine initialization successful');
       return engine;
     } catch (error: any) {
-      console.error('Failed to initialize Agora engine:', error);
+      console.error('[AGORA] Engine initialization error:', error.message || error);
+      console.error('[AGORA] Error stack:', error.stack);
       setState(prev => ({
         ...prev,
         error: `Failed to initialize voice call engine: ${error.message || error}`,
@@ -171,7 +228,13 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
   const setupEventHandlers = useCallback((engine: any) => {
     const eventHandler: any = {
       onJoinChannelSuccess: (connection: any, elapsed: number) => {
-        console.log('Joined channel successfully:', connection.channelId);
+        // PHASE 7: Join success logging
+        console.log('[AGORA-JOIN-SUCCESS]');
+        console.log('[AGORA-CONNECTED]');
+        console.log('[AGORA-CONNECTED] Channel:', connection.channelId);
+        console.log('[AGORA-CONNECTED] UID:', connection.localUid);
+        console.log('[AGORA-CONNECTED] Elapsed:', elapsed, 'ms');
+        console.log('[AGORA-CONNECTED] ✓ SUCCESSFULLY JOINED CHANNEL AND CONNECTED TO AGORA SERVICE');
         setState(prev => ({
           ...prev,
           isJoined: true,
@@ -217,7 +280,16 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
         state: any,
         reason: any
       ) => {
-        console.log('Connection state changed:', state, 'reason:', reason);
+        const stateNames: Record<number, string> = {
+          1: 'CONNECTING',
+          2: 'CONNECTED',
+          3: 'RECONNECTING',
+          4: 'DISCONNECTED',
+          5: 'FAILED',
+        };
+        const stateName = stateNames[state] || `UNKNOWN(${state})`;
+        console.log('[AGORA] Connection state changed:', stateName, '(code: ' + state + ')', 'reason:', reason);
+        
         let connectionState = 'unknown';
         switch (state) {
           case ConnectionStateType.ConnectionStateConnecting:
@@ -225,15 +297,19 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
             break;
           case ConnectionStateType.ConnectionStateConnected:
             connectionState = 'connected';
+            console.log('[AGORA] ✓ SUCCESSFULLY CONNECTED TO CHANNEL');
             break;
           case ConnectionStateType.ConnectionStateReconnecting:
             connectionState = 'reconnecting';
+            console.log('[AGORA] Reconnecting to channel...');
             break;
           case ConnectionStateType.ConnectionStateDisconnected:
             connectionState = 'disconnected';
+            console.log('[AGORA] Disconnected from channel');
             break;
           case ConnectionStateType.ConnectionStateFailed:
             connectionState = 'failed';
+            console.error('[AGORA] CONNECTION FAILED - reason:', reason);
             break;
         }
         setState(prev => ({
@@ -244,15 +320,101 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
       },
 
       onError: (err: number, msg: string) => {
-        console.error('Agora error code:', err, 'message:', msg);
+        // PHASE 7: Join failure logging
+        console.error(`[AGORA-JOIN-FAILED] error=${msg} code=${err}`);
+        console.error('[AGORA] ===== SDK ERROR DETECTED =====');
+        console.error('[AGORA] Error Code:', err);
+        console.error('[AGORA] Error Message:', msg);
+        
+        // Phase 6: Enhanced error code detection with human-readable messages
         let errorMessage = `Call error: ${msg} (code: ${err})`;
+        let errorCategory = 'UNKNOWN';
+        let userGuidance = 'Please try again or contact support.';
+        
+        // Token/Authentication Errors (100-119)
         if (err === 110) {
-          errorMessage = 'Invalid token. Please try again.';
-        } else if (err === 2 || err === 101) {
-          errorMessage = 'Invalid App ID configuration.';
-        } else if (err === 102) {
-          errorMessage = 'Invalid channel name.';
+          console.error('[AGORA] ERROR 110: Invalid or expired token');
+          errorCategory = 'TOKEN_ERROR';
+          errorMessage = 'Your call session has expired. Please try starting the call again.';
+          userGuidance = 'The authentication token is invalid or expired.';
+        } 
+        // App ID Errors
+        else if (err === 2 || err === 101) {
+          console.error('[AGORA] ERROR 2/101: Invalid App ID');
+          errorCategory = 'APP_ID_ERROR';
+          errorMessage = 'Call configuration error. Please contact support.';
+          userGuidance = 'The Agora App ID is invalid or doesn\'t match the certificate.';
+        } 
+        // Channel Name Errors
+        else if (err === 102) {
+          console.error('[AGORA] ERROR 102: Invalid channel name');
+          errorCategory = 'CHANNEL_ERROR';
+          errorMessage = 'Invalid call channel. Please try again.';
+          userGuidance = 'The channel name contains invalid characters or format.';
         }
+        // Join Channel Errors
+        else if (err === 17) {
+          console.error('[AGORA] ERROR 17: Join channel rejected by server');
+          errorCategory = 'JOIN_REJECTED';
+          errorMessage = 'Unable to join call. Please try again.';
+          userGuidance = 'The Agora server rejected the join request. Check token privileges.';
+        }
+        else if (err === 18) {
+          console.error('[AGORA] ERROR 18: Already joined channel');
+          errorCategory = 'ALREADY_JOINED';
+          errorMessage = 'You are already in this call.';
+          userGuidance = 'Attempted to join a channel that is already joined.';
+        }
+        // Failed to Initialize
+        else if (err === 1) {
+          console.error('[AGORA] ERROR 1: General SDK failure');
+          errorCategory = 'SDK_FAILURE';
+          errorMessage = 'Call system initialization failed. Please restart the app.';
+          userGuidance = 'The Agora SDK encountered a general failure.';
+        }
+        // Network Errors (10xx range)
+        else if (err >= 1000 && err < 2000) {
+          console.error('[AGORA] ERROR', err, ': Network-related error');
+          errorCategory = 'NETWORK_ERROR';
+          errorMessage = 'Network connection problem. Please check your internet.';
+          userGuidance = 'Network connectivity issue detected.';
+        }
+        // Audio Device Errors
+        else if (err === 1008) {
+          console.error('[AGORA] ERROR 1008: Audio device module not initialized');
+          errorCategory = 'AUDIO_DEVICE_ERROR';
+          errorMessage = 'Microphone not available. Please check permissions.';
+          userGuidance = 'Audio device module failed to initialize.';
+        }
+        else if (err === 1501) {
+          console.error('[AGORA] ERROR 1501: Audio recording device error');
+          errorCategory = 'RECORDING_ERROR';
+          errorMessage = 'Microphone error. Please check if another app is using it.';
+          userGuidance = 'Audio recording device is unavailable or in use.';
+        }
+        // Permission Errors
+        else if (err === 16) {
+          console.error('[AGORA] ERROR 16: Not initialized');
+          errorCategory = 'INIT_ERROR';
+          errorMessage = 'Call system not ready. Please try again.';
+          userGuidance = 'Attempted to call SDK function before initialization.';
+        }
+        
+        console.error('[AGORA] Error Category:', errorCategory);
+        console.error('[AGORA] User Message:', errorMessage);
+        console.error('[AGORA] Technical Guidance:', userGuidance);
+        console.error('[AGORA] ===== END ERROR REPORT =====');
+        
+        if (AGORA_DEBUG) {
+          console.log('[AGORA-DEBUG] Full error context:', {
+            code: err,
+            message: msg,
+            category: errorCategory,
+            timestamp: new Date().toISOString(),
+            connectionState: 'check onConnectionStateChanged logs'
+          });
+        }
+        
         setState(prev => ({
           ...prev,
           error: errorMessage,
@@ -275,56 +437,214 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
 
   /**
    * Join the Agora channel for voice call
+   * Phase 3: Timeline logging with STEP markers for failure pinpointing
    */
   const joinChannel = useCallback(async (): Promise<boolean> => {
+    console.log('[AGORA] ===== JOIN CHANNEL TIMELINE START =====');
+    console.log('[AGORA] joinChannel() called with config:', !!config);
+    
+    if (AGORA_DEBUG) {
+      console.log('[AGORA-DEBUG] Full config state:', {
+        hasConfig: !!config,
+        appId: config?.appId?.substring(0, 10) + '...',
+        hasToken: !!config?.token,
+        tokenLength: config?.token?.length,
+        channelName: config?.channelName,
+        uid: config?.uid,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // ========== STEP 1: VALIDATE CONFIG ==========
+    console.log('[AGORA] STEP 1: Validating configuration...');
+    
     if (!config) {
-      setState(prev => ({ ...prev, error: 'No Agora configuration provided' }));
+      console.error('[AGORA] STEP 1 FAILED: No Agora configuration provided');
+      setState(prev => ({ ...prev, error: 'No call configuration received' }));
       return false;
     }
 
+    // Validate all required config fields
+    console.log('[AGORA] STEP 1: Checking required fields - appId:', !!config.appId, 'token:', !!config.token, 'channelName:', !!config.channelName, 'uid:', typeof config.uid);
+    
+    if (!config.appId) {
+      console.error('[AGORA] STEP 1 FAILED: Missing appId');
+      setState(prev => ({ ...prev, error: 'Missing Agora App ID' }));
+      return false;
+    }
+
+    if (!config.token) {
+      console.error('[AGORA] STEP 1 FAILED: Missing token');
+      setState(prev => ({ ...prev, error: 'Missing Agora authentication token' }));
+      return false;
+    }
+
+    if (typeof config.token !== 'string') {
+      console.error('[AGORA] STEP 1B FAILED: Token is not a string', typeof config.token);
+      setState(prev => ({ ...prev, error: 'Invalid token format: token is not a string' }));
+      return false;
+    }
+
+    const normalizedToken = config.token.trim();
+    if (!normalizedToken) {
+      console.error('[AGORA] STEP 1B FAILED: Token is empty after trim');
+      setState(prev => ({ ...prev, error: 'Invalid token format: empty token' }));
+      return false;
+    }
+
+    // ========== STEP 1B: VALIDATE TOKEN FORMAT ==========
+    console.log('[AGORA-JOIN-VALIDATION] Validating token format...');
+    console.log('[AGORA-JOIN-VALIDATION] Token length:', normalizedToken.length);
+    console.log('[AGORA-JOIN-VALIDATION] Token prefix:', normalizedToken.substring(0, 10) + '...');
+
+    if (normalizedToken.length < 50) {
+      console.error('[AGORA] STEP 1B FAILED: Token too short - length:', normalizedToken.length);
+      setState(prev => ({ ...prev, error: `Invalid token: length ${normalizedToken.length} (expected >= 50)` }));
+      return false;
+    }
+
+    if (!normalizedToken.startsWith('006')) {
+      console.error('[AGORA] STEP 1B FAILED: Token invalid prefix - does not start with 006');
+      setState(prev => ({ ...prev, error: 'Invalid token format: invalid prefix' }));
+      return false;
+    }
+
+    console.log('[AGORA-JOIN-VALIDATION] Token validation PASSED');
+    console.log('[AGORA-JOIN-VALIDATION] Token length: ' + normalizedToken.length + ' (valid)');
+    console.log('[AGORA-JOIN-VALIDATION] Token format: valid (starts with 006)');
+
+    if (!config.channelName) {
+      console.error('[AGORA] STEP 1 FAILED: Missing channelName');
+      setState(prev => ({ ...prev, error: 'Missing channel name' }));
+      return false;
+    }
+
+    if (typeof config.uid !== 'number' || config.uid <= 0) {
+      console.error('[AGORA] STEP 1 FAILED: Invalid UID', config.uid);
+      setState(prev => ({ ...prev, error: 'Invalid user ID for call' }));
+      return false;
+    }
+
+    console.log('[AGORA] STEP 1 SUCCESS: All config fields validated');
+    console.log('[AGORA] STEP 1: Config summary - Channel:', config.channelName, 'UID:', config.uid, 'Token length:', normalizedToken.length);
+
     try {
-      // Request permissions
+      // ========== STEP 2: REQUEST MICROPHONE PERMISSION ==========
+      console.log('[AGORA] STEP 2: Requesting microphone permission...');
       const hasPermission = await requestAndroidPermissions();
+      
       if (!hasPermission) {
+        console.error('[AGORA] STEP 2 FAILED: Microphone access not granted');
         setState(prev => ({
           ...prev,
-          error: 'Microphone permission denied',
+          error: 'Microphone permission denied. Please enable it in settings.',
         }));
         return false;
       }
+      
+      console.log('[AGORA] STEP 2 SUCCESS: Microphone permission granted');
 
-      // Initialize engine if needed
+      // ========== STEP 3: INITIALIZE AGORA ENGINE ==========
+      console.log('[AGORA] STEP 3: Initializing Agora engine...');
+      
       if (!engineRef.current) {
+        console.log('[AGORA] STEP 3: Engine not initialized, calling initEngine()...');
         const engine = await initEngine();
-        if (!engine) return false;
+        
+        if (!engine) {
+          console.error('[AGORA] STEP 3 FAILED: initEngine() returned null');
+          console.error('[AGORA] STEP 3 FAILED: Check module availability and appId validity');
+          return false;
+        }
+        
+        console.log('[AGORA] STEP 3: Engine instance created, setting up event handlers...');
         engineRef.current = engine;
         setupEventHandlers(engine);
+        console.log('[AGORA] STEP 3 SUCCESS: Engine initialized and event handlers registered');
+      } else {
+        console.log('[AGORA] STEP 3 SUCCESS: Engine already initialized, reusing existing instance');
       }
 
+      // ========== STEP 4: JOIN CHANNEL ==========
+      console.log('[AGORA] STEP 4: Joining channel...');
+      console.log('[AGORA] STEP 4: Setting connection state to connecting...');
+      
       setState(prev => ({
         ...prev,
         connectionState: 'connecting',
         error: null,
       }));
 
-      // Join the channel - v4.x API
-      console.log('Joining Agora channel:', config.channelName, 'with UID:', config.uid);
-      
-      engineRef.current.joinChannel(
-        config.token,
-        config.channelName,
-        config.uid,
-        {
-          clientRoleType: ClientRoleType.ClientRoleBroadcaster,
-          publishMicrophoneTrack: true,
-          autoSubscribeAudio: true,
-        }
-      );
+      console.log('[AGORA] STEP 4: Calling engine.joinChannel() with parameters:');
+      console.log('[AGORA] STEP 4:   - Channel:', config.channelName);
+      console.log('[AGORA] STEP 4:   - UID:', config.uid);
+      console.log('[AGORA] STEP 4:   - Token length:', normalizedToken.length);
+      console.log('[AGORA] STEP 4:   - Token preview:', normalizedToken.substring(0, 20) + '...');
 
-      console.log('joinChannel called successfully');
-      return true;
+      // PHASE 6: Before joinChannel logging
+      const startsWithOo6 = normalizedToken.startsWith('006');
+      console.log(`[AGORA-FRONTEND-JOIN] channel=${config.channelName} uid=${config.uid} prefix=${normalizedToken.substring(0, 10)} length=${normalizedToken.length} starts_with_006=${startsWithOo6}`);
+
+      console.log('[AGORA-JOIN]');
+      console.log('[AGORA-JOIN] AppID:', config.appId);
+      console.log('[AGORA-JOIN] Channel:', config.channelName);
+      console.log('[AGORA-JOIN] UID:', config.uid);
+      console.log('[AGORA-JOIN] Token length:', normalizedToken.length);
+      console.log('[AGORA-JOIN] Token preview:', normalizedToken.substring(0, 20) + '...');
+      
+      if (AGORA_DEBUG) {
+        console.log('[AGORA-DEBUG] Full join parameters:', {
+          token: normalizedToken,
+          channelName: config.channelName,
+          uid: config.uid,
+          options: {
+            clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+            publishMicrophoneTrack: true,
+            autoSubscribeAudio: true,
+          }
+        });
+      }
+      
+      try {
+        engineRef.current.joinChannel(
+          normalizedToken,
+          config.channelName,
+          config.uid,
+          {
+            clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+            publishMicrophoneTrack: true,
+            autoSubscribeAudio: true,
+          }
+        );
+        
+        console.log('[AGORA] STEP 4 SUCCESS: engine.joinChannel() executed without throwing');
+        
+        // ========== STEP 5: WAIT FOR CONNECTION CALLBACK ==========
+        console.log('[AGORA] STEP 5: Waiting for onJoinChannelSuccess callback from Agora SDK...');
+        console.log('[AGORA] STEP 5: If this step hangs, check:');
+        console.log('[AGORA] STEP 5:   - Token validity and expiration');
+        console.log('[AGORA] STEP 5:   - App ID matches certificate');
+        console.log('[AGORA] STEP 5:   - Channel name format');
+        console.log('[AGORA] STEP 5:   - Network connectivity');
+        console.log('[AGORA] STEP 5:   - onError callback for error codes');
+        console.log('[AGORA] ===== JOIN CHANNEL TIMELINE: AWAITING CALLBACK =====');
+        
+        return true;
+      } catch (joinError: any) {
+        console.error('[AGORA] STEP 4 FAILED: engine.joinChannel() threw exception');
+        console.error('[AGORA] STEP 4 ERROR:', joinError.message || joinError);
+        console.error('[AGORA] STEP 4 STACK:', joinError.stack);
+        setState(prev => ({
+          ...prev,
+          error: `Failed to execute join: ${joinError.message || joinError}`,
+          connectionState: 'failed',
+        }));
+        return false;
+      }
+      
     } catch (error: any) {
-      console.error('Failed to join channel:', error);
+      console.error('[AGORA] TIMELINE EXCEPTION (outer try-catch):', error.message || error);
+      console.error('[AGORA] EXCEPTION STACK:', error.stack);
       setState(prev => ({
         ...prev,
         error: error.message || 'Failed to join call',

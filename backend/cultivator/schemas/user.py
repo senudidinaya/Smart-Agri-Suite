@@ -15,7 +15,7 @@ class UserRegister(BaseModel):
     address: Optional[str] = Field(None, max_length=200)
     age: Optional[int] = Field(None, ge=18, le=100)
     password: str = Field(..., min_length=4)
-    role: Literal["client", "interviewer"] = "client"
+    role: Literal["client", "helper", "interviewer", "admin", "farmer"] = "client"
 
 
 class UserLogin(BaseModel):
