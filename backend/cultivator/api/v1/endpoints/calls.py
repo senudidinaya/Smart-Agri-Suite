@@ -703,8 +703,8 @@ async def get_call(
     return CallResponse(
         id=str(call["_id"]),
         jobId=call["jobId"],
-        adminUserId=call["adminUserId"],
-        clientUserId=call["clientUserId"],
+        interviewerUserId=call["adminUserId"],
+        cultivatorUserId=call["clientUserId"],
         channelName=channel_name,
         status=call["status"],
         createdAt=call["createdAt"],
