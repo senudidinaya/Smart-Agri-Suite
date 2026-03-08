@@ -1,0 +1,6 @@
+# Gate 2 Model Artifacts
+# This folder contains trained emotion classification models for video interview analysis
+# Files:
+#   - gate2_expression_model.keras : Trained MobileNetV2 emotion classifier
+#   - gate2_class_names.json : Emotion class labels
+#   - gate2_model_metadata.json : Training metadata and metrics

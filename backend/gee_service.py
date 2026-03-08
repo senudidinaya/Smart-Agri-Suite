@@ -23,17 +23,19 @@ MODEL_PATH = os.path.join("model", "xgb_land_classifier.pkl")
 # ─── Init ───────────────────────────────────────────────────
 
 def initialize_gee():
-    """Initializes Google Earth Engine."""
+    """Initializes Google Earth Engine. Gracefully handles failures."""
     try:
         project = os.getenv("GEE_PROJECT")
         if project:
-            ee.Initialize(project=project)
+            ee.Initialize(project=project, opt_url='https://earthengine-highvolume.googleapis.com')
             print(f"✅ Google Earth Engine Initialized with project: {project}")
         else:
-            ee.Initialize()
+            ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')
             print("✅ Google Earth Engine Initialized (default project)")
     except Exception as e:
-        print(f"⚠️ GEE Initialization failed: {e}")
+        # GEE initialization failure is non-blocking; operations will fail gracefully
+        print(f"⚠️ GEE Initialization failed (will retry on first use): {type(e).__name__}")
+        # Don't raise - allow the app to start even without GEE
 
 
 @lru_cache(maxsize=1)

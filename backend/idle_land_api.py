@@ -3,10 +3,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel
-from typing import List, Dict, Tuple, Any, Optional
+from typing import List, Dict, Tuple, Any, Optional, AsyncGenerator
 from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
+import asyncio
+from contextlib import asynccontextmanager
 
 load_dotenv()
 
@@ -32,6 +34,10 @@ from marketplace.database import engine, get_db, Base as MarketplaceBase
 from marketplace import models as mp_models
 from marketplace import schemas as mp_schemas
 from marketplace import crud as mp_crud
+from cultivator.api.v1.routes import router as cultivator_router
+
+# --- Cultivator database imports ---
+from cultivator.core.database import connect_db as cultivator_connect_db, close_db as cultivator_close_db
 
 # --- Auth imports ---
 from auth_utils import (
@@ -46,7 +52,67 @@ from bson import ObjectId
 import gee_service
 
 
-app = FastAPI(title="Idle Land Mobilization API", version="2.3.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    Application lifespan manager.
+    Handles startup and shutdown events for unified backend.
+    """
+    # Startup
+    print("=" * 60)
+    print("🚀 STARTING UNIFIED BACKEND")
+    print("=" * 60)
+    
+    # Create marketplace tables
+    try:
+        MarketplaceBase.metadata.create_all(bind=engine)
+        print("✅ Marketplace tables ready")
+    except Exception as e:
+        print(f"⚠️ Could not create marketplace tables: {e}")
+
+    # Initialize cultivator MongoDB connection (async)
+    try:
+        await cultivator_connect_db()
+        print("✅ Cultivator MongoDB connection initialized")
+    except Exception as e:
+        print(f"⚠️ Cultivator MongoDB initialization failed: {e}")
+        print("   Cultivator auth endpoints will not work until MongoDB is available")
+
+    # Pre-warm legacy MongoDB connection (for old auth_utils)
+    try:
+        get_mongo_db()
+        print("✅ Legacy MongoDB connection ready")
+    except Exception as e:
+        print(f"⚠️ Legacy MongoDB not available: {e}")
+    
+    print("=" * 60)
+    print("✅ Backend startup complete")
+    print("=" * 60)
+    
+    yield
+    
+    # Shutdown
+    print("\n" + "=" * 60)
+    print("🛑 SHUTTING DOWN UNIFIED BACKEND")
+    print("=" * 60)
+    await cultivator_close_db()
+    await close_mongo()
+    print("✅ Shutdown complete")
+    print("=" * 60)
+
+
+app = FastAPI(
+    title="Idle Land Mobilization API",
+    version="2.3.0",
+    lifespan=lifespan
+)
+
+# Cultivator module routes mounted under unified backend namespace.
+app.include_router(
+    cultivator_router,
+    prefix="/api/cultivator",
+    tags=["cultivator"],
+)
 
 # CORS — allow all origins for mobile app development
 app.add_middleware(
@@ -61,28 +127,6 @@ app.add_middleware(
 os.makedirs("media/photos", exist_ok=True)
 os.makedirs("media/docs", exist_ok=True)
 app.mount("/media", StaticFiles(directory="media"), name="media")
-
-
-@app.on_event("startup")
-def _startup_create_tables():
-    """Create marketplace tables if they don't exist (fallback for non-Alembic usage)."""
-    try:
-        MarketplaceBase.metadata.create_all(bind=engine)
-        print("✅ Marketplace tables ready")
-    except Exception as e:
-        print(f"⚠️ Could not create marketplace tables: {e}")
-
-    # Pre-warm MongoDB connection
-    try:
-        get_mongo_db()
-        print("✅ MongoDB connection ready")
-    except Exception as e:
-        print(f"⚠️ MongoDB not available (auth will fail): {e}")
-
-
-@app.on_event("shutdown")
-async def _shutdown_mongo():
-    await close_mongo()
 
 
 MODEL_PATH_PRIMARY = os.path.join("model", "xgb_land_classifier.pkl")

@@ -1,0 +1,1022 @@
+{
+  "summary": {
+    "scanned_file_count": 78,
+    "unresolved_module_import_count": 0,
+    "unknown_from_symbol_count": 169,
+    "cycle_count": 0,
+    "runtime_import_failure_count": 20
+  },
+  "validation": {
+    "unresolved_module_imports": [],
+    "unknown_from_import_symbols": [
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.api.v1.routes import router",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.core.logging import setup_logging",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.core.middleware import CorrelationIdMiddleware",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.core.middleware import RequestLoggingMiddleware",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.core.middleware import get_correlation_id",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.core.database import connect_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.core.database import close_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.services.inference import get_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/main.py",
+        "import": "from cultivator.services.inference import reset_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/core/auth.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/core/auth.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/core/database.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/core/database.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/core/logging.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/core/middleware.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/admin_assignment.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/admin_assignment.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/agora.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/agora.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/decision_engine.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/deepseek_service.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/explainability.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/gate2_unified_analyzer.py",
+        "import": "from cultivator.services.gate2_inference import Gate2InferenceService",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/gate2_unified_analyzer.py",
+        "import": "from cultivator.services.gate2_inference import get_gate2_inference_service",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/gate2_unified_analyzer.py",
+        "import": "from cultivator.services.gate2_inference import Gate2DeceptionService",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/gate2_unified_analyzer.py",
+        "import": "from cultivator.services.gate2_inference import get_gate2_deception_service",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/inference.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/inference.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/inference.py",
+        "import": "from cultivator.schemas.prediction import IntentScore",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/inference.py",
+        "import": "from cultivator.schemas.prediction import PredictionResult",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/safety_assessment.py",
+        "import": "from cultivator.schemas.interview import SafetyAssessment",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/__init__.py",
+        "import": "from cultivator.services.inference import IntentClassifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/__init__.py",
+        "import": "from cultivator.services.inference import IntentRiskClassifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/__init__.py",
+        "import": "from cultivator.services.inference import get_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/__init__.py",
+        "import": "from cultivator.services.inference import get_risk_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/services/__init__.py",
+        "import": "from cultivator.services.inference import reset_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/utils/audio.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/utils/audio.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/applications.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/applications.py",
+        "import": "from cultivator.core.auth import verify_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/applications.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/applications.py",
+        "import": "from cultivator.schemas.application import ApplicationCreate",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/applications.py",
+        "import": "from cultivator.schemas.application import ApplicationStatusUpdate",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/applications.py",
+        "import": "from cultivator.schemas.application import ApplicationResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/applications.py",
+        "import": "from cultivator.schemas.application import ApplicationListResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/applications.py",
+        "import": "from cultivator.services.admin_assignment import get_today_colombo_date_str",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/applications.py",
+        "import": "from cultivator.services.admin_assignment import assign_or_queue_call_task",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.core.auth import hash_password",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.core.auth import verify_password",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.core.auth import create_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.core.auth import verify_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.schemas.user import UserRegister",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.schemas.user import UserLogin",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.schemas.user import UserResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.schemas.user import LoginResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/auth.py",
+        "import": "from cultivator.schemas.user import MessageResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.core.auth import verify_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import CallInitiate",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import CallInitiateResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import IncomingCallResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import CallAcceptResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import RecordingUploadResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import CallResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import AgoraTokenInfo",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import StartRecordingRequest",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import StartRecordingResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.schemas.call import StopRecordingResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.services.inference import get_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.services.agora import generate_agora_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.services.agora import get_agora_app_id",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.services.agora import get_cloud_recording",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.services.agora import RtcTokenRole",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.services.inference import get_deception_detector",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/calls.py",
+        "import": "from cultivator.services.combined_analysis import combine_intent_and_deception",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/call_tasks.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/call_tasks.py",
+        "import": "from cultivator.core.auth import verify_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/call_tasks.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/call_tasks.py",
+        "import": "from cultivator.schemas.call_task import CallTaskOut",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/call_tasks.py",
+        "import": "from cultivator.services.admin_assignment import assign_or_queue_call_task",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/call_tasks.py",
+        "import": "from cultivator.services.admin_assignment import get_today_colombo_date_str",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/explain.py",
+        "import": "from cultivator.schemas.explain import Gate1InsightRequest",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/explain.py",
+        "import": "from cultivator.schemas.explain import Gate2InsightRequest",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/explain.py",
+        "import": "from cultivator.schemas.explain import InsightResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/explain.py",
+        "import": "from cultivator.schemas.explain import QuestionGenerationRequest",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/explain.py",
+        "import": "from cultivator.schemas.explain import QuestionGenerationResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/explain.py",
+        "import": "from cultivator.schemas.explain import Question",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/explain.py",
+        "import": "from cultivator.services.deepseek_service import generate_gate1_insight",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/explain.py",
+        "import": "from cultivator.services.deepseek_service import generate_gate2_insight",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/explain.py",
+        "import": "from cultivator.services.deepseek_service import generate_questions",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/health.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/health.py",
+        "import": "from cultivator.schemas.health import HealthResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/health.py",
+        "import": "from cultivator.services.inference import get_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.core.auth import verify_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import InterviewInviteRequest",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import InterviewInviteResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import InterviewAnalyzeResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import InterviewResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import InterviewStatusResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import CallAssessmentResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import Gate2AnalysisStats",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import DeceptionAnalysis",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import SafetyAssessment",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.services.inference import get_risk_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.services.inference import get_deception_detector",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.services.gate2_inference import get_gate2_inference_service",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.services.gate2_inference import get_gate2_deception_service",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.services.safety_assessment import SafetyAssessmentService",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.api.v1.endpoints.notifications import create_notification",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/interviews.py",
+        "import": "from cultivator.schemas.interview import Gate2AnalysisStats",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/jobs.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/jobs.py",
+        "import": "from cultivator.core.auth import verify_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/jobs.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/jobs.py",
+        "import": "from cultivator.schemas.job import JobCreate",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/jobs.py",
+        "import": "from cultivator.schemas.job import JobResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/jobs.py",
+        "import": "from cultivator.schemas.job import JobListResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/jobs.py",
+        "import": "from cultivator.schemas.call import CallResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/jobs.py",
+        "import": "from cultivator.schemas.call import AnalysisResult",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/jobs.py",
+        "import": "from cultivator.schemas.interview import InterviewResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/notifications.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/notifications.py",
+        "import": "from cultivator.core.auth import verify_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/notifications.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/notifications.py",
+        "import": "from cultivator.schemas.notification import NotificationCreate",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/notifications.py",
+        "import": "from cultivator.schemas.notification import NotificationResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/notifications.py",
+        "import": "from cultivator.schemas.notification import NotificationListResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/notifications.py",
+        "import": "from cultivator.schemas.notification import MarkReadRequest",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.core.logging import get_logger",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.core.middleware import get_correlation_id",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.schemas.prediction import Base64AudioRequest",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.schemas.prediction import ErrorDetail",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.schemas.prediction import ErrorResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.schemas.prediction import PredictionResponse",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.services.inference import get_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.utils.audio import AudioValidationError",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.utils.audio import decode_base64_audio",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.utils.audio import validate_audio_format",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/cultivator/api/v1/endpoints/predict.py",
+        "import": "from cultivator.utils.audio import validate_audio_size",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/check_call_tasks.py",
+        "import": "from cultivator.core.database import connect_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/check_call_tasks.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/check_call_tasks.py",
+        "import": "from cultivator.core.database import close_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/retry_new_tasks.py",
+        "import": "from cultivator.core.database import connect_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/retry_new_tasks.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/retry_new_tasks.py",
+        "import": "from cultivator.core.database import close_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/retry_new_tasks.py",
+        "import": "from cultivator.services.admin_assignment import assign_or_queue_call_task",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/retry_new_tasks.py",
+        "import": "from cultivator.services.admin_assignment import get_today_colombo_date_str",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/setup_test_admins.py",
+        "import": "from cultivator.core.database import connect_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/setup_test_admins.py",
+        "import": "from cultivator.core.database import get_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/setup_test_admins.py",
+        "import": "from cultivator.core.database import close_db",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_agora.py",
+        "import": "from cultivator.core.config import get_settings",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_agora.py",
+        "import": "from cultivator.services.agora import generate_agora_token",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_agora.py",
+        "import": "from cultivator.services.agora import get_agora_app_id",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_agora.py",
+        "import": "from cultivator.services.agora import RtcTokenRole",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_decision_engine.py",
+        "import": "from cultivator.services.decision_engine import get_decision_engine",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_decision_engine.py",
+        "import": "from cultivator.services.decision_engine import Gate1Decision",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_decision_engine.py",
+        "import": "from cultivator.services.decision_engine import Gate2Decision",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_unified_analyzer.py",
+        "import": "from cultivator.services.gate2_unified_analyzer import Gate2UnifiedAnalyzer",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_unified_analyzer.py",
+        "import": "from cultivator.services.gate2_unified_analyzer import get_gate2_unified_analyzer",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_unified_analyzer.py",
+        "import": "from cultivator.services.gate2_inference import get_gate2_inference_service",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/scripts/cultivator/test_unified_analyzer.py",
+        "import": "from cultivator.services.gate2_inference import get_gate2_deception_service",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/tests/cultivator/conftest.py",
+        "import": "from cultivator.main import app",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      },
+      {
+        "file": "backend/tests/cultivator/conftest.py",
+        "import": "from cultivator.services.inference import reset_classifier",
+        "note": "target symbol is not a module; may still be valid as attribute/function/class"
+      }
+    ],
+    "scanned_files": [
+      "backend/cultivator/main.py",
+      "backend/cultivator/__init__.py",
+      "backend/cultivator/api/__init__.py",
+      "backend/cultivator/core/auth.py",
+      "backend/cultivator/core/config.py",
+      "backend/cultivator/core/database.py",
+      "backend/cultivator/core/logging.py",
+      "backend/cultivator/core/middleware.py",
+      "backend/cultivator/core/__init__.py",
+      "backend/cultivator/schemas/application.py",
+      "backend/cultivator/schemas/call.py",
+      "backend/cultivator/schemas/call_task.py",
+      "backend/cultivator/schemas/explain.py",
+      "backend/cultivator/schemas/health.py",
+      "backend/cultivator/schemas/interview.py",
+      "backend/cultivator/schemas/job.py",
+      "backend/cultivator/schemas/notification.py",
+      "backend/cultivator/schemas/prediction.py",
+      "backend/cultivator/schemas/user.py",
+      "backend/cultivator/schemas/__init__.py",
+      "backend/cultivator/services/admin_assignment.py",
+      "backend/cultivator/services/agora.py",
+      "backend/cultivator/services/combined_analysis.py",
+      "backend/cultivator/services/decision_engine.py",
+      "backend/cultivator/services/deepseek_service.py",
+      "backend/cultivator/services/explainability.py",
+      "backend/cultivator/services/gate2_inference.py",
+      "backend/cultivator/services/gate2_unified_analyzer.py",
+      "backend/cultivator/services/inference.py",
+      "backend/cultivator/services/safety_assessment.py",
+      "backend/cultivator/services/__init__.py",
+      "backend/cultivator/utils/audio.py",
+      "backend/cultivator/utils/__init__.py",
+      "backend/cultivator/api/v1/routes.py",
+      "backend/cultivator/api/v1/__init__.py",
+      "backend/cultivator/api/v1/endpoints/applications.py",
+      "backend/cultivator/api/v1/endpoints/auth.py",
+      "backend/cultivator/api/v1/endpoints/calls.py",
+      "backend/cultivator/api/v1/endpoints/call_tasks.py",
+      "backend/cultivator/api/v1/endpoints/explain.py",
+      "backend/cultivator/api/v1/endpoints/health.py",
+      "backend/cultivator/api/v1/endpoints/interviews.py",
+      "backend/cultivator/api/v1/endpoints/jobs.py",
+      "backend/cultivator/api/v1/endpoints/notifications.py",
+      "backend/cultivator/api/v1/endpoints/predict.py",
+      "backend/cultivator/api/v1/endpoints/__init__.py",
+      "backend/scripts/cultivator/augment_and_retrain.py",
+      "backend/scripts/cultivator/auto_label_dataset.py",
+      "backend/scripts/cultivator/check_calls.py",
+      "backend/scripts/cultivator/check_call_tasks.py",
+      "backend/scripts/cultivator/check_token.py",
+      "backend/scripts/cultivator/cloud_data_utils.py",
+      "backend/scripts/cultivator/download_trial_dataset.py",
+      "backend/scripts/cultivator/find_job_client.py",
+      "backend/scripts/cultivator/fix_stale_calls.py",
+      "backend/scripts/cultivator/generate_call_features_dataset.py",
+      "backend/scripts/cultivator/generate_synthetic_data.py",
+      "backend/scripts/cultivator/generate_synthetic_deception_dataset.py",
+      "backend/scripts/cultivator/list_admins.py",
+      "backend/scripts/cultivator/list_clients.py",
+      "backend/scripts/cultivator/phase2_validate_imports.py",
+      "backend/scripts/cultivator/prepare_deception_audio.py",
+      "backend/scripts/cultivator/prepare_deception_frames.py",
+      "backend/scripts/cultivator/QUICK_REFERENCE.py",
+      "backend/scripts/cultivator/retry_new_tasks.py",
+      "backend/scripts/cultivator/setup_test_admins.py",
+      "backend/scripts/cultivator/smoke_test_gate2_model.py",
+      "backend/scripts/cultivator/test_agora.py",
+      "backend/scripts/cultivator/test_decision_engine.py",
+      "backend/scripts/cultivator/test_unified_analyzer.py",
+      "backend/scripts/cultivator/train_deception_audio_model.py",
+      "backend/scripts/cultivator/train_deception_visual_model.py",
+      "backend/scripts/cultivator/train_gate2_expression_model.py",
+      "backend/scripts/cultivator/train_intent_risk_model.py",
+      "backend/tests/cultivator/conftest.py",
+      "backend/tests/cultivator/test_health.py",
+      "backend/tests/cultivator/test_predict.py",
+      "backend/tests/cultivator/__init__.py"
+    ],
+    "cycles": [],
+    "import_runtime_failures": [
+      {
+        "module": "cultivator.api.v1.endpoints.applications",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.api.v1.endpoints.call_tasks",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.api.v1.endpoints.calls",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.api.v1.endpoints.explain",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.api.v1.endpoints.health",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.api.v1.endpoints.interviews",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.api.v1.endpoints.predict",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.api.v1.routes",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.main",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.admin_assignment",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.agora",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.combined_analysis",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.decision_engine",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.deepseek_service",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.explainability",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.gate2_inference",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.gate2_unified_analyzer",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.inference",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      },
+      {
+        "module": "cultivator.services.safety_assessment",
+        "error": "ModuleNotFoundError: No module named 'numpy'"
+      }
+    ]
+  }
+}
