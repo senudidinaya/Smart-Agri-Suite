@@ -35,6 +35,7 @@ from marketplace import models as mp_models
 from marketplace import schemas as mp_schemas
 from marketplace import crud as mp_crud
 from cultivator.api.v1.routes import router as cultivator_router
+from agora_service import router as agora_router
 
 # --- Cultivator database imports ---
 from cultivator.core.database import connect_db as cultivator_connect_db, close_db as cultivator_close_db
@@ -110,9 +111,29 @@ app = FastAPI(
 # Cultivator module routes mounted under unified backend namespace.
 app.include_router(
     cultivator_router,
-    prefix="/api/cultivator",
+    prefix="/cultivator",
     tags=["cultivator"],
 )
+
+app.include_router(agora_router)
+
+# === RUNTIME DIAGNOSTICS MIDDLEWARE (Temporary) ===
+@app.middleware("http")
+async def log_requests(request, call_next):
+    """Log incoming HTTP requests for debugging."""
+    import time
+    start_time = time.time()
+    print(f"[BACKEND REQUEST] {request.method} {request.url.path}")
+    
+    try:
+        response = await call_next(request)
+        duration = time.time() - start_time
+        print(f"[BACKEND RESPONSE] {response.status_code} {request.method} {request.url.path} ({duration:.3f}s)")
+        return response
+    except Exception as e:
+        duration = time.time() - start_time
+        print(f"[BACKEND ERROR] {request.method} {request.url.path} - {str(e)}")
+        raise
 
 # CORS — allow all origins for mobile app development
 app.add_middleware(

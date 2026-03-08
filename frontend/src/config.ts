@@ -28,3 +28,12 @@ const getAPIEndpoint = () => {
 
 export const API_BASE_URL = getAPIEndpoint();
 export const AUTH_API_BASE_URL = `${API_BASE_URL}/api/v1`;
+export const CULTIVATOR_API_BASE_URL = AUTH_API_BASE_URL.replace('/api/v1', '');
+export const EXPO_PUBLIC_AGORA_APP_ID = process.env.EXPO_PUBLIC_AGORA_APP_ID || '';
+
+// === RUNTIME DIAGNOSTICS (Temporary) ===
+console.log('=== NETWORK CONFIGURATION ===');
+console.log('API_BASE_URL:', API_BASE_URL);
+console.log('AUTH_API_BASE_URL:', AUTH_API_BASE_URL);
+console.log('CULTIVATOR_API_BASE_URL:', CULTIVATOR_API_BASE_URL);
+console.log('==========================');

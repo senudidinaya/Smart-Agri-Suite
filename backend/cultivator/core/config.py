@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -87,10 +87,12 @@ class Settings(BaseSettings):
     # Agora settings for audio/video calling
     agora_app_id: str = Field(
         default="",
+        validation_alias=AliasChoices("AGORA_APP_ID", "agora_app_id"),
         description="Agora App ID from console.agora.io",
     )
     agora_app_certificate: str = Field(
         default="",
+        validation_alias=AliasChoices("AGORA_CERT", "AGORA_APP_CERTIFICATE", "agora_app_certificate"),
         description="Agora App Certificate for token generation",
     )
     agora_customer_id: str = Field(

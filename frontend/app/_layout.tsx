@@ -48,6 +48,7 @@ function RootLayoutNav() {
         <Stack.Screen name="auth/register" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(main)" options={{ headerShown: false }} />
+        <Stack.Screen name="cultivator" options={{ headerShown: false }} />
         <Stack.Screen name="land/[id]" options={{ title: "Land Details" }} />
         <Stack.Screen name="admin/listing-detail" options={{ headerShown: false }} />
         <Stack.Screen name="admin/zones" options={{ headerShown: false }} />

@@ -17,7 +17,7 @@ export interface User {
     email: string;
     address?: string;
     age?: number;
-    role: 'client' | 'admin' | 'helper' | 'farmer';
+    role: 'client' | 'admin' | 'helper' | 'farmer' | 'interviewer';
     createdAt: string;
 }
 
@@ -38,7 +38,7 @@ interface RegisterData {
     address?: string;
     age?: number;
     password: string;
-    role: 'client' | 'admin' | 'helper' | 'farmer';
+    role: 'client' | 'admin' | 'helper' | 'farmer' | 'interviewer';
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

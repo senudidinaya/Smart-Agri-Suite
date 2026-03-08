@@ -19,14 +19,14 @@ const COMPONENTS = [
         image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=600&auto=format&fit=crop",
     },
     {
-        id: "buyer_intent",
-        title: "Buyer Intent Analysis",
-        subtitle: "Predict market demand and match buyers with agricultural opportunities",
+        id: "job_seeker",
+        title: "Looking For a Job?",
+        subtitle: "Connect with farmers seeking agricultural workers",
         icon: "🎯",
-        route: null,
-        active: false,
+        route: "/cultivator",
+        active: true,
         colors: ["#8b5cf6", "#7c3aed"], // Violet
-        image: "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop",
+        image: "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=600&auto=format&fit=crop",
     },
     {
         id: "crop_rec",
