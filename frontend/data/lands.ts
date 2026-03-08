@@ -1,0 +1,32 @@
+export const lands = [
+  {
+    id: "1",
+    title: "Idle Land - Malabe A",
+    latitude: 6.9147,
+    longitude: 79.9726,
+    ownerType: "government",
+    status: "idle",
+    area: "2 acres",
+    photos: ["https://picsum.photos/400/300"],
+  },
+  {
+    id: "2",
+    title: "Private Land - Malabe B",
+    latitude: 6.9182,
+    longitude: 79.9699,
+    ownerType: "private",
+    status: "active",
+    area: "1.2 acres",
+    photos: ["https://picsum.photos/401/300"],
+  },
+  {
+    id: "3",
+    title: "Idle Land - Malabe C",
+    latitude: 6.9113,
+    longitude: 79.9761,
+    ownerType: "government",
+    status: "idle",
+    area: "3 acres",
+    photos: ["https://picsum.photos/402/300"],
+  },
+];

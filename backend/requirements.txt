@@ -1,0 +1,44 @@
+# ─────────────────────────────────────────────
+# Smart-Agri-Suite — Merged Backend Requirements
+# Branches merged:
+#   • feature/gee-xgboost-universal-analysis
+#   • new-smart-pricing-and-logistics-optimization
+# ─────────────────────────────────────────────
+
+# --- Web Framework ---
+fastapi
+uvicorn[standard]          # upgraded from plain uvicorn (includes websockets, httptools)
+
+# --- Database ---
+psycopg2-binary
+sqlalchemy
+geoalchemy2
+alembic
+motor                      # async MongoDB driver (from gee-xgboost branch)
+
+# --- Auth & Security ---
+python-jose[cryptography]
+bcrypt
+
+# --- ML / Data Science ---
+numpy
+pandas
+scikit-learn
+xgboost
+joblib
+
+# --- Geospatial / Earth Engine ---
+earthengine-api
+geopy
+rasterio
+rio-tiler
+shapely
+mercantile
+pyproj>=3.0.0
+
+# --- Image Processing ---
+pillow
+
+# --- Utilities ---
+python-dotenv
+python-multipart
