@@ -67,103 +67,99 @@ function ListingCard({ item, onPress }: { item: LandListing; onPress: () => void
     const photos = Array.isArray(item.photos) ? item.photos : [];
     const hasPhotos = photos.length > 0;
 
-    // ── Slideshow with perfect sync ──
     const [idx, setIdx] = useState(0);
     useEffect(() => {
         if (photos.length <= 1) { setIdx(0); return; }
-        const t = setInterval(() => setIdx(prev => (prev + 1) % photos.length), 2000);
+        const t = setInterval(() => setIdx(prev => (prev + 1) % photos.length), 3000);
         return () => clearInterval(t);
     }, [photos.length]);
 
-    // Clamp idx to valid range
     const safeIdx = hasPhotos ? idx % photos.length : 0;
     const photoUrl = hasPhotos ? `${API_BASE_URL}${photos[safeIdx].url}` : null;
 
     return (
-        <Pressable style={s.card} onPress={onPress}>
-            {/* ── Hero Image ── */}
-            <View style={s.heroWrap}>
+        <Pressable
+            style={({ pressed }) => [
+                s.card,
+                { borderColor: lb.color + "44", borderWidth: 2 },
+                pressed && { transform: [{ scale: 0.985 }] }
+            ]}
+            onPress={onPress}
+        >
+            {/* ── Visual Section ── */}
+            <View style={s.visualSection}>
                 {photoUrl ? (
-                    <Image source={{ uri: photoUrl }} style={s.heroImage} resizeMode="cover" />
+                    <Image source={{ uri: photoUrl }} style={s.mainImage} resizeMode="cover" />
                 ) : (
-                    <View style={[s.heroPlaceholder, { backgroundColor: lb.bg }]}>
-                        <Text style={{ fontSize: 56 }}>🏞️</Text>
-                        <Text style={[s.placeholderText, { color: lb.color }]}>No photo uploaded</Text>
+                    <View style={[s.imagePlaceholder, { backgroundColor: lb.bg }]}>
+                        <Text style={{ fontSize: 44 }}>🏞️</Text>
+                        <Text style={[s.placeholderLabel, { color: lb.color }]}>Visualizing Terrain...</Text>
                     </View>
                 )}
 
-                {/* Gradient overlay at bottom */}
-                <View style={s.heroGradient} />
+                <View style={s.imageOverlay} />
 
-                {/* Photo counter — perfectly synced */}
-                {hasPhotos && photos.length > 1 && (
-                    <View style={s.photoCounter}>
-                        <Text style={s.photoCounterText}>📸 {safeIdx + 1}/{photos.length}</Text>
+                {/* Top Row Badges */}
+                <View style={s.badgeRowTop}>
+                    <View style={[s.typePill, { backgroundColor: 'rgba(255,255,255,0.92)', borderColor: lb.color }]}>
+                        <Text style={[s.typeEmoji]}>{lb.emoji}</Text>
+                        <Text style={[s.typeText, { color: '#0f172a' }]}>{lb.text}</Text>
                     </View>
-                )}
-
-                {/* Land type badge */}
-                <View style={[s.landTypeBadge, { backgroundColor: lb.bg, borderColor: lb.glow }]}>
-                    <Text style={[s.landTypeBadgeText, { color: lb.color }]}>{lb.emoji} {lb.text}</Text>
+                    <View style={[s.statusPill, { backgroundColor: ss.bg + "F2" }]}>
+                        <Text style={[s.statusText, { color: ss.color }]}>{ss.icon} {ss.label}</Text>
+                        {item.status === 'verified' && <Text style={{ fontSize: 10, marginLeft: 4 }}>✅</Text>}
+                    </View>
                 </View>
 
-                {/* Purpose tag */}
-                {item.listing_purpose && (
-                    <View style={s.purposeTag}>
-                        <Text style={s.purposeTagText}>{purposeLabel(item.listing_purpose)}</Text>
+                {/* Bottom Row Info (Glass Style) */}
+                <View style={s.badgeRowBottom}>
+                    <View style={s.priceGlassContainer}>
+                        <View style={s.priceTag}>
+                            <Text style={s.priceCurrency}>EST. VALUE</Text>
+                            <Text style={s.priceAmount}>{item.expected_price ? `LKR ${item.expected_price.toLocaleString()}` : 'Negotiable'}</Text>
+                        </View>
                     </View>
-                )}
+                    {item.listing_purpose && (
+                        <View style={s.purposeGlass}>
+                            <Text style={s.purposeText}>{purposeLabel(item.listing_purpose)}</Text>
+                        </View>
+                    )}
+                </View>
 
-                {/* Price pill */}
-                {typeof item.expected_price === 'number' && (
-                    <View style={s.pricePill}>
-                        <Text style={s.pricePillText}>LKR {item.expected_price.toLocaleString()}</Text>
-                    </View>
-                )}
-
-                {/* Slideshow dots */}
+                {/* Indicator dots for gallery */}
                 {hasPhotos && photos.length > 1 && (
-                    <View style={s.dotRow}>
+                    <View style={s.galleryDots}>
                         {photos.map((_, i) => (
-                            <View key={i} style={[s.dot, i === safeIdx && s.dotActive]} />
+                            <View key={i} style={[s.gDot, i === safeIdx && s.gDotActive]} />
                         ))}
                     </View>
                 )}
             </View>
 
-            {/* ── Card Body ── */}
-            <View style={s.cardBody}>
-                <View style={s.titleRow}>
-                    <View style={{ flex: 1 }}>
-                        <Text style={s.cardTitle} numberOfLines={1}>{item.title || 'Untitled'}</Text>
-                        {item.owner_name && (
-                            <Text style={s.ownerText} numberOfLines={1}>👤 {item.owner_name}</Text>
-                        )}
-                    </View>
-                    <View style={[s.statusChip, { backgroundColor: ss.bg }]}>
-                        <Text style={[s.statusChipText, { color: ss.color }]}>{ss.icon} {ss.label}</Text>
+            {/* ── Data Section (Beautified) ── */}
+            <View style={s.dataSection}>
+                <View style={s.infoSide}>
+                    <Text style={s.listingTitle} numberOfLines={1}>{item.title || 'Property Undisclosed'}</Text>
+                    <View style={s.ownerContainer}>
+                        <View style={s.ownerAvatarMini}>
+                            <Text style={{ fontSize: 10 }}>👤</Text>
+                        </View>
+                        <Text style={s.ownerNameText}>{item.owner_name || 'Land Owner'}</Text>
+                        <View style={s.ownerVerifiedDot} />
                     </View>
                 </View>
 
-                {/* Stats row */}
-                <View style={s.statsRow}>
-                    <View style={[s.statPill, { borderLeftColor: '#3b82f6' }]}>
-                        <Text style={s.statEmoji}>📏</Text>
-                        <View>
-                            <Text style={[s.statVal, { color: '#3b82f6' }]}>
-                                {typeof item.area_acres === 'number' ? `${item.area_acres.toFixed(2)}` : '--'}
-                            </Text>
-                            <Text style={s.statLbl}>acres</Text>
-                        </View>
+                <View style={s.metricsRow}>
+                    <View style={[s.miniMetric, { backgroundColor: '#eff6ff' }]}>
+                        <Text style={s.miniMetricVal}>{typeof item.area_acres === 'number' ? item.area_acres.toFixed(2) : '--'}</Text>
+                        <Text style={s.miniMetricUnit}>ACRES</Text>
                     </View>
-                    <View style={[s.statPill, { borderLeftColor: '#8b5cf6' }]}>
-                        <Text style={s.statEmoji}>📐</Text>
-                        <View>
-                            <Text style={[s.statVal, { color: '#8b5cf6' }]}>
-                                {typeof item.area_hectares === 'number' ? `${item.area_hectares.toFixed(2)}` : '--'}
-                            </Text>
-                            <Text style={s.statLbl}>hectares</Text>
-                        </View>
+                    <View style={[s.miniMetric, { backgroundColor: '#f5f3ff' }]}>
+                        <Text style={s.miniMetricVal}>{typeof item.area_hectares === 'number' ? item.area_hectares.toFixed(2) : '--'}</Text>
+                        <Text style={s.miniMetricUnit}>HECTARES</Text>
+                    </View>
+                    <View style={s.chevronBox}>
+                        <Text style={s.chevronIcon}>→</Text>
                     </View>
                 </View>
             </View>
@@ -205,8 +201,8 @@ export default function AllListingsScreen() {
                     <Text style={s.backBtnArrow}>←</Text>
                 </Pressable>
                 <View style={{ flex: 1, alignItems: 'center' }}>
-                    <Text style={s.headerTitle}>🏘️ All Listings</Text>
-                    {!loading && <Text style={s.headerSub}>{listings.length} properties available</Text>}
+                    <Text style={s.headerTitle}>Premium Estates</Text>
+                    {!loading && <Text style={s.headerSub}>{listings.length} VERIFIED LISTINGS AVAILABLE</Text>}
                 </View>
                 <View style={{ width: 44 }} />
             </View>
@@ -248,124 +244,230 @@ export default function AllListingsScreen() {
 // ══════════════════════════ STYLES ══════════════════════════
 
 const s = StyleSheet.create({
-    page: { flex: 1, backgroundColor: '#f0f4f8' },
+    page: { flex: 1, backgroundColor: '#f8fafc' },
 
-    // Header
+    // ── Header ──
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingBottom: 14,
+        paddingBottom: 20,
         backgroundColor: '#ffffff',
         borderBottomWidth: 1,
         borderColor: '#e2e8f0',
-        shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10,
-        shadowOffset: { width: 0, height: 3 }, elevation: 4,
+        shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 }, elevation: 2,
     },
     backBtn: {
-        width: 44, height: 44, borderRadius: 22,
+        width: 44, height: 44, borderRadius: 14,
         backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center',
     },
-    backBtnArrow: { fontSize: 24, fontWeight: '700', color: '#1e293b', marginTop: -2 },
-    headerTitle: { fontSize: 20, fontWeight: '900', color: '#0f172a' },
-    headerSub: { fontSize: 12, fontWeight: '600', color: '#94a3b8', marginTop: 2 },
+    backBtnArrow: { fontSize: 22, fontWeight: '700', color: '#334155' },
+    headerTitle: { fontSize: 22, fontWeight: '900', color: '#0f172a', letterSpacing: -0.5 },
+    headerSub: { fontSize: 10, fontWeight: '800', color: '#94a3b8', marginTop: 4, letterSpacing: 1 },
 
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 60 },
-    centerText: { fontSize: 15, color: '#64748b', fontWeight: '600' },
-    errorText: { fontSize: 15, color: '#ef4444', fontWeight: '700' },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 100 },
+    centerText: { fontSize: 16, color: '#64748b', fontWeight: '700' },
+    errorText: { fontSize: 16, color: '#ef4444', fontWeight: '800' },
 
-    listContent: { padding: CARD_PAD, paddingBottom: 50, gap: 20 },
+    listContent: { padding: 16, paddingBottom: 60, gap: 24 },
 
-    // ── Card ──
+    // ── Premium Card Design ──
     card: {
         backgroundColor: '#ffffff',
-        borderRadius: 24,
+        borderRadius: 32,
         overflow: 'hidden',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1, shadowRadius: 18, elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+        elevation: 8,
     },
 
-    // Hero image area
-    heroWrap: { position: 'relative' },
-    heroImage: { width: '100%', height: 220, backgroundColor: '#e2e8f0' },
-    heroPlaceholder: {
-        width: '100%', height: 220,
-        alignItems: 'center', justifyContent: 'center',
+    // Visual Section (Image + Overlays)
+    visualSection: {
+        position: 'relative',
+        height: 260,
     },
-    placeholderText: { fontSize: 13, fontWeight: '700', marginTop: 8 },
+    mainImage: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#f1f5f9',
+    },
+    imagePlaceholder: {
+        width: '100%',
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    placeholderLabel: {
+        fontSize: 14,
+        fontWeight: '800',
+        marginTop: 12,
+        letterSpacing: 0.5,
+    },
+    imageOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.05)',
+    },
 
-    heroGradient: {
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: 70,
-        backgroundColor: 'rgba(0,0,0,0.15)',
+    // Badges Row - Top
+    badgeRowTop: {
+        position: 'absolute',
+        top: 16,
+        left: 16,
+        right: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    typePill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
+    },
+    typeEmoji: { fontSize: 13, marginRight: 6 },
+    typeText: { fontSize: 12, fontWeight: '900', letterSpacing: -0.2 },
+
+    statusPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 14,
+        shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4,
+    },
+    statusText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+
+    // Badges Row - Bottom
+    badgeRowBottom: {
+        position: 'absolute',
+        bottom: 20,
+        left: 16,
+        right: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+    },
+    priceGlassContainer: {
+        backgroundColor: 'rgba(15, 23, 42, 0.88)',
+        borderRadius: 18,
+        padding: 12,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    },
+    priceTag: { gap: 2 },
+    priceCurrency: {
+        color: '#94a3b8',
+        fontSize: 8,
+        fontWeight: '900',
+        letterSpacing: 0.8,
+    },
+    priceAmount: {
+        color: '#fbbf24',
+        fontSize: 16,
+        fontWeight: '900',
+        letterSpacing: -0.4,
+    },
+    purposeGlass: {
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        borderWidth: 1, borderColor: '#f1f5f9',
+    },
+    purposeText: {
+        fontSize: 11,
+        fontWeight: '900',
+        color: '#1e293b',
+        textTransform: 'uppercase',
     },
 
-    // Photo counter — top-left
-    photoCounter: {
-        position: 'absolute', top: 14, left: 14,
-        backgroundColor: 'rgba(15,23,42,0.8)',
-        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
-        flexDirection: 'row', alignItems: 'center',
+    // Gallery / Indicator
+    galleryDots: {
+        position: 'absolute',
+        bottom: 6,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 5,
     },
-    photoCounterText: { color: '#f8fafc', fontSize: 12, fontWeight: '800' },
+    gDot: {
+        width: 5,
+        height: 5,
+        borderRadius: 2.5,
+        backgroundColor: 'rgba(255,255,255,0.3)',
+    },
+    gDotActive: {
+        width: 16,
+        backgroundColor: '#ffffff',
+    },
 
-    // Land type badge — top-right
-    landTypeBadge: {
-        position: 'absolute', top: 14, right: 14,
-        paddingHorizontal: 12, paddingVertical: 6,
-        borderRadius: 14, borderWidth: 1.5,
+    // Data Section
+    dataSection: {
+        padding: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
-    landTypeBadgeText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+    infoSide: { flex: 1, marginRight: 12 },
+    listingTitle: {
+        fontSize: 18,
+        fontWeight: '900',
+        color: '#0f172a',
+        letterSpacing: -0.4,
+        marginBottom: 8,
+    },
+    ownerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    ownerAvatarMini: {
+        width: 20, height: 20, borderRadius: 10,
+        backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center',
+    },
+    ownerNameText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#64748b',
+    },
+    ownerVerifiedDot: {
+        width: 6, height: 6, borderRadius: 3,
+        backgroundColor: '#10b981',
+    },
 
-    // Purpose tag — bottom-right
-    purposeTag: {
-        position: 'absolute', bottom: 14, right: 14,
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
+    metricsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
-    purposeTagText: { fontSize: 11, fontWeight: '700', color: '#334155' },
-
-    // Price pill — bottom-left above dots
-    pricePill: {
-        position: 'absolute', bottom: 42, left: 14,
-        backgroundColor: 'rgba(15,23,42,0.88)',
-        paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14,
+    miniMetric: {
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 12,
+        alignItems: 'center',
+        minWidth: 60,
     },
-    pricePillText: { color: '#fbbf24', fontSize: 15, fontWeight: '900' },
-
-    // Dots
-    dotRow: {
-        position: 'absolute', bottom: 14, left: 0, right: 0,
-        flexDirection: 'row', justifyContent: 'center', gap: 5,
+    miniMetricVal: {
+        fontSize: 14,
+        fontWeight: '900',
+        color: '#0f172a',
     },
-    dot: {
-        width: 8, height: 8, borderRadius: 4,
-        backgroundColor: 'rgba(255,255,255,0.4)',
+    miniMetricUnit: {
+        fontSize: 8,
+        fontWeight: '900',
+        color: '#64748b',
+        marginTop: 1,
     },
-    dotActive: { width: 22, backgroundColor: '#3b82f6' },
-
-    // Card body
-    cardBody: { padding: 18, paddingTop: 14 },
-    titleRow: {
-        flexDirection: 'row', alignItems: 'flex-start',
-        justifyContent: 'space-between', marginBottom: 14, gap: 10,
+    chevronBox: {
+        width: 32, height: 32, borderRadius: 16,
+        backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: '#f1f5f9',
     },
-    cardTitle: { fontSize: 19, fontWeight: '900', color: '#0f172a' },
-    ownerText: { fontSize: 13, color: '#64748b', fontWeight: '500', marginTop: 3 },
-
-    statusChip: {
-        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
-    },
-    statusChipText: { fontSize: 11, fontWeight: '800' },
-
-    // Stats
-    statsRow: { flexDirection: 'row', gap: 10 },
-    statPill: {
-        flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-        backgroundColor: '#f8fafc', borderRadius: 14,
-        paddingVertical: 10, paddingHorizontal: 12,
-        borderLeftWidth: 4,
-    },
-    statEmoji: { fontSize: 20 },
-    statVal: { fontSize: 16, fontWeight: '900' },
-    statLbl: { fontSize: 10, color: '#94a3b8', fontWeight: '600', marginTop: 1 },
+    chevronIcon: { fontSize: 16, fontWeight: '900', color: '#cbd5e1' }
 });

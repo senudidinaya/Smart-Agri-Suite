@@ -208,9 +208,17 @@ export default function ListingDetailScreen() {
     return (
         <SafeAreaView style={S.container}>
             <View style={S.header}>
-                <Pressable style={S.headerBack} onPress={() => router.back()}><Text style={S.headerBackText}>←</Text></Pressable>
-                <View style={{ flex: 1 }}><Text style={S.headerTitle} numberOfLines={1}>{listing.title}</Text><Text style={S.headerCode}>{listing.verification_code}</Text></View>
-                <View style={[S.headerBadge, { backgroundColor: badge.bg }]}><Text style={[S.headerBadgeText, { color: badge.color }]}>{badge.emoji} {badge.text}</Text></View>
+                <Pressable style={S.headerBack} onPress={() => router.back()}>
+                    <Text style={S.headerBackText}>←</Text>
+                </Pressable>
+                <View style={{ flex: 1 }}>
+                    <Text style={S.headerSup}>PROPERTY SPECIFICATION</Text>
+                    <Text style={S.headerTitle} numberOfLines={1}>{listing.title}</Text>
+                    <Text style={S.headerCode}>REF: {listing.verification_code}</Text>
+                </View>
+                <View style={[S.headerBadge, { backgroundColor: badge.bg + "EE" }]}>
+                    <Text style={[S.headerBadgeText, { color: badge.color }]}>{badge.emoji} {badge.text}</Text>
+                </View>
             </View>
             <ScrollView contentContainerStyle={S.scroll}>
                 {/* STATUS BANNERS */}
@@ -263,28 +271,38 @@ export default function ListingDetailScreen() {
                     </View>
                 )}
 
-                {/* AREA & LISTING */}
+                {/* AREA & LISTING - MODULAR */}
                 <View style={S.card}>
-                    <View style={S.cardHeader}><Text style={{ fontSize: 20 }}>📐</Text><Text style={S.cardTitle}>Area & Listing</Text></View>
+                    <View style={S.cardHeader}>
+                        <View style={S.headerIconBox}><Text style={{ fontSize: 18 }}>📐</Text></View>
+                        <Text style={S.cardTitle}>Geometric Data</Text>
+                    </View>
                     <View style={S.statGrid}>
-                        <StatBox emoji="🎯" label="Purpose" value={listing.listing_purpose} color="#6366f1" />
-                        <StatBox emoji="📏" label="Acres" value={listing.area_acres?.toFixed(2) ?? "—"} color="#3b82f6" />
-                        <StatBox emoji="📐" label="Hectares" value={listing.area_hectares?.toFixed(2) ?? "—"} color="#0ea5e9" />
-                        {listing.expected_price && <StatBox emoji="💰" label="Price" value={`LKR ${listing.expected_price.toLocaleString()}`} color="#f59e0b" />}
+                        <StatBox emoji="📏" label="Acres" value={listing.area_acres?.toFixed(2) ?? "—"} color="#0891b2" />
+                        <StatBox emoji="📐" label="Hectares" value={listing.area_hectares?.toFixed(2) ?? "—"} color="#4f46e5" />
+                        <StatBox emoji="💰" label="Asking Price" value={listing.expected_price ? `LKR ${listing.expected_price.toLocaleString()}` : "Negotiable"} color="#d97706" fullWidth />
                     </View>
                 </View>
 
-                {/* LAND DETAILS */}
+                {/* LAND DETAILS - GRID */}
                 <View style={S.card}>
-                    <View style={S.cardHeader}><Text style={{ fontSize: 20 }}>🌾</Text><Text style={S.cardTitle}>Land Details</Text></View>
-                    <View style={{ gap: 8 }}>
+                    <View style={S.cardHeader}>
+                        <View style={S.headerIconBox}><Text style={{ fontSize: 18 }}>🌾</Text></View>
+                        <Text style={S.cardTitle}>Site Characteristics</Text>
+                    </View>
+                    <View style={S.detailsGrid}>
                         <DetailRow emoji="🌱" label="Current Use" value={listing.current_land_use ?? "—"} />
                         <DetailRow emoji="🪨" label="Soil Type" value={listing.soil_type ?? "—"} />
-                        <DetailRow emoji="💧" label="Water" value={listing.water_availability ?? "—"} />
-                        <DetailRow emoji="🛣️" label="Road Access" value={listing.road_access ? "Yes ✅" : "No ❌"} />
-                        <DetailRow emoji="⚡" label="Electricity" value={listing.electricity ? "Yes ✅" : "No ❌"} />
+                        <DetailRow emoji="💧" label="Water Access" value={listing.water_availability ?? "—"} />
+                        <DetailRow emoji="🛣️" label="Road Access" value={listing.road_access ? "Verified" : "No Access"} />
+                        <DetailRow emoji="⚡" label="Electricity" value={listing.electricity ? "Connected" : "Unavailable"} />
                     </View>
-                    {listing.description && <View style={S.descBox}><Text style={S.descLabel}>📝 Description</Text><Text style={S.descText}>{listing.description}</Text></View>}
+                    {listing.description && (
+                        <View style={S.descBox}>
+                            <Text style={S.descLabel}>📝 FIELD NOTES</Text>
+                            <Text style={S.descText}>{listing.description}</Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* ANALYTICS TOGGLE */}
@@ -300,17 +318,49 @@ export default function ListingDetailScreen() {
                 {analyticsOpen && analysisLoading && <View style={{ padding: 30, alignItems: 'center' }}><ActivityIndicator size="large" color="#3b82f6" /><Text style={{ color: '#64748b', marginTop: 10 }}>Running full land analysis...</Text></View>}
                 {analyticsOpen && analysis && <FullAnalyticsPanel data={analysis} />}
 
-                {/* OWNER */}
-                <View style={[S.card, { borderLeftWidth: 5, borderLeftColor: '#3b82f6' }]}>
-                    <View style={S.cardHeader}><Text style={{ fontSize: 20 }}>👤</Text><Text style={S.cardTitle}>Owner / Contact</Text></View>
-                    <View style={S.ownerRow}>
-                        <View style={S.ownerAvatar}><Text style={{ fontSize: 28 }}>👤</Text></View>
-                        <View style={{ flex: 1 }}><Text style={S.ownerName}>{listing.owner_name}</Text><Text style={S.ownerPhone}>{listing.owner_phone}</Text>{listing.owner_email && <Text style={S.ownerEmail}>{listing.owner_email}</Text>}</View>
+                {/* OWNER - BUSINESS CARD STYLE */}
+                <View style={S.ownerCard}>
+                    <View style={S.verifiedBadge}>
+                        <Text style={S.verifiedBadgeText}>VERIFIED OWNER</Text>
                     </View>
-                    {listing.owner_address && <View style={S.addressRow}><Text>📍</Text><Text style={S.addressText}>{listing.owner_address}</Text></View>}
-                    <View style={S.contactBtns}>
-                        <Pressable style={[S.contactBtn, { backgroundColor: '#16a34a' }]} onPress={() => Linking.openURL(`tel:${listing.owner_phone}`)}><Text style={S.contactBtnText}>📞 Call</Text></Pressable>
-                        {listing.owner_email && <Pressable style={[S.contactBtn, { backgroundColor: '#3b82f6' }]} onPress={() => Linking.openURL(`mailto:${listing.owner_email}`)}><Text style={S.contactBtnText}>✉️ Email</Text></Pressable>}
+                    <View style={S.ownerContent}>
+                        <View style={S.ownerAvatarBox}>
+                            <Text style={{ fontSize: 32 }}>👤</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={S.ownerName}>{listing.owner_name}</Text>
+                            <Text style={S.ownerMeta}>Property Proprietor</Text>
+                        </View>
+                    </View>
+
+                    <View style={S.contactGrid}>
+                        <View style={S.contactItem}>
+                            <Text style={S.contactIcon}>📞</Text>
+                            <Text style={S.contactVal}>{listing.owner_phone}</Text>
+                        </View>
+                        {listing.owner_email && (
+                            <View style={S.contactItem}>
+                                <Text style={S.contactIcon}>✉️</Text>
+                                <Text style={S.contactVal}>{listing.owner_email}</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {listing.owner_address && (
+                        <View style={S.ownerAddressPlate}>
+                            <Text style={S.addressVal}><Text style={{ fontWeight: '900', color: '#475569' }}>ADDRESS:</Text> {listing.owner_address}</Text>
+                        </View>
+                    )}
+
+                    <View style={S.actionRow}>
+                        <Pressable style={S.btnPrimary} onPress={() => Linking.openURL(`tel:${listing.owner_phone}`)}>
+                            <Text style={S.btnText}>Direct Call</Text>
+                        </Pressable>
+                        {listing.owner_email && (
+                            <Pressable style={S.btnSecondary} onPress={() => Linking.openURL(`mailto:${listing.owner_email}`)}>
+                                <Text style={S.btnSecondaryText}>Contact via Email</Text>
+                            </Pressable>
+                        )}
                     </View>
                 </View>
             </ScrollView>
@@ -407,8 +457,19 @@ function FullAnalyticsPanel({ data }: { data: AnalysisResp }) {
 }
 
 // ═══════ SUB-COMPONENTS (exact analytics page replicas) ═══════
-function StatBox({ emoji, label, value, color }: { emoji: string; label: string; value: string; color: string }) {
-    return <View style={[{ backgroundColor: "#f8fafc", borderRadius: 14, padding: 14, borderLeftWidth: 4, borderLeftColor: color, width: '48%', marginBottom: 10 }]}><Text style={{ fontSize: 18 }}>{emoji}</Text><Text style={{ fontSize: 15, fontWeight: "900", color, marginTop: 4 }}>{value}</Text><Text style={{ fontSize: 11, color: "#94a3b8", fontWeight: "600", marginTop: 2 }}>{label}</Text></View>;
+function StatBox({ emoji, label, value, color, fullWidth }: { emoji: string; label: string; value: string; color: string; fullWidth?: boolean }) {
+    return (
+        <View style={[S.statBoxPremium, { borderTopColor: color, width: fullWidth ? '100%' : '48%' }]}>
+            <View style={S.statHeader}>
+                <Text style={S.statLabelPremium}>{label}</Text>
+                <View style={[S.miniCircle, { backgroundColor: color }]} />
+            </View>
+            <View style={S.statBody}>
+                <Text style={S.statEmojiPremium}>{emoji}</Text>
+                <Text style={[S.statValuePremium, { color: '#0f172a' }]}>{value}</Text>
+            </View>
+        </View>
+    );
 }
 function DetailRow({ emoji, label, value }: { emoji: string; label: string; value: string }) {
     return <View style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#f8fafc", borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 }}><Text style={{ fontSize: 16 }}>{emoji}</Text><View style={{ flex: 1 }}><Text style={{ fontSize: 11, color: "#94a3b8", fontWeight: "600" }}>{label}</Text><Text style={{ fontSize: 14, color: "#1e293b", fontWeight: "700", marginTop: 1 }}>{value}</Text></View></View>;
@@ -478,103 +539,219 @@ function PairRow({ pair, isWarning }: { pair: Pair; isWarning?: boolean }) {
 
 // ═══════ STYLES ═══════
 const S = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#f0f4f8" },
+    container: { flex: 1, backgroundColor: "#f8fafc" },
     centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16 },
-    loadingText: { color: "#64748b", fontSize: 14 },
-    errorText: { color: "#ef4444", fontSize: 15, textAlign: "center", paddingHorizontal: 24, fontWeight: "600" },
-    goBackBtn: { backgroundColor: "#3b82f6", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
-    goBackBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-    header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e2e8f0", gap: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
-    headerBack: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
-    headerBackText: { fontSize: 22, color: "#3b82f6", fontWeight: '700' },
-    headerTitle: { fontSize: 16, fontWeight: "900", color: "#0f172a" },
-    headerCode: { fontSize: 11, color: "#94a3b8", marginTop: 1, fontWeight: '600' },
-    headerBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
-    headerBadgeText: { fontSize: 11, fontWeight: "800" },
-    scroll: { padding: 16, paddingBottom: 50, gap: 16 },
-    mapBox: { height: 200, borderRadius: 22, overflow: "hidden", borderWidth: 1, borderColor: "#cbd5e1" },
+    loadingText: { color: "#94a3b8", fontSize: 14, fontWeight: '800', letterSpacing: 1 },
+    errorText: { color: "#ef4444", fontSize: 16, textAlign: "center", paddingHorizontal: 32, fontWeight: "900" },
+    goBackBtn: { backgroundColor: "#0f172a", paddingHorizontal: 24, paddingVertical: 14, borderRadius: 20 },
+    goBackBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+
+    // ── Header ──
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 20,
+        paddingBottom: 24,
+        backgroundColor: "#fff",
+        borderBottomWidth: 1,
+        borderColor: "#f1f5f9",
+        shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2,
+        gap: 16,
+    },
+    headerBack: {
+        width: 44, height: 44, borderRadius: 15,
+        backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center',
+    },
+    headerBackText: { fontSize: 24, color: "#0f172a", fontWeight: '700' },
+    headerTitle: { fontSize: 22, fontWeight: "900", color: "#0f172a", letterSpacing: -0.6 },
+    headerSup: { fontSize: 9, color: "#94a3b8", fontWeight: '900', letterSpacing: 1.5, marginBottom: 2 },
+    headerCode: { fontSize: 11, color: "#94a3b8", marginTop: 4, fontWeight: '700' },
+    headerBadge: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 14 },
+    headerBadgeText: { fontSize: 12, fontWeight: "900", letterSpacing: 0.2 },
+
+    scroll: { padding: 20, paddingBottom: 60, gap: 24 },
+
+    mapBox: {
+        height: 240,
+        borderRadius: 32,
+        overflow: "hidden",
+        backgroundColor: '#fff',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1, shadowRadius: 20, elevation: 10,
+    },
     map: { flex: 1 },
-    card: { backgroundColor: "#fff", borderRadius: 22, padding: 18, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
-    cardHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
-    cardTitle: { fontSize: 16, fontWeight: "900", color: "#0f172a", flex: 1 },
-    cardTitleBig: { fontSize: 17, fontWeight: "900", color: "#0f172a", marginBottom: 16 },
-    cardDesc: { fontSize: 13, color: "#64748b", marginBottom: 14, lineHeight: 18 },
-    countPill: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-    countPillText: { fontSize: 12, fontWeight: '800', color: '#64748b' },
-    slideDots: { position: 'absolute', bottom: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 },
-    slideDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
-    slideDotActive: { width: 22, backgroundColor: '#3b82f6' },
-    thumb: { width: 60, height: 60, borderRadius: 10, backgroundColor: '#e2e8f0' },
-    thumbActive: { borderWidth: 2, borderColor: '#3b82f6' },
-    docRow: { flexDirection: "row", alignItems: "center", backgroundColor: "#f8fafc", padding: 14, borderRadius: 14, marginBottom: 8, borderWidth: 1, borderColor: "#e2e8f0", gap: 12 },
-    docIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: "#eff6ff", alignItems: "center", justifyContent: "center" },
-    docName: { fontSize: 14, color: "#0f172a", fontWeight: "700" },
-    docHint: { fontSize: 11, color: "#94a3b8", fontWeight: "500", marginTop: 2 },
-    statGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-    descBox: { backgroundColor: "#f8fafc", borderRadius: 12, padding: 14, marginTop: 12, borderLeftWidth: 4, borderLeftColor: "#e2e8f0" },
-    descLabel: { fontSize: 12, fontWeight: "700", color: "#64748b", marginBottom: 6 },
-    descText: { fontSize: 13, color: "#475569", lineHeight: 20, marginTop: 8 },
-    analyticsToggle: { backgroundColor: '#1e293b', borderRadius: 22, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
-    analyticsToggleInner: { flexDirection: 'row', alignItems: 'center', padding: 18, gap: 14 },
-    atTitle: { fontSize: 17, fontWeight: '900', color: '#f8fafc' },
-    atSub: { fontSize: 11, color: '#94a3b8', fontWeight: '500', marginTop: 2 },
-    toggleArrow: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#334155', alignItems: 'center', justifyContent: 'center' },
+
+    // ── Premium Cards ──
+    card: {
+        backgroundColor: "#fff",
+        borderRadius: 32,
+        padding: 24,
+        shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 5,
+    },
+    cardHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
+    headerIconBox: {
+        width: 40, height: 40, borderRadius: 12,
+        backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: '#f1f5f9',
+    },
+    cardTitle: { fontSize: 18, fontWeight: "900", color: "#0f172a", letterSpacing: -0.4 },
+    cardTitleBig: { fontSize: 20, fontWeight: "900", color: "#0f172a", marginBottom: 24 },
+    cardDesc: { fontSize: 14, color: "#64748b", fontWeight: '500', lineHeight: 22 },
+
+    countPill: { backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+    countPillText: { fontSize: 12, fontWeight: '900', color: '#475569' },
+
+    slideDots: { position: 'absolute', bottom: 16, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+    slideDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.4)' },
+    slideDotActive: { width: 22, backgroundColor: '#ffffff' },
+
+    thumb: { width: 64, height: 64, borderRadius: 16, backgroundColor: '#f1f5f9', marginRight: 4 },
+    thumbActive: { borderWidth: 3, borderColor: '#0f172a' },
+
+    docRow: {
+        flexDirection: "row", alignItems: "center",
+        backgroundColor: "#f8fafc", padding: 18,
+        borderRadius: 20, marginBottom: 12,
+        borderWidth: 1, borderColor: '#f1f5f9', gap: 16,
+    },
+    docIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", elevation: 1 },
+    docName: { fontSize: 14, color: "#0f172a", fontWeight: "900" },
+    docHint: { fontSize: 11, color: "#94a3b8", fontWeight: "700", marginTop: 2 },
+
+    // Stat Box Premium
+    statGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 12 },
+    statBoxPremium: {
+        backgroundColor: '#f8fafc',
+        borderRadius: 20,
+        padding: 18,
+        borderTopWidth: 5,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+    },
+    statHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    statLabelPremium: { fontSize: 11, fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8 },
+    miniCircle: { width: 8, height: 8, borderRadius: 4 },
+    statBody: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    statEmojiPremium: { fontSize: 24 },
+    statValuePremium: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+
+    // Details Grid
+    detailsGrid: { gap: 10 },
+    descBox: { backgroundColor: "#f8fafc", borderRadius: 20, padding: 18, marginTop: 16, borderLeftWidth: 4, borderLeftColor: "#cbd5e1" },
+    descLabel: { fontSize: 10, fontWeight: "900", color: "#94a3b8", letterSpacing: 1, marginBottom: 10 },
+    descText: { fontSize: 14, color: "#334155", lineHeight: 22, fontStyle: 'italic' },
+
+    // ── Analytics Section ──
+    analyticsToggle: {
+        backgroundColor: '#0f172a',
+        borderRadius: 32,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10,
+    },
+    analyticsToggleInner: { flexDirection: 'row', alignItems: 'center', padding: 24, gap: 18 },
+    atTitle: { fontSize: 18, fontWeight: '900', color: '#ffffff' },
+    atSub: { fontSize: 11, color: '#94a3b8', fontWeight: '700', marginTop: 4, lineHeight: 15 },
+    toggleArrow: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
     toggleArrowOpen: { backgroundColor: '#3b82f6' },
-    toggleArrowText: { color: '#fff', fontSize: 14, fontWeight: '800' },
-    predChip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 14, marginBottom: 12, alignSelf: 'flex-start' },
-    predChipText: { fontSize: 16, fontWeight: '900' },
-    confBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-    confBadgeText: { fontSize: 11, fontWeight: '700', color: '#64748b' },
-    confRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-    confValue: { fontSize: 22, fontWeight: '900', color: '#0f172a', minWidth: 42 },
-    confBarBg: { flex: 1, height: 12, backgroundColor: '#e5e7eb', borderRadius: 999, overflow: 'hidden' },
-    confBarFill: { height: '100%', borderRadius: 999 },
-    smallGray: { fontSize: 12, color: '#64748b', marginBottom: 4, lineHeight: 18 },
-    indexHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 12 },
-    metricLabel: { fontSize: 14, fontWeight: '800', color: '#1e293b', flex: 1 },
-    metricValue: { fontSize: 18, fontWeight: '900', color: '#0f172a', minWidth: 45, textAlign: 'right' },
-    barBg: { height: 12, borderRadius: 6, flexDirection: 'row', overflow: 'hidden', marginBottom: 4 },
-    barFill: { height: '100%' },
-    barBackground: { height: 12, backgroundColor: '#e5e7eb', borderRadius: 999, overflow: 'hidden' },
-    statusTitle: { fontSize: 14, fontWeight: '900' },
-    statusChip: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, marginTop: 8 },
-    statusChipText: { fontSize: 12, fontWeight: '800', lineHeight: 17 },
-    explainText: { fontSize: 12, fontWeight: '700', color: '#475569', marginTop: 6, lineHeight: 17 },
-    tipText: { fontSize: 12, fontWeight: '800', color: '#a16207', marginTop: 6, lineHeight: 17 },
-    hintText: { fontSize: 11, fontWeight: '700', color: '#64748b', marginTop: 4 },
-    divider: { height: 1, backgroundColor: '#e5e7eb', marginVertical: 14 },
-    spiceCard: { backgroundColor: "#f8f9fa", borderRadius: 18, padding: 14, marginBottom: 12, borderLeftWidth: 5 },
-    labelPill: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999 },
-    labelPillText: { fontSize: 11, fontWeight: '900' },
-    toggleBtn: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+    toggleArrowText: { color: '#fff', fontSize: 14, fontWeight: '900' },
+
+    // Owner Card Business Style
+    ownerCard: {
+        backgroundColor: '#fff',
+        borderRadius: 32,
+        padding: 28,
+        shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 5,
+        borderWidth: 1, borderColor: '#f1f5f9',
+    },
+    verifiedBadge: {
+        position: 'absolute', top: -12, right: 28,
+        backgroundColor: '#16a34a', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8,
+    },
+    verifiedBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+    ownerContent: { flexDirection: 'row', alignItems: 'center', gap: 20, marginBottom: 28 },
+    ownerAvatarBox: {
+        width: 72, height: 72, borderRadius: 24,
+        backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: '#f1f5f9',
+    },
+    ownerName: { fontSize: 20, fontWeight: '900', color: '#0f172a', letterSpacing: -0.5 },
+    ownerMeta: { fontSize: 12, color: '#94a3b8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 },
+
+    contactGrid: { gap: 12, marginBottom: 24 },
+    contactItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    contactIcon: { fontSize: 16 },
+    contactVal: { fontSize: 15, fontWeight: '900', color: '#1e293b' },
+
+    ownerAddressPlate: {
+        backgroundColor: '#f8fafc', padding: 16, borderRadius: 16,
+        borderWidth: 1, borderColor: '#f1f5f9', marginBottom: 24,
+    },
+    addressVal: { fontSize: 13, color: '#475569', lineHeight: 18, fontWeight: '700' },
+
+    actionRow: { flexDirection: 'row', gap: 12 },
+    btnPrimary: { flex: 1, backgroundColor: '#0f172a', paddingVertical: 16, borderRadius: 18, alignItems: 'center' },
+    btnText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+    btnSecondary: { flex: 1.2, backgroundColor: '#f1f5f9', paddingVertical: 16, borderRadius: 18, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+    btnSecondaryText: { color: '#0f172a', fontWeight: '900', fontSize: 14 },
+
+    predChip: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 16, marginBottom: 16, alignSelf: 'flex-start' },
+    predChipText: { fontSize: 18, fontWeight: '900', letterSpacing: -0.2 },
+    confBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+    confBadgeText: { fontSize: 11, fontWeight: '900', color: '#475569' },
+    confRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+    confValue: { fontSize: 28, fontWeight: '900', color: '#0f172a' },
+    confBarBg: { flex: 1, height: 14, backgroundColor: '#f1f5f9', borderRadius: 7, overflow: 'hidden' },
+    confBarFill: { height: '100%' },
+    smallGray: { fontSize: 12, color: '#94a3b8', fontWeight: '700', marginBottom: 6 },
+
+    indexHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    metricLabel: { fontSize: 15, fontWeight: '900', color: '#1e293b' },
+    metricValue: { fontSize: 20, fontWeight: '900' },
+    barBg: { height: 12, borderRadius: 6, flexDirection: 'row', overflow: 'hidden', backgroundColor: '#f1f5f9' },
+    barFill: { height: '100%', borderRadius: 6 },
+    statusTitle: { fontSize: 15, fontWeight: '900', marginTop: 12 },
+    explainText: { fontSize: 13, color: '#475569', fontWeight: '600', lineHeight: 20, marginTop: 8 },
+    tipText: { fontSize: 13, color: '#a16207', fontWeight: '800', backgroundColor: '#fefce8', padding: 12, borderRadius: 12, marginTop: 10, overflow: 'hidden' },
+    divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 20 },
+
+    spiceCard: { backgroundColor: "#fff", borderRadius: 24, padding: 20, marginBottom: 16, borderLeftWidth: 6, elevation: 2 },
+    labelPill: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 12 },
+    labelPillText: { fontSize: 12, fontWeight: '900' },
+    toggleBtn: { backgroundColor: '#f8fafc', paddingVertical: 12, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
     toggleBtnText: { fontWeight: '900', color: '#0f172a', fontSize: 13 },
-    recBox: { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', borderRadius: 14, padding: 12, marginTop: 12 },
-    recTitle: { fontSize: 13, fontWeight: '900', color: '#14532d' },
-    recHeadline: { fontSize: 13, fontWeight: '900', color: '#14532d', marginTop: 6, lineHeight: 18 },
-    recStep: { fontSize: 12, fontWeight: '800', color: '#14532d', lineHeight: 17, marginTop: 6 },
-    pairSub: { fontSize: 13, fontWeight: '900', color: '#0f172a', marginBottom: 8 },
-    pairRow: { paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#f0fdf4', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#16a34a', marginBottom: 8 },
-    pairRowWarn: { backgroundColor: '#fef3c7', borderLeftColor: '#ca8a04' },
-    pairTitle: { fontSize: 13, fontWeight: '900', color: '#0f172a' },
-    pairWhy: { fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 4, lineHeight: 16 },
-    emptyText: { fontSize: 13, fontWeight: '700', color: '#94a3b8', textAlign: 'center', paddingVertical: 16, fontStyle: 'italic' },
-    summaryHeadline: { fontSize: 16, fontWeight: '900', color: '#065f46', marginTop: 10, marginBottom: 10, lineHeight: 22 },
-    bulletPoint: { fontSize: 13, fontWeight: '700', color: '#374151', lineHeight: 19, marginBottom: 6 },
-    summaryTip: { fontSize: 12, fontWeight: '700', color: '#16a34a', marginTop: 12, lineHeight: 17 },
-    ownerRow: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 12 },
-    ownerAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#eff6ff", alignItems: "center", justifyContent: "center" },
-    ownerName: { fontSize: 17, fontWeight: "800", color: "#0f172a" },
-    ownerPhone: { fontSize: 14, color: "#3b82f6", fontWeight: "600", marginTop: 2 },
-    ownerEmail: { fontSize: 12, color: "#64748b", fontWeight: "500", marginTop: 1 },
-    addressRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#f8fafc", padding: 12, borderRadius: 12, marginBottom: 12 },
-    addressText: { fontSize: 13, color: "#475569", flex: 1 },
-    contactBtns: { flexDirection: "row", gap: 10 },
-    contactBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: "center" },
-    contactBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
-    modalBg: { flex: 1, backgroundColor: "rgba(15,23,42,0.95)", justifyContent: "center", alignItems: "center" },
+    recBox: { backgroundColor: '#f0fdf4', borderRadius: 20, padding: 18, marginTop: 16, borderWidth: 1, borderColor: '#dcfce7' },
+    recTitle: { fontSize: 14, fontWeight: '900', color: '#166534', textTransform: 'uppercase', letterSpacing: 0.5 },
+    recHeadline: { fontSize: 14, fontWeight: '800', color: '#166534', marginTop: 10, lineHeight: 22 },
+    recStep: { fontSize: 13, fontWeight: '700', color: '#166534', marginTop: 8 },
+
+    pairRow: { padding: 16, backgroundColor: '#f0fdf4', borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#16a34a', marginBottom: 12 },
+    pairRowWarn: { backgroundColor: '#fff7ed', borderLeftColor: '#f97316' },
+    pairTitle: { fontSize: 15, fontWeight: '900', color: '#0f172a' },
+    pairWhy: { fontSize: 13, color: '#475569', fontWeight: '600', marginTop: 6 },
+
+    summaryHeadline: { fontSize: 18, fontWeight: '900', color: '#065f46', marginTop: 16, lineHeight: 26 },
+    bulletPoint: { fontSize: 14, fontWeight: '900', color: '#374151', paddingLeft: 8, marginBottom: 10 },
+    summaryTip: { fontSize: 14, fontWeight: '800', color: '#166534', marginTop: 20, backgroundColor: '#f0fdf4', padding: 16, borderRadius: 16, overflow: 'hidden' },
+
+    emptyText: {
+        fontSize: 14, fontWeight: '700', color: '#94a3b8',
+        textAlign: 'center', paddingVertical: 24, fontStyle: 'italic'
+    },
+    pairSub: {
+        fontSize: 14, fontWeight: '900', color: '#0f172a',
+        marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5
+    },
+    statusChip: {
+        paddingVertical: 10, paddingHorizontal: 16,
+        borderRadius: 14, marginTop: 10, alignSelf: 'flex-start'
+    },
+    statusChipText: {
+        fontSize: 13, fontWeight: '900', lineHeight: 18
+    },
+    modalBg: { flex: 1, backgroundColor: "rgba(15,23,42,0.98)", justifyContent: "center" },
     modalImg: { width: "100%", height: "80%" },
-    modalClose: { position: "absolute", top: 50, right: 20, width: 44, height: 44, backgroundColor: "#fff", borderRadius: 22, alignItems: "center", justifyContent: "center" },
-    modalCloseText: { color: "#1e293b", fontSize: 22, fontWeight: "700" },
-    infoBubble: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#e0e7ff", alignItems: "center", justifyContent: "center" },
-    infoBubbleText: { fontSize: 12 },
+    modalClose: { position: "absolute", top: 60, right: 30, width: 50, height: 50, backgroundColor: "#fff", borderRadius: 15, alignItems: "center", justifyContent: "center" },
+    modalCloseText: { color: "#0f172a", fontSize: 24, fontWeight: "900" },
+    infoBubble: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    infoBubbleText: { fontSize: 16, color: '#94a3b8' },
+    barBackground: { height: 16, backgroundColor: '#f1f5f9', borderRadius: 8, overflow: 'hidden' },
 });

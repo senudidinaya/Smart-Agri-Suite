@@ -26,8 +26,12 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
         "mod.buyerIntent.sub": "Predict market demand and match buyers with agricultural opportunities",
         "mod.cropRec.title": "Crop Recommendation",
         "mod.cropRec.sub": "AI-based insights for maximum yield and optimal resource usage",
-        "mod.supplyChain.title": "Supply Chain & Market",
-        "mod.supplyChain.sub": "Forecast pricing and manage logistics for agricultural outputs",
+        "mod.supplyChain.title": "Smart Marketplace & Pricing Support",
+        "mod.supplyChain.sub": "Maximize profits with AI-driven pricing and smart logistics",
+        "mod.stockPrediction.title": "Smart Predictive Stock & Alerts",
+        "mod.stockPrediction.sub": "Inventory optimization and automated shortage notifications",
+        "mod.cultivatorIntent.title": "Cultivator Intention Analyzer",
+        "mod.cultivatorIntent.sub": "Analyze farmer planting intentions and expected land utilization",
 
         // Common
         "common.loading": "Loading...",
@@ -274,8 +278,12 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
         "mod.buyerIntent.sub": "වෙළඳපොළ ඉල්ලුම පුරෝකථනය කර ගැනුම්කරුවන් කෘෂිකාර්මික අවස්ථා සමඟ ගලපන්න",
         "mod.cropRec.title": "භෝග නිර්දේශය",
         "mod.cropRec.sub": "උපරිම අස්වැන්න සහ සම්පත් භාවිතය සඳහා AI මගින් ලබා දෙන උපදෙස්",
-        "mod.supplyChain.title": "සැපයුම් දාමය සහ වෙළඳපොළ",
-        "mod.supplyChain.sub": "කෘෂිකාර්මික නිෂ්පාදන සඳහා මිල පුරෝකථනය කර ප්‍රවාහනය කළමනාකරණය කරන්න",
+        "mod.supplyChain.title": "ස්මාර්ට් වෙළඳපොළ සහ මිල සහාය",
+        "mod.supplyChain.sub": "AI පදනම් වූ මිල ගණන් සහ ස්මාර්ට් ලොජිස්ටික්ස් සමඟ ලාභය උපරිම කරන්න",
+        "mod.stockPrediction.title": "ස්මාර්ට් පුරෝකථන තොග සහ ඇඟවීම්",
+        "mod.stockPrediction.sub": "තොග ප්‍රශස්තකරණය සහ ස්වයංක්‍රීය හිඟවීම් දැනුම්දීම්",
+        "mod.cultivatorIntent.title": "වගාකරුවන්ගේ අභිප්‍රාය විශ්ලේෂකය",
+        "mod.cultivatorIntent.sub": "ගොවීන්ගේ වගා අභිප්‍රායන් සහ අපේක්ෂිත ඉඩම් භාවිතය විශ්ලේෂණය කරන්න",
 
         // Common
         "common.loading": "පූරණය වෙමින්...",

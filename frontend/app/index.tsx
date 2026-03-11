@@ -16,47 +16,37 @@ const COMPONENTS = [
         route: "/overview",
         active: true,
         colors: ["#0ba5e9", "#0284c7"],
-        image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=600&auto=format&fit=crop",
-    },
-    {
-        id: "buyer_intent",
-        title: "Buyer Intent Analysis",
-        subtitle: "Predict market demand and match buyers with agricultural opportunities",
-        icon: "🎯",
-        route: null,
-        active: false,
-        colors: ["#8b5cf6", "#7c3aed"],
-        image: "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop",
-    },
-    {
-        id: "crop_rec",
-        title: "Crop Recommendation",
-        subtitle: "AI-based insights for maximum yield and optimal resource usage",
-        icon: "🌱",
-        route: null,
-        active: false,
-        colors: ["#10b981", "#059669"],
-        image: "https://images.unsplash.com/photo-1592982537447-6f81fcbc7bc2?q=80&w=600&auto=format&fit=crop",
+        image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1080&auto=format&fit=crop",
     },
     {
         id: "supply_chain",
-        title: "Smart Pricing & Logistics",
-        subtitle: "Forecast crop prices, optimize transport routes & analyze market demand",
+        title: "Smart Marketplace & Pricing Support",
+        subtitle: "Maximize profits with AI-driven pricing and smart logistics",
         icon: "📈",
         route: "/(tabs)/smartindex",
         active: true,
         colors: ["#f59e0b", "#d97706"],
-        image: "https://images.unsplash.com/photo-1586528116311-ad8ed7c80a30?q=80&w=600&auto=format&fit=crop",
+        image: require("../assets/images/marketplace_premium.png"),
     },
     {
         id: "stock_prediction",
-        title: "Stock Prediction",
-        subtitle: "Predict demand, manage inventory and get shortage alerts for your spices",
+        title: "Smart Predictive Stock & Alerts",
+        subtitle: "Inventory optimization and automated shortage notifications",
         icon: "📦",
         route: "/(stock)/farmer-dashboard",
         active: true,
         colors: ["#8b5cf6", "#6d28d9"],
-        image: "https://images.unsplash.com/photo-1586528116493-a029325540fa?q=80&w=600&auto=format&fit=crop",
+        image: require("../assets/images/spice_stock_premium.png"),
+    },
+    {
+        id: "cultivator_intent",
+        title: "Cultivator Intention Analyzer",
+        subtitle: "Analyze farmer planting intentions and expected land utilization",
+        icon: "🧠",
+        route: null,
+        active: false,
+        colors: ["#ec4899", "#db2777"],
+        image: require("../assets/images/cultivator_intent_premium.png"),
     },
 ];
 
@@ -127,6 +117,8 @@ function getCardTitle(comp: typeof COMPONENTS[0], langConfig: any): string {
         buyer_intent: 'mod.buyerIntent.title',
         crop_rec: 'mod.cropRec.title',
         supply_chain: 'mod.supplyChain.title',
+        stock_prediction: 'mod.stockPrediction.title',
+        cultivator_intent: 'mod.cultivatorIntent.title',
     };
     const key = keyMap[comp.id];
     return key && langConfig[key] ? langConfig[key] : comp.title;
@@ -139,6 +131,8 @@ function getCardSubtitle(comp: typeof COMPONENTS[0], langConfig: any): string {
         buyer_intent: 'mod.buyerIntent.sub',
         crop_rec: 'mod.cropRec.sub',
         supply_chain: 'mod.supplyChain.sub',
+        stock_prediction: 'mod.stockPrediction.sub',
+        cultivator_intent: 'mod.cultivatorIntent.sub',
     };
     const key = keyMap[comp.id];
     return key && langConfig[key] ? langConfig[key] : comp.subtitle;
@@ -317,7 +311,7 @@ export default function AppHome() {
                                 >
                                     <View style={StyleSheet.absoluteFillObject}>
                                         <Image
-                                            source={{ uri: comp.image }}
+                                            source={typeof comp.image === 'string' ? { uri: comp.image } : comp.image}
                                             style={{
                                                 width: '100%',
                                                 height: '100%',

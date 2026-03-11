@@ -64,7 +64,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 function RootLayoutNav() {
   const segments = useSegments();
-  const showLanguageToggle = segments[0] !== "(main)";
+  const showLanguageToggle = segments.length === 0;
 
   return (
     <AuthGate>

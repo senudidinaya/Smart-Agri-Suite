@@ -600,10 +600,15 @@ export default function MapScreen() {
   }, []);
 
   const cancelDrawing = useCallback(() => {
-    setDrawMode(false);
+    // Staggered update for iOS stability: clear coordinates first
     setPolygonPoints([]);
     setPointHistory([]);
     setPolygonError(null);
+
+    // Use a small timeout to allow native map to clean up overlays before switching modes
+    setTimeout(() => {
+      setDrawMode(false);
+    }, 0);
   }, []);
 
   const analyzePolygon = async () => {
@@ -763,18 +768,32 @@ export default function MapScreen() {
         })}
 
         {/* ALWAYS show Polyline for all points to securely draw the boundaries (chain) */}
-        {polygonPoints.length >= 2 && (
+        {/* Defensive Polyline - only render if we have valid coordinates array with length >= 2 */}
+        {drawMode && polygonPoints && polygonPoints.length >= 2 && (
           <Polyline
-            coordinates={drawMode ? polygonPoints : [...polygonPoints, polygonPoints[0]]}
+            coordinates={polygonPoints}
             strokeColor={polygonColor}
-            strokeWidth={drawMode ? 2 : 3}
-            lineDashPattern={drawMode ? [8, 4] : undefined}
+            strokeWidth={2}
+            lineDashPattern={[8, 4]}
             zIndex={39}
+            tappable={false} // Prevent iOS tap-bleeding crashes
+          />
+        )}
+
+        {/* Closed Polygon Outline (when not drawing) */}
+        {!drawMode && polygonPoints && polygonPoints.length >= 3 && (
+          <Polyline
+            coordinates={[...polygonPoints, polygonPoints[0]]}
+            strokeColor={polygonColor}
+            strokeWidth={3}
+            zIndex={39}
+            tappable={false} // Prevent iOS tap-bleeding crashes
           />
         )}
 
         {/* Real-time polygon preview fill (>= 3 points) */}
-        {polygonPoints.length >= 3 && (
+        {/* Real-time polygon preview fill (>= 3 points) - Added ultra-defensive check for iOS */}
+        {polygonPoints && polygonPoints.length >= 3 && (
           <Polygon
             coordinates={polygonPoints}
             strokeColor="transparent"
@@ -787,17 +806,19 @@ export default function MapScreen() {
             }
             strokeWidth={0}
             zIndex={38}
+            tappable={false} // Prevent iOS tap-bleeding crashes
           />
         )}
 
         {/* Markers — ALWAYS MUST BE LAST to render on top of polylines/polygons */}
-        {polygonPoints.map((pt, i) => (
+        {polygonPoints && polygonPoints.map((pt, i) => (
           <Marker
             key={`marker-${i}-${pt.latitude}-${pt.longitude}`}
             coordinate={pt}
             anchor={{ x: 0.5, y: 0.5 }}
             zIndex={41}
-            tracksViewChanges={true}
+            // Optimization for iOS: disable tracksViewChanges to prevent native crashes on unmount
+            tracksViewChanges={Platform.OS === 'android'}
           >
             <View style={{
               width: 26, height: 26, borderRadius: 13,
