@@ -49,16 +49,20 @@ async def generate_token(
     mapped_role = RtcTokenRole.PUBLISHER if role == "publisher" else RtcTokenRole.SUBSCRIBER
     expires_in = 3600
 
-    token = generate_agora_token(
-        channel_name=body.channelName,
-        uid=body.uid,
-        role=mapped_role,
-        expire_seconds=expires_in,
-    )
+    try:
+        token = generate_agora_token(
+            channel_name=body.channelName,
+            uid=body.uid,
+            role=mapped_role,
+            expire_seconds=expires_in,
+        )
+        app_id = get_agora_app_id()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
     return AgoraTokenResponse(
         token=token,
-        appId=get_agora_app_id(),
+        appId=app_id,
         uid=body.uid,
         channelName=body.channelName,
         expiresIn=expires_in,

@@ -36,6 +36,7 @@ from marketplace import schemas as mp_schemas
 from marketplace import crud as mp_crud
 from cultivator.api.v1.routes import router as cultivator_router
 from agora_service import router as agora_router
+from cultivator.services.agora import validate_agora_credentials_at_startup
 
 # --- Cultivator database imports ---
 from cultivator.core.database import connect_db as cultivator_connect_db, close_db as cultivator_close_db
@@ -78,6 +79,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         print(f"⚠️ Cultivator MongoDB initialization failed: {e}")
         print("   Cultivator auth endpoints will not work until MongoDB is available")
+
+    # Validate Agora credentials and token generation at startup.
+    try:
+        validate_agora_credentials_at_startup()
+        print("✅ Agora credentials/token generation validated")
+    except Exception as e:
+        print(f"❌ Agora startup validation failed: {e}")
+        raise RuntimeError(f"Failed to start application: Agora credentials invalid - {e}")
 
     # Pre-warm legacy MongoDB connection (for old auth_utils)
     try:

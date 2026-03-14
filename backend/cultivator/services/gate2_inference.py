@@ -23,6 +23,25 @@ import cv2
 import numpy as np
 
 
+def _resolve_gate2_model_dir(required_files: List[str]) -> Tuple[Path, Dict[str, Path]]:
+    """Find the first existing Gate-2 model directory containing required files."""
+    base_dir = Path(__file__).parent.parent.parent / "models"
+    candidate_dirs = [
+        base_dir / "gate2",
+        base_dir / "video_analysis",
+        base_dir / "intent_prediction" / "gate2",
+    ]
+
+    for model_dir in candidate_dirs:
+        paths = {name: model_dir / name for name in required_files}
+        if all(path.exists() for path in paths.values()):
+            return model_dir, paths
+
+    # Fall back to the first candidate and return expected paths for diagnostics.
+    fallback_dir = candidate_dirs[0]
+    return fallback_dir, {name: fallback_dir / name for name in required_files}
+
+
 @dataclass
 class Gate2InferenceResult:
     """Result of Gate 2 video interview analysis."""
@@ -74,10 +93,14 @@ class Gate2InferenceService:
         self.face_cascade = None
         
         # Paths
-        self.model_dir = Path(__file__).parent.parent.parent / "models" / "gate2"
-        self.model_path = self.model_dir / "gate2_expression_model.pkl"
-        self.scaler_path = self.model_dir / "gate2_scaler.pkl"
-        self.class_names_path = self.model_dir / "gate2_class_names.json"
+        self.model_dir, resolved_paths = _resolve_gate2_model_dir([
+            "gate2_expression_model.pkl",
+            "gate2_scaler.pkl",
+            "gate2_class_names.json",
+        ])
+        self.model_path = resolved_paths["gate2_expression_model.pkl"]
+        self.scaler_path = resolved_paths["gate2_scaler.pkl"]
+        self.class_names_path = resolved_paths["gate2_class_names.json"]
         self.metadata_path = self.model_dir / "gate2_model_metadata.json"
         
         # Configuration
@@ -438,9 +461,9 @@ class Gate2InferenceService:
                 emotion_distribution={},
                 dominant_emotion="unknown",
                 top_signals=[
-                    "Gate 2 ML model not loaded",
-                    "Manual verification required",
-                    f"Expected model at: {self.model_path}"
+                    "Video model is warming up or unavailable",
+                    "Manual verification recommended",
+                    "Using conservative review decision"
                 ],
                 stats={
                     'frames_used': 0,
@@ -603,10 +626,14 @@ class Gate2DeceptionService:
         self.face_cascade = None
 
         # Paths
-        self.model_dir = Path(__file__).parent.parent.parent / "models" / "gate2"
-        self.model_path = self.model_dir / "gate2_deception_model.pkl"
-        self.scaler_path = self.model_dir / "gate2_deception_scaler.pkl"
-        self.class_names_path = self.model_dir / "gate2_deception_class_names.json"
+        self.model_dir, resolved_paths = _resolve_gate2_model_dir([
+            "gate2_deception_model.pkl",
+            "gate2_deception_scaler.pkl",
+            "gate2_deception_class_names.json",
+        ])
+        self.model_path = resolved_paths["gate2_deception_model.pkl"]
+        self.scaler_path = resolved_paths["gate2_deception_scaler.pkl"]
+        self.class_names_path = resolved_paths["gate2_deception_class_names.json"]
         self.metadata_path = self.model_dir / "gate2_deception_metadata.json"
 
         # Configuration (same as emotion model for feature compatibility)

@@ -9,10 +9,43 @@ import {
   Modal,
   ActivityIndicator,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as FileSystem from 'expo-file-system';
 import { cultivatorApi as api } from '@/api/cultivatorApi';
+
+const DECISION_LABELS: Record<string, string> = {
+  APPROVE: 'Proceed',
+  VERIFY: 'Needs Manual Review',
+  REJECT: 'Do Not Proceed',
+};
+
+function sanitizeReason(reason: string): string | null {
+  const normalized = String(reason || '').trim();
+  if (!normalized) return null;
+
+  if (/expected model at|model not loaded|gate\s*2\s*ml/i.test(normalized)) {
+    return null;
+  }
+  if (/manual\s+(verification|review)\s+required/i.test(normalized)) {
+    return 'Automated interview scoring was limited, so manual review is recommended.';
+  }
+  if (/could not extract frames/i.test(normalized)) {
+    return 'Video quality was too low for complete frame analysis.';
+  }
+  if (/video may be corrupted|unsupported format/i.test(normalized)) {
+    return 'The interview video format or quality reduced analysis reliability.';
+  }
+  if (/visual deception analysis:\s*truthful/i.test(normalized)) {
+    return 'Visual consistency appears natural in most observed frames.';
+  }
+  if (/safety assessment:/i.test(normalized)) {
+    return 'Safety review indicates mixed signals; manual confirmation is advised.';
+  }
+
+  return normalized.replace(/\.\.\.$/, '.');
+}
 
 // Lazy-load expo-camera to prevent native module error from crashing route initialization
 let CameraView: any = null;
@@ -171,6 +204,21 @@ export default function InPersonInterviewScreen() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getDecisionText = (decision?: string) => {
+    if (!decision) return 'Pending';
+    return DECISION_LABELS[decision] || decision;
+  };
+
+  const displayReasons: string[] = Array.isArray(analysisResult?.reasons)
+    ? Array.from(
+        new Set<string>(
+          analysisResult.reasons
+            .map((item: string) => sanitizeReason(item))
+            .filter((item: string | null): item is string => Boolean(item))
+        )
+      )
+    : [];
+
   // Show error if camera module is not available
   if (!cameraModuleAvailable) {
     return (
@@ -230,20 +278,25 @@ export default function InPersonInterviewScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>Interview Analysis</Text>
-          <Text style={styles.meta}>Client: {clientName}</Text>
-          <Text style={styles.meta}>Job: {jobTitle}</Text>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.title}>Interview Analysis</Text>
+            <Text style={styles.meta}>Client: {clientName}</Text>
+            <Text style={styles.meta}>Job: {jobTitle}</Text>
+          </View>
           <View style={styles.resultCard}>
-            <Text style={styles.resultDecision}>Decision: {analysisResult.decision}</Text>
+            <Text style={styles.resultDecision}>Recommendation: {getDecisionText(analysisResult.decision)}</Text>
             <Text style={styles.meta}>Confidence: {((analysisResult.confidence || 0) * 100).toFixed(1)}%</Text>
-            {!!analysisResult.dominant_emotion && (
+            {!!analysisResult.dominant_emotion && analysisResult.dominant_emotion !== 'unknown' && (
               <Text style={styles.meta}>Dominant Emotion: {analysisResult.dominant_emotion}</Text>
             )}
-            {Array.isArray(analysisResult.reasons) && analysisResult.reasons.length > 0 && (
-              <View style={{ marginTop: 8 }}>
-                <Text style={styles.meta}>Reasons:</Text>
-                {analysisResult.reasons.map((r: string, i: number) => (
-                  <Text key={i} style={styles.reason}>• {r}</Text>
+            {displayReasons.length > 0 && (
+              <View style={styles.highlightsBlock}>
+                <Text style={styles.meta}>Highlights:</Text>
+                {displayReasons.map((r: string, i: number) => (
+                  <View key={i} style={styles.highlightRow}>
+                    <View style={styles.highlightDot} />
+                    <Text style={styles.reason}>{r}</Text>
+                  </View>
                 ))}
               </View>
             )}
@@ -311,12 +364,20 @@ export default function InPersonInterviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#111827' },
-  content: { padding: 16, gap: 10 },
-  header: { padding: 16 },
+  container: { flex: 1, backgroundColor: '#111827', paddingTop: StatusBar.currentHeight || 0 },
+  content: { padding: 16, paddingBottom: 24, gap: 12 },
+  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
+  summaryHeader: {
+    backgroundColor: '#1f2937',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
   title: { color: '#fff', fontSize: 22, fontWeight: '800' },
   text: { color: '#d1d5db' },
-  meta: { color: '#9ca3af', marginTop: 4 },
+  meta: { color: '#9ca3af', marginTop: 4, lineHeight: 20 },
   cameraWrap: { flex: 1, marginHorizontal: 12, borderRadius: 12, overflow: 'hidden', backgroundColor: '#1f2937' },
   camera: { flex: 1 },
   footer: { padding: 16, gap: 10 },
@@ -330,9 +391,19 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
   card: { backgroundColor: '#1f2937', borderRadius: 12, padding: 16, gap: 10 },
-  resultCard: { backgroundColor: '#1f2937', borderRadius: 12, padding: 14 },
+  resultCard: { backgroundColor: '#1f2937', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#334155' },
   resultDecision: { color: '#bbf7d0', fontSize: 18, fontWeight: '800' },
-  reason: { color: '#d1d5db', marginTop: 2 },
+  highlightsBlock: { marginTop: 10 },
+  highlightRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 6 },
+  highlightDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22c55e',
+    marginTop: 8,
+    marginRight: 8,
+  },
+  reason: { color: '#d1d5db', flex: 1, lineHeight: 20 },
   errorBox: { margin: 12, backgroundColor: '#7f1d1d', borderRadius: 10, padding: 12, gap: 8 },
   errorText: { color: '#fee2e2' },
   questionsBox: { marginHorizontal: 12, marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: '#1f2937' },

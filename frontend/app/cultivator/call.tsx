@@ -52,6 +52,30 @@ export default function ClientCallScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingAttemptedRef = useRef(false);
+  const uploadTriggeredRef = useRef(false);
+
+  const pendingUploadKey = `pending_gate1_upload_${callId}`;
+  const isRaceConditionEndError = (message: string) =>
+    /already closed|call is not active|already ended|status:\s*ended|not active/i.test(message);
+
+  const persistPendingUpload = async (uri: string) => {
+    try {
+      await AsyncStorage.setItem(
+        pendingUploadKey,
+        JSON.stringify({ callId, uri, createdAt: Date.now() })
+      );
+    } catch (error) {
+      console.warn('[GATE1] Failed to persist pending upload marker:', error);
+    }
+  };
+
+  const clearPendingUpload = async () => {
+    try {
+      await AsyncStorage.removeItem(pendingUploadKey);
+    } catch (error) {
+      console.warn('[GATE1] Failed to clear pending upload marker:', error);
+    }
+  };
 
   // Validate Agora config
   const validateAgoraConfig = (): { valid: boolean; error?: string } => {
@@ -102,12 +126,15 @@ export default function ClientCallScreen() {
           console.log('[CLIENT-CALL] Config loaded successfully from storage');
           
           // PHASE 5: AsyncStorage load logging (client side)
-          const token = parsed.token;
+          const token = typeof parsed?.token === 'string' ? parsed.token : '';
           const startsWithOo6 = token.startsWith('006');
           console.log(`[AGORA-FRONTEND-STORAGE-LOAD] prefix=${token.substring(0, 10)} length=${token.length} starts_with_006=${startsWithOo6}`);
+          if (!token) {
+            console.warn('[GATE1] Missing token in stored client call config', { callId });
+          }
           
-          console.log('[CLIENT-CALL] Token length:', parsed.token.length);
-          console.log('[CLIENT-CALL] Token prefix:', parsed.token.substring(0, 10));
+          console.log('[CLIENT-CALL] Token length:', token.length);
+          console.log('[CLIENT-CALL] Token prefix:', token.substring(0, 10));
           setAgora(parsed);
         } else {
           console.error('[CLIENT-CALL] No config found in AsyncStorage for callId:', callId);
@@ -288,36 +315,46 @@ export default function ClientCallScreen() {
     
     if (uri) {
       setRecordingUri(uri);
+      uploadTriggeredRef.current = true;
+      console.log(`[GATE1] Sequential trigger: stopLocalRecording -> uploadRecording callId=${callId}`);
       await uploadRecording(uri);
     } else {
       console.warn('No recording URI available - recording may not have started');
+      console.warn(`[GATE1] Upload skipped: no recording URI callId=${callId}`);
     }
   };
 
   const uploadRecording = async (uri: string) => {
+    if (!callId) {
+      console.error('[GATE1] Upload aborted: missing callId');
+      setUploadFailed(true);
+      return;
+    }
+
+    if (!uri) {
+      console.error(`[GATE1] Upload aborted: missing recording URI callId=${callId}`);
+      setUploadFailed(true);
+      return;
+    }
+
     setIsUploading(true);
     setUploadFailed(false);
 
     try {
       console.log('Starting upload for URI:', uri);
-      // Fire-and-forget: start the upload but don't wait for it to complete
-      // The backend will process the audio and run ML analysis in the background
-      api.uploadRecording(callId, uri)
-        .then(result => {
-          console.log('Upload and analysis complete in background:', result);
-          setAnalysisResult({
-            intentLabel: result.intentLabel,
-            confidence: result.confidence,
-            scores: result.scores,
-          });
-        })
-        .catch(error => {
-          console.error('Upload failed in background:', error);
-          setUploadFailed(true);
-        })
-        .finally(() => {
-          setIsUploading(false);
-        });
+      console.log(`[GATE1] Upload request begins callId=${callId} uri=${uri}`);
+      const result = await api.uploadRecording(callId, uri);
+      console.log('Upload and analysis complete:', result);
+      console.log(
+        `[GATE1] Upload succeeded callId=${callId} intent=${result.intentLabel} confidence=${result.confidence}`
+      );
+      await clearPendingUpload();
+      setAnalysisResult({
+        intentLabel: result.intentLabel,
+        confidence: result.confidence,
+        scores: result.scores,
+      });
+      setIsUploading(false);
       
       // Auto-close after 2 seconds so user can move on
       // Analysis happens in background and is stored in database
@@ -326,6 +363,12 @@ export default function ClientCallScreen() {
       }, 2000);
     } catch (error: any) {
       console.error('Upload initiation failed:', error);
+      console.error(
+        `[GATE1] Upload failed callId=${callId} uri=${uri} error=${error?.message || String(error)}`
+      );
+      if ((error?.message || '').includes('Audio analysis failed')) {
+        console.error(`[GATE1] Backend analysis failure callId=${callId} reason=${error.message}`);
+      }
       setIsUploading(false);
       setUploadFailed(true);
       
@@ -351,6 +394,8 @@ export default function ClientCallScreen() {
   };
 
   const handleEndCall = async () => {
+    let stoppedRecordingUri: string | null = null;
+
     try {
       // Stop polling
       if (pollRef.current) clearInterval(pollRef.current);
@@ -358,9 +403,9 @@ export default function ClientCallScreen() {
       
       // Stop recording first
       console.log('Client ending call, stopping recording... isRecording:', isRecording);
-      const uri = await stopLocalRecording();
-      console.log('Recording stopped, URI:', uri);
-      setRecordingUri(uri);
+      stoppedRecordingUri = await stopLocalRecording();
+      console.log('Recording stopped, URI:', stoppedRecordingUri);
+      setRecordingUri(stoppedRecordingUri);
 
       // Leave Agora channel
       await leaveChannel();
@@ -370,15 +415,27 @@ export default function ClientCallScreen() {
       setCallStatus('ended');
 
       // Upload recording if we have one
-      if (uri) {
-        await uploadRecording(uri);
+      if (stoppedRecordingUri) {
+        uploadTriggeredRef.current = true;
+        await persistPendingUpload(stoppedRecordingUri);
+        console.log(`[GATE1] Sequential trigger: stopLocalRecording -> uploadRecording callId=${callId}`);
+        await uploadRecording(stoppedRecordingUri);
       } else {
         console.warn('No recording URI available - recording may not have started');
+        console.warn(`[GATE1] Upload skipped: no recording URI callId=${callId}`);
       }
     } catch (error: any) {
       const msg = String(error?.message || 'Failed to end call');
-      if (msg.includes('already closed') || msg.includes('Call is not active')) {
+      if (isRaceConditionEndError(msg)) {
         setCallStatus('ended');
+        if (stoppedRecordingUri) {
+          uploadTriggeredRef.current = true;
+          await persistPendingUpload(stoppedRecordingUri);
+          console.log(`[GATE1] Sequential trigger (already-closed): stopLocalRecording -> uploadRecording callId=${callId}`);
+          await uploadRecording(stoppedRecordingUri);
+        } else {
+          console.warn(`[GATE1] Upload skipped (already-closed): no recording URI callId=${callId}`);
+        }
         return;
       }
       Alert.alert('Error', msg);
@@ -387,9 +444,49 @@ export default function ClientCallScreen() {
 
   const handleRetryUpload = async () => {
     if (recordingUri) {
+      uploadTriggeredRef.current = true;
+      await persistPendingUpload(recordingUri);
       await uploadRecording(recordingUri);
     }
   };
+
+  // Fallback safeguard: if call ended and we have a recording URI but upload was not triggered,
+  // run the upload once to guarantee Gate-1 endpoint invocation.
+  useEffect(() => {
+    if (callStatus !== 'ended' || uploadTriggeredRef.current || isUploading || analysisResult) {
+      return;
+    }
+
+    const runFallback = async () => {
+      let uriToUpload = recordingUri;
+
+      if (!uriToUpload) {
+        try {
+          const pendingRaw = await AsyncStorage.getItem(pendingUploadKey);
+          if (pendingRaw) {
+            const pending = JSON.parse(pendingRaw) as { callId?: string; uri?: string };
+            if (pending.callId === callId && pending.uri) {
+              uriToUpload = pending.uri;
+              setRecordingUri(uriToUpload);
+            }
+          }
+        } catch (error) {
+          console.warn('[GATE1] Failed to read pending upload marker:', error);
+        }
+      }
+
+      if (uriToUpload) {
+        uploadTriggeredRef.current = true;
+        await persistPendingUpload(uriToUpload);
+        console.log(`[GATE1] Fallback trigger: uploading recording after end callId=${callId}`);
+        uploadRecording(uriToUpload).catch((error) => {
+          console.error('[GATE1] Fallback upload failed:', error);
+        });
+      }
+    };
+
+    runFallback();
+  }, [callStatus, recordingUri, isUploading, analysisResult, callId]);
 
   const handleClose = () => {
     router.replace('/cultivator/client/profile');

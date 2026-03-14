@@ -110,12 +110,15 @@ export default function AdminCallScreen() {
           console.log('[ADMIN-CALL] Config loaded successfully from storage');
           
           // PHASE 5: AsyncStorage load logging
-          const token = parsed.token;
+          const token = typeof parsed?.token === 'string' ? parsed.token : '';
           const startsWithOo6 = token.startsWith('006');
           console.log(`[AGORA-FRONTEND-STORAGE-LOAD] prefix=${token.substring(0, 10)} length=${token.length} starts_with_006=${startsWithOo6}`);
+          if (!token) {
+            console.warn('[GATE1] Missing token in stored admin call config', { callId });
+          }
           
-          console.log('[ADMIN-CALL] Token length:', parsed.token.length);
-          console.log('[ADMIN-CALL] Token prefix:', parsed.token.substring(0, 10));
+          console.log('[ADMIN-CALL] Token length:', token.length);
+          console.log('[ADMIN-CALL] Token prefix:', token.substring(0, 10));
           setAgora(parsed);
         } else {
           console.error('[ADMIN-CALL] No config found in AsyncStorage for callId:', callId);
@@ -476,19 +479,19 @@ export default function AdminCallScreen() {
     const normalized = intent.toUpperCase();
     switch (normalized) {
       case 'PROCEED':
-        return 'Proceed';
+        return 'Trustworthy - Proceed';
       case 'VERIFY':
-        return 'Verify';
+        return 'Needs Verification';
       case 'REJECT':
-        return 'Reject';
+        return 'High Risk - Reject';
       case 'HIGH_INTENT':
-        return 'High Interest';
+        return 'High Commitment';
       case 'MEDIUM_INTENT':
-        return 'Moderate Interest';
+        return 'Moderate Commitment';
       case 'LOW_INTENT':
-        return 'Low Interest';
+        return 'Low Commitment';
       case 'NO_INTENT':
-        return 'No Interest';
+        return 'No Commitment';
       default:
         return intent; // Return original if not mapped
     }

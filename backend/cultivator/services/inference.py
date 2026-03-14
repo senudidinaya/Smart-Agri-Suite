@@ -26,6 +26,46 @@ from cultivator.schemas.prediction import IntentScore, PredictionResult
 logger = get_logger(__name__)
 
 
+def _resolve_gate1_models_dir(explicit_dir: Optional[Path] = None) -> Path:
+    """Resolve the most reliable Gate-1 model directory."""
+    settings = get_settings()
+    backend_root = Path(__file__).resolve().parents[2]
+
+    candidates: List[Path] = []
+    if explicit_dir is not None:
+        candidates.append(Path(explicit_dir))
+
+    configured_parent = Path(settings.model_path).resolve().parent
+    candidates.extend(
+        [
+            configured_parent,
+            backend_root / "models" / "intent_prediction",
+            backend_root / "models",
+        ]
+    )
+
+    # De-duplicate while preserving order
+    unique_candidates: List[Path] = []
+    seen = set()
+    for path in candidates:
+        key = str(path)
+        if key not in seen:
+            seen.add(key)
+            unique_candidates.append(path)
+
+    required_file = "intent_risk_model.pkl"
+    for path in unique_candidates:
+        exists = path.exists()
+        required_exists = (path / required_file).exists()
+        logger.info(f"[GATE1 MODEL] resolved model path={path}")
+        logger.info(f"[GATE1 MODEL] exists={exists} required_model_exists={required_exists}")
+        if required_exists:
+            return path
+
+    # Return the best guess to produce deterministic diagnostics downstream.
+    return unique_candidates[0] if unique_candidates else (backend_root / "models" / "intent_prediction")
+
+
 # ============================================================================
 # FEATURE DEFINITIONS (must match training script and dataset generator)
 # ============================================================================
@@ -81,8 +121,7 @@ class IntentRiskClassifier:
         Args:
             models_dir: Path to models directory. Uses default if None.
         """
-        settings = get_settings()
-        self.models_dir = models_dir or Path(settings.model_path).parent
+        self.models_dir = _resolve_gate1_models_dir(models_dir)
         
         # ML model components (loaded lazily)
         self.model = None
@@ -114,22 +153,21 @@ class IntentRiskClassifier:
             scaler_path = self.models_dir / "intent_risk_scaler.pkl"
             encoder_path = self.models_dir / "intent_risk_label_encoder.pkl"
             metadata_path = self.models_dir / "model_metadata.json"
+
+            logger.info(f"[GATE1 MODEL] resolved model path={model_path}")
+            logger.info(f"[GATE1 MODEL] exists={model_path.exists()}")
             
             # Check if model files exist
             if not model_path.exists():
-                logger.warning(
-                    f"ML model not found at {model_path}, using rules-based fallback"
-                )
-                self.use_ml_model = False
-                self.model_version = "rules-1.0.0"
-                self.is_loaded = True
-                return False
+                logger.error(f"[GATE1 MODEL] load failed: model file missing at {model_path}")
+                raise FileNotFoundError(f"Intent model not found: {model_path}")
             
             # Load model components
             import joblib
             
             logger.info(f"Loading ML model from {model_path}")
             self.model = joblib.load(model_path)
+            logger.info("[GATE1 MODEL] loaded successfully")
             
             if scaler_path.exists():
                 self.scaler = joblib.load(scaler_path)
@@ -162,11 +200,8 @@ class IntentRiskClassifier:
             return True
             
         except Exception as e:
-            logger.error(f"Failed to load ML model: {e}, using rules-based fallback")
-            self.use_ml_model = False
-            self.model_version = "rules-1.0.0"
-            self.is_loaded = True
-            return False
+            logger.error(f"[GATE1 MODEL] load failed: {e}")
+            raise RuntimeError(f"Gate-1 intent model load failed: {e}") from e
 
     def unload_model(self) -> None:
         """Unload the model and free resources."""
@@ -195,8 +230,9 @@ class IntentRiskClassifier:
             import librosa
             import soundfile as sf
         except ImportError:
-            logger.warning("librosa/soundfile not installed, using placeholder features")
-            return np.zeros((1, len(ALL_FEATURES)))
+            msg = "Audio feature extraction dependencies missing: install librosa and soundfile"
+            logger.error(f"[GATE1 AUDIO] {msg}")
+            raise RuntimeError(msg)
         
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -205,6 +241,7 @@ class IntentRiskClassifier:
             audio_buffer = io.BytesIO(audio_data)
             try:
                 y, sr = sf.read(audio_buffer)
+                channel_count = int(y.shape[1]) if hasattr(y, "shape") and len(y.shape) > 1 else 1
                 # Resample to 16kHz if needed
                 if sr != 16000:
                     y = librosa.resample(y, orig_sr=sr, target_sr=16000)
@@ -213,6 +250,7 @@ class IntentRiskClassifier:
                 # Fallback to librosa
                 audio_buffer.seek(0)
                 y, sr = librosa.load(audio_buffer, sr=16000, mono=True)
+                channel_count = 1
             
             if len(y) == 0:
                 return np.zeros((1, len(ALL_FEATURES)))
@@ -275,6 +313,12 @@ class IntentRiskClassifier:
             text_features = [0] * len(TEXT_FEATURES)
             
             features = audio_features + text_features
+            logger.info(
+                f"[GATE1 AUDIO] duration={round(duration, 3)} sample_rate={sr} channels={channel_count}"
+            )
+            logger.info(
+                f"[GATE1 AUDIO] features extracted={int(np.count_nonzero(np.array(features)))} feature_vector_length={len(features)}"
+            )
             return np.array(features).reshape(1, -1)
 
     def _extract_text_features(self, transcript: str) -> Dict[str, int]:
@@ -360,8 +404,14 @@ class IntentRiskClassifier:
                     audio_array = audio_feats[0, :len(AUDIO_FEATURES)].tolist()
                     text_array = [text_feats.get(feat, 0) for feat in TEXT_FEATURES]
                     features = audio_array + text_array
+                    logger.info(
+                        f"[GATE1 AUDIO] features extracted={int(np.count_nonzero(np.array(features)))} feature_vector_length={len(features)}"
+                    )
                     return np.array(features).reshape(1, -1)
                 
+                logger.info(
+                    f"[GATE1 AUDIO] features extracted={int(np.count_nonzero(audio_feats))} feature_vector_length={int(audio_feats.size)}"
+                )
                 return audio_feats
             except Exception as e:
                 logger.warning(f"Audio feature extraction failed: {e}, using defaults")
@@ -371,10 +421,18 @@ class IntentRiskClassifier:
             text_feats = self._extract_text_features(transcript)
             audio_array = [0.0] * len(AUDIO_FEATURES)
             text_array = [text_feats.get(feat, 0) for feat in TEXT_FEATURES]
-            return np.array(audio_array + text_array).reshape(1, -1)
+            features = np.array(audio_array + text_array).reshape(1, -1)
+            logger.info(
+                f"[GATE1 AUDIO] features extracted={int(np.count_nonzero(features))} feature_vector_length={int(features.size)}"
+            )
+            return features
         
         logger.warning("No features provided, using defaults")
-        return np.zeros((1, len(ALL_FEATURES)))
+        zeros = np.zeros((1, len(ALL_FEATURES)))
+        logger.warning(
+            f"[GATE1 AUDIO] features extracted=0 feature_vector_length={int(zeros.size)}"
+        )
+        return zeros
 
     def predict_with_ml(
         self,
@@ -403,6 +461,9 @@ class IntentRiskClassifier:
             pred_idx = self.model.predict(features_scaled)[0]
             probs = np.zeros(len(INTENT_LABELS))
             probs[pred_idx] = 1.0
+
+        logger.info(f"[GATE1 MODEL] model_loaded={self.is_loaded} use_ml_model={self.use_ml_model}")
+        logger.info(f"[GATE1 MODEL] raw_scores={np.array(probs).round(6).tolist()}")
         
         # Get predicted class
         pred_idx = np.argmax(probs)
@@ -619,6 +680,11 @@ class IntentRiskClassifier:
                 )
         else:
             logger.debug("Using rules-based prediction")
+            logger.warning(
+                f"[GATE1 MODEL] model loaded status={self.is_loaded}, use_ml_model={self.use_ml_model}. "
+                "If analysis defaults to unknown, inspect earlier extraction/inference errors."
+            )
+            raise RuntimeError("Gate-1 intent model is not loaded; rules-based fallback is disabled for Gate-1")
             # Fallback: use text features from transcript if available
             if transcript and not text_features:
                 text_features = self._extract_text_features(transcript)
@@ -855,7 +921,7 @@ class Gate1DeceptionDetector:
 
     def __init__(self, models_dir: Optional[Path] = None) -> None:
         settings = get_settings()
-        self.models_dir = models_dir or Path(settings.model_path).parent
+        self.models_dir = _resolve_gate1_models_dir(models_dir)
         self.model = None
         self.scaler = None
         self.label_encoder = None
@@ -871,13 +937,12 @@ class Gate1DeceptionDetector:
             encoder_path = self.models_dir / "gate1_deception_label_encoder.pkl"
             metadata_path = self.models_dir / "gate1_deception_metadata.json"
 
+            logger.info(f"[GATE1 MODEL] resolved model path={model_path}")
+            logger.info(f"[GATE1 MODEL] exists={model_path.exists()}")
+
             if not model_path.exists():
-                logger.warning(
-                    f"Gate 1 deception model not found at {model_path}, "
-                    "using rules-based fallback"
-                )
-                self.is_loaded = True
-                return False
+                logger.error(f"[GATE1 MODEL] load failed: model file missing at {model_path}")
+                raise FileNotFoundError(f"Gate-1 deception model not found: {model_path}")
 
             import joblib
 
@@ -892,13 +957,12 @@ class Gate1DeceptionDetector:
 
             self.use_ml_model = True
             self.is_loaded = True
-            logger.info("Gate 1 deception model loaded successfully")
+            logger.info("[GATE1 MODEL] loaded successfully")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to load deception model: {e}")
-            self.is_loaded = True
-            return False
+            logger.error(f"[GATE1 MODEL] load failed: {e}")
+            raise RuntimeError(f"Gate-1 deception model load failed: {e}") from e
 
     def extract_deception_features(self, audio_data: bytes) -> Dict[str, float]:
         """
@@ -913,8 +977,9 @@ class Gate1DeceptionDetector:
             import librosa
             import soundfile as sf
         except ImportError:
-            logger.warning("librosa not installed, returning zero features")
-            return {f: 0.0 for f in DECEPTION_AUDIO_FEATURES}
+            msg = "Deception feature extraction dependencies missing: install librosa and soundfile"
+            logger.error(f"[GATE1 AUDIO] {msg}")
+            raise RuntimeError(msg)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

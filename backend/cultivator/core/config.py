@@ -11,6 +11,9 @@ from pydantic import Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
@@ -65,7 +68,7 @@ class Settings(BaseSettings):
 
     # Model settings
     model_path: Path = Field(
-        default=Path("models/intent_classifier.pt"),
+        default=BACKEND_ROOT / "models" / "intent_prediction" / "intent_risk_model.pkl",
         description="Path to the trained model file",
     )
     model_device: str = Field(
@@ -128,8 +131,12 @@ class Settings(BaseSettings):
     
     # Recordings storage
     recordings_dir: Path = Field(
-        default=Path("recordings"),
+        default=BACKEND_ROOT / "recordings",
         description="Directory to store call recordings",
+    )
+    debug_recordings_dir: Path = Field(
+        default=BACKEND_ROOT / "debug_recordings",
+        description="Directory to keep permanent debug copies of uploaded call recordings",
     )
 
     # DeepSeek API settings (AI-powered explainability)

@@ -80,9 +80,12 @@ export default function CultivatorLayout() {
         if (!cancelled && response.hasIncomingCall && response.callId) {
           // PHASE 3: Frontend API response logging (incoming call poll)
           if (response.agora) {
-            const token = response.agora.token;
+            const token = typeof response.agora.token === 'string' ? response.agora.token : '';
             const startsWithOo6 = token.startsWith('006');
             console.log(`[AGORA-FRONTEND-RECEIVE] channel=${response.agora.channelName} uid=${response.agora.uid} prefix=${token.substring(0, 10)} length=${token.length} starts_with_006=${startsWithOo6}`);
+            if (!token) {
+              console.warn('[GATE1] Incoming call payload missing token', { callId: response.callId });
+            }
             
             // PHASE 4: AsyncStorage save logging (incoming call poll)
             console.log(`[AGORA-FRONTEND-STORAGE-SAVE] prefix=${token.substring(0, 10)} length=${token.length}`);

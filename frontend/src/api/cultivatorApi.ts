@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { AUTH_API_BASE_URL } from '../config';
 
 const CULTIVATOR_API_BASE_URL = `${AUTH_API_BASE_URL.replace('/api/v1', '')}`;
@@ -374,44 +375,123 @@ class CultivatorApiService {
     audioUri: string,
     retryCount: number = 0
   ): Promise<RecordingUploadResponse> {
-    const formData = new FormData();
-    const fileName = audioUri.split('/').pop() || 'recording.wav';
+    // ===== VALIDATE INPUT =====
+    console.log(`[GATE1] Upload starting - URI received: ${audioUri}`);
+    
+    if (!FileSystem) {
+      console.error('[GATE1] FileSystem module not available');
+      throw new Error('FileSystem module not available');
+    }
+
+    // Ensure file:// prefix
     const fileUri = audioUri.startsWith('file://') ? audioUri : `file://${audioUri}`;
+    console.log(`[GATE1] File URI normalized: ${fileUri}`);
+    console.log(`[GATE1] Upload URI used: ${fileUri}`);
 
-    formData.append('file', {
-      uri: fileUri,
-      name: fileName,
-      type: 'audio/wav',
-    } as any);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 300000);
-
+    // ===== VALIDATE FILE EXISTS =====
     try {
-      const response = await fetch(`${CULTIVATOR_API_BASE_URL}/cultivator/calls/${callId}/recording`, {
-        method: 'POST',
+      console.log(`[GATE1] Validating file existence...`);
+      const fileInfo = await FileSystem.getInfoAsync(fileUri, { size: true });
+      
+      if (!fileInfo.exists) {
+        console.error(`[GATE1] FILE NOT FOUND - uri=${fileUri}`);
+        throw new Error(`Recording file not found at ${fileUri}`);
+      }
+      
+      if (!fileInfo.size || fileInfo.size === 0) {
+        console.error(`[GATE1] FILE EMPTY - size=0`);
+        throw new Error('Recording file is empty (0 bytes)');
+      }
+      
+      console.log(`[GATE1] File validation passed:`);
+      console.log(`[GATE1]   - exists: true`);
+      console.log(`[GATE1]   - size: ${fileInfo.size} bytes`);
+      console.log(`[GATE1]   - uri: ${fileInfo.uri}`);
+      
+    } catch (fsError: any) {
+      console.error(`[GATE1] File validation failed: ${fsError.message || String(fsError)}`);
+      throw fsError;
+    }
+
+    // ===== UPLOAD DIRECTLY FROM CACHE =====
+    // No need to copy - recording is already in FileSystem.cacheDirectory from startLocalRecording()
+    try {
+      const uploadUrl = `${CULTIVATOR_API_BASE_URL}/cultivator/calls/${callId}/recording`;
+      
+      console.log(`[GATE1] UploadAsync starting:`);
+      console.log(`[GATE1]   - callId: ${callId}`);
+      console.log(`[GATE1]   - retry: ${retryCount}`);
+      console.log(`[GATE1]   - endpoint: ${uploadUrl}`);
+      console.log(`[GATE1]   - method: POST (MULTIPART)`);
+      console.log(`[GATE1]   - file: ${fileUri}`);
+      console.log(`[GATE1]   - fieldName: file`);
+      
+      const result = await FileSystem.uploadAsync(uploadUrl, fileUri, {
+        fieldName: 'file',
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
         headers: {
           Authorization: `Bearer ${this.token}`,
         },
-        body: formData,
-        signal: controller.signal,
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || 'Upload failed');
-      return data as RecordingUploadResponse;
+      console.log(`[GATE1] UploadAsync response received:`);
+      console.log(`[GATE1]   - status: ${result.status}`);
+      console.log(`[GATE1]   - body length: ${result.body?.length || 0} bytes`);
+      
+      // Parse response
+      let responseData: RecordingUploadResponse;
+      try {
+        responseData = JSON.parse(result.body);
+        console.log(`[GATE1] Response parsed successfully`);
+      } catch (parseError: any) {
+        console.error(`[GATE1] Failed to parse response JSON: ${parseError.message}`);
+        console.error(`[GATE1] Raw body: ${result.body?.substring(0, 200)}`);
+        throw new Error(`Invalid JSON response: ${parseError.message}`);
+      }
+      
+      // Check status
+      if (result.status !== 200 && result.status !== 201) {
+        const errorMsg = responseData.detail || `Upload failed with status ${result.status}`;
+        console.error(`[GATE1] Upload rejected by server: ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+      
+      console.log(`[GATE1] Upload successful:`);
+      console.log(`[GATE1]   - callId: ${callId}`);
+      console.log(`[GATE1]   - intent: ${responseData.intentLabel}`);
+      console.log(`[GATE1]   - confidence: ${responseData.confidence}`);
+      console.log(`[GATE1]   - deception: ${responseData.deceptionLabel || 'N/A'}`);
+      
+      // Clean up recording file after successful upload
+      try {
+        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+        console.log(`[GATE1] Recording file cleaned up: ${fileUri}`);
+      } catch (cleanupError: any) {
+        console.warn(`[GATE1] Failed to clean up recording file: ${cleanupError.message}`);
+      }
+      
+      return responseData;
+      
     } catch (error: any) {
-      if (retryCount < 2 && (error.name === 'AbortError' || error.message?.includes('Network') || error.message?.includes('Failed to fetch'))) {
-        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+      const errorMsg = error.message || String(error);
+      console.error(`[GATE1] Upload failed: ${errorMsg}`);
+      
+      // Retry on network errors
+      const isNetworkError = 
+        errorMsg.includes('Network') || 
+        errorMsg.includes('Failed to fetch') || 
+        errorMsg.includes('timeout') || 
+        errorMsg.includes('ECONNREFUSED');
+        
+      if (retryCount < 2 && isNetworkError) {
+        const delayMs = (retryCount + 1) * 2000;
+        console.log(`[GATE1] Retrying upload after ${delayMs}ms (attempt ${retryCount + 2}/3)`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
         return this.uploadRecording(callId, audioUri, retryCount + 1);
       }
-
-      if (error.name === 'AbortError') {
-        throw new Error('Upload timeout. Try mobile data or try again later.');
-      }
+      
       throw error;
-    } finally {
-      clearTimeout(timeoutId);
     }
   }
 

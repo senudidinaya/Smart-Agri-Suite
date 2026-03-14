@@ -354,6 +354,14 @@ async def analyze_interview_video(
         if result.dominant_emotion and result.dominant_emotion != "unknown":
             reasons.insert(0, f"Dominant emotion: {result.dominant_emotion}")
         
+        # DIAGNOSTIC LOGGING
+        logger.info(f"[GATE2 DEBUG] Model loaded: {gate2_service.is_loaded}")
+        logger.info(f"[GATE2 DEBUG] Frames analyzed: {result.stats.get('frames_used', 0)}")
+        logger.info(f"[GATE2 DEBUG] Face detection rate: {result.stats.get('face_detection_rate', 0):.2%}")
+        logger.info(f"[GATE2 DEBUG] Faces detected: {result.stats.get('faces_detected', 0)}")
+        logger.info(f"[GATE2 DEBUG] Emotional stability: {result.stats.get('stability', 0):.2%}")
+        logger.info(f"[GATE2 DEBUG] Avg model confidence: {result.stats.get('avg_model_confidence', 0):.2%}")
+        logger.info(f"[GATE2 DEBUG] Emotion distribution: {result.emotion_distribution}")
         logger.info(f"Gate 2 analysis: {decision} ({confidence:.2%}), "
                    f"dominant={result.dominant_emotion}")
         
@@ -519,6 +527,18 @@ async def analyze_interview_video(
         # Add safety assessment if available
         if safety_assessment_result:
             update_fields["safety_assessment"] = safety_assessment_result.model_dump()
+
+        # If Gate-2 emotion model is unavailable, derive a practical decision from
+        # combined safety assessment so output is still actionable.
+        if result.model_version == "gate2-fallback-v1" and safety_assessment_result:
+            action = safety_assessment_result.admin_action
+            if action in ["PROCEED", "APPROVE"]:
+                decision = "APPROVE"
+            elif action == "REJECT":
+                decision = "REJECT"
+            else:
+                decision = "VERIFY"
+            update_fields["analysisDecision"] = decision
 
         await db.inperson_interviews.update_one(
             {"_id": interview["_id"]},

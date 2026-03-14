@@ -1,32 +1,35 @@
 # ============================================================================
-# COMBINED DECISION MATRIX: Intent × Truthfulness
+# COMBINED DECISION MATRIX: Commitment × Truthfulness
+# Cultivator Safety Screening for Private Land Work
 # ============================================================================
+
+from typing import Dict, Any
 
 def combine_intent_and_deception(
     intent_result: Dict[str, Any],
     deception_result: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
-    Combine intent classification with deception analysis using 2D decision matrix.
+    Combine commitment analysis with deception detection for cultivator safety screening.
     
     Scientific Basis:
-    - Intent captures WHAT they claim (business legitimacy)
-    - Deception captures IF they're honest (communication authenticity)  
-    - Together = (legitimacy × honesty) = actual risk level
+    - Commitment Level captures WHAT they claim (willingness to work, reliability)
+    - Truthfulness captures IF they're honest (communication authenticity)  
+    - Together = (commitment × honesty) = actual safety/trustworthiness
     
     Decision Matrix:
-    - PROCEED + TRUTHFUL → APPROVE (Low risk)
-    - PROCEED + DECEPTIVE → REJECT (High risk - lying about intent)
-    - VERIFY + TRUTHFUL → VERIFY (Medium risk - honest uncertainty)
-    - VERIFY + DECEPTIVE → REJECT (High risk - deception + uncertainty)
-    - REJECT (any) → REJECT (No need to evaluate further)
+    - PROCEED + TRUTHFUL → APPROVE (Trustworthy, strong commitment)
+    - PROCEED + DECEPTIVE → REJECT (Claims commitment but shows deception - safety risk)
+    - VERIFY + TRUTHFUL → VERIFY (Moderate commitment, needs verification)
+    - VERIFY + DECEPTIVE → REJECT (Uncertain + deceptive - safety risk)
+    - REJECT (any) → REJECT (Low commitment or unwilling)
     
     Args:
-        intent_result: Dict with keys: predicted_intent, confidence, all_scores
-        deception_result: Dict with keys: label, confidence, scores
+        intent_result: Dict with keys: predicted_intent (PROCEED/VERIFY/REJECT), confidence, all_scores
+        deception_result: Dict with keys: label (truthful/deceptive), confidence, scores
         
     Returns:
-        Combined decision dict with final recommendation and reasoning
+        Combined decision dict with final safety recommendation and reasoning
     """
     intent_label = intent_result.get("predicted_intent", "UNKNOWN")
     intent_confidence = intent_result.get("confidence", 0.0)
@@ -34,7 +37,8 @@ def combine_intent_and_deception(
     deception_label = deception_result.get("label", "unknown").lower()
     deception_confidence = deception_result.get("confidence", 0.5)
     
-    # Calculate trust score: intent_confidence × (1 - deception_confidence)
+    # Calculate trust score: commitment_confidence × (1 - deception_confidence)
+    # Higher score = more trustworthy (strong commitment + low deception)
     trust_score = intent_confidence * (1.0 - deception_confidence)
     
     # Combined confidence: minimum of both
@@ -44,7 +48,7 @@ def combine_intent_and_deception(
     if intent_label == "REJECT":
         # REJECT overrides all other considerations
         final_decision = "REJECT"
-        reasoning = "Cultivator explicitly rejected or indicated unwillingness to proceed"
+        reasoning = "Cultivator shows low commitment or unwillingness to work. Not recommended for private land employment."
         recommendation = "reject"
     
     elif intent_label == "PROCEED":
@@ -52,34 +56,34 @@ def combine_intent_and_deception(
             # PROCEED + TRUTHFUL = APPROVE
             if intent_confidence >= 0.75 and deception_confidence <= 0.40:
                 final_decision = "APPROVE"
-                reasoning = "Clear genuine intent with honest communication patterns. Ready to proceed with agreement."
+                reasoning = "Cultivator shows strong commitment with honest communication. Trustworthy candidate for private land work."
                 recommendation = "auto_approve"
             else:
                 final_decision = "VERIFY"
-                reasoning = "Positive intent with truthful signals but low confidence margins. Manual review recommended."
+                reasoning = "Cultivator shows commitment with truthful signals but confidence margins require manual verification."
                 recommendation = "manual_verify"
         else:  # deceptive
             # PROCEED + DECEPTIVE = REJECT
             final_decision = "REJECT"
-            reasoning = f"HIGH-RISK: Cultivator claims readiness (PROCEED intent: {intent_confidence:.1%}) but shows deceptive speech patterns ({deception_confidence:.1%} confidence). Likely hiding concerns or misrepresenting intent."
+            reasoning = f"HIGH-RISK: Cultivator claims commitment ({intent_confidence:.1%}) but shows deceptive speech patterns ({deception_confidence:.1%} confidence). Safety concern - likely misrepresenting intentions or hiding information."
             recommendation = "reject"
     
     elif intent_label == "VERIFY":
         if deception_label == "truthful":
             # VERIFY + TRUTHFUL = VERIFY (honest uncertainty)
             final_decision = "VERIFY"
-            reasoning = "Genuine uncertainty detected but speech patterns truthful. Recommend follow-up call for clarification."
+            reasoning = "Cultivator shows moderate commitment with truthful communication. Recommend follow-up interview for safety confirmation."
             recommendation = "manual_verify"
         else:  # deceptive
             # VERIFY + DECEPTIVE = REJECT (ambiguous + deceptive = red flag)
             final_decision = "REJECT"
-            reasoning = f"MEDIUM-HIGH RISK: Cultivator shows uncertain intent ({intent_confidence:.1%} confidence on VERIFY) combined with deceptive speech patterns ({deception_confidence:.1%} confidence). Recommend rejection."
+            reasoning = f"MEDIUM-HIGH RISK: Cultivator shows uncertain commitment ({intent_confidence:.1%}) combined with deceptive speech patterns ({deception_confidence:.1%}). Safety concern - not recommended for private land work."
             recommendation = "reject"
     
     else:
         # Unknown intent
         final_decision = "VERIFY"
-        reasoning = "Unable to classify intent clearly. Manual review required."
+        reasoning = "Unable to assess cultivator's commitment and safety indicators clearly. Manual interview required."
         recommendation = "manual_verify"
     
     # Determine risk level based on trust score

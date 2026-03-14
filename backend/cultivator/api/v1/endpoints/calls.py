@@ -15,9 +15,13 @@ import asyncio
 import base64
 import hashlib
 import json
+import io
+import wave
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
+
+import numpy as np
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
@@ -105,6 +109,36 @@ async def check_missed_calls():
     
     if result.modified_count > 0:
         logger.info(f"Marked {result.modified_count} calls as missed")
+
+
+def _inspect_audio_payload(audio_bytes: bytes) -> dict:
+    """Inspect raw audio bytes and extract basic diagnostics."""
+    diagnostics = {
+        "duration_seconds": 0.0,
+        "sample_rate": 0,
+        "channels": 0,
+        "sample_width": 0,
+        "compression_type": "",
+    }
+
+    try:
+        with wave.open(io.BytesIO(audio_bytes), "rb") as wav_file:
+            frames = wav_file.getnframes()
+            sample_rate = wav_file.getframerate()
+            channels = wav_file.getnchannels()
+            sample_width = wav_file.getsampwidth()
+            compression_type = wav_file.getcomptype()
+            duration = float(frames) / float(sample_rate) if sample_rate else 0.0
+
+            diagnostics["duration_seconds"] = round(duration, 3)
+            diagnostics["sample_rate"] = int(sample_rate or 0)
+            diagnostics["channels"] = int(channels or 0)
+            diagnostics["sample_width"] = int(sample_width or 0)
+            diagnostics["compression_type"] = str(compression_type or "")
+    except Exception as exc:
+        logger.warning(f"[GATE1 AUDIO] wave inspection failed: {exc}")
+
+    return diagnostics
 
 
 @router.post("/initiate", response_model=CallInitiateResponse)
@@ -206,18 +240,22 @@ async def initiate_call(
     recording_uid = generate_uid_from_user_id(call_id, RECORDING_UID_BASE)
     
     # Generate Agora RTC tokens
-    admin_token = generate_agora_token(
-        channel_name=channel_name,
-        uid=admin_uid,
-        role=RtcTokenRole.PUBLISHER,
-        expire_seconds=3600
-    )
-    client_token = generate_agora_token(
-        channel_name=channel_name,
-        uid=client_uid,
-        role=RtcTokenRole.PUBLISHER,
-        expire_seconds=3600
-    )
+    try:
+        admin_token = generate_agora_token(
+            channel_name=channel_name,
+            uid=admin_uid,
+            role=RtcTokenRole.PUBLISHER,
+            expire_seconds=3600
+        )
+        client_token = generate_agora_token(
+            channel_name=channel_name,
+            uid=client_uid,
+            role=RtcTokenRole.PUBLISHER,
+            expire_seconds=3600
+        )
+        agora_app_id = get_agora_app_id()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
     logger.info("[AGORA-CALL-INIT]")
     logger.info(f"[AGORA-CALL-INIT] Channel: {channel_name}")
@@ -225,8 +263,6 @@ async def initiate_call(
     logger.info(f"[AGORA-CALL-INIT] Client UID: {client_uid}")
     logger.info(f"[AGORA-CALL-INIT] Admin token length: {len(admin_token)}")
     logger.info(f"[AGORA-CALL-INIT] Client token length: {len(client_token)}")
-    
-    agora_app_id = get_agora_app_id()
     
     # Create call record
     call_doc = {
@@ -323,7 +359,10 @@ async def check_incoming_call(
     # Get Agora connection info
     channel_name = call.get("channelName", call.get("roomName", ""))
     client_uid = call.get("clientUid", 0)
-    agora_app_id = get_agora_app_id()
+    try:
+        agora_app_id = get_agora_app_id()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
     
     return IncomingCallResponse(
         hasIncomingCall=True,
@@ -388,7 +427,10 @@ async def accept_call(
     # Get Agora connection info
     channel_name = call.get("channelName", call.get("roomName", ""))
     client_uid = call.get("clientUid", 0)
-    agora_app_id = get_agora_app_id()
+    try:
+        agora_app_id = get_agora_app_id()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
     
     # PHASE 2: Backend API response logging (accept call)
     client_token = call.get("clientToken", "")
@@ -518,6 +560,9 @@ async def upload_recording(
     
     db = get_db()
     settings = get_settings()
+    logger.info(
+        f"[GATE1] Recording received on backend callId={call_id} filename={file.filename} content_type={file.content_type}"
+    )
     
     # Find the call
     call = await db.calls.find_one({"_id": ObjectId(call_id)})
@@ -535,6 +580,8 @@ async def upload_recording(
     # Create recordings directory if it doesn't exist
     recordings_dir = settings.recordings_dir
     recordings_dir.mkdir(parents=True, exist_ok=True)
+    debug_recordings_dir = settings.debug_recordings_dir
+    debug_recordings_dir.mkdir(parents=True, exist_ok=True)
     
     # Save the file
     file_extension = file.filename.split(".")[-1] if file.filename else "wav"
@@ -543,24 +590,100 @@ async def upload_recording(
     
     try:
         contents = await file.read()
+        logger.info(f"[GATE1] Recording payload read callId={call_id} bytes={len(contents)}")
         with open(recording_path, "wb") as f:
             f.write(contents)
+
+        debug_filename = f"{call_id}_{int(time.time())}.{file_extension}"
+        debug_recording_path = debug_recordings_dir / debug_filename
+        with open(debug_recording_path, "wb") as debug_file:
+            debug_file.write(contents)
         
         logger.info(f"Recording saved: {recording_path}")
+        logger.info(f"[GATE1] Audio saved to disk callId={call_id} path={recording_path}")
+        logger.info(
+            f"[GATE1 AUDIO] saved recording path={debug_recording_path} exists={debug_recording_path.exists()} size={debug_recording_path.stat().st_size if debug_recording_path.exists() else 0}"
+        )
     except Exception as e:
         logger.error(f"Failed to save recording: {e}")
         raise HTTPException(status_code=500, detail="Failed to save recording")
+
+    file_exists = recording_path.exists()
+    file_size = recording_path.stat().st_size if file_exists else 0
+    audio_diag = _inspect_audio_payload(contents)
+    logger.info(
+        f"[GATE1 AUDIO] file path={recording_path} exists={file_exists} size={file_size}"
+    )
+    logger.info(
+        f"[GATE1 AUDIO] duration={audio_diag['duration_seconds']} sample_rate={audio_diag['sample_rate']} channels={audio_diag['channels']} sample_width={audio_diag['sample_width']} compression={audio_diag['compression_type']}"
+    )
+
+    if audio_diag["duration_seconds"] < 3.0:
+        logger.error(
+            f"[GATE1 AUDIO] insufficient speech content: duration={audio_diag['duration_seconds']}"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Audio analysis failed: insufficient speech content",
+        )
     
     now = datetime.now(timezone.utc)
     
     # Run ML analysis on the recording (Intent Classification + Deception Detection)
     try:
+        logger.info(f"[GATE1] Inference pipeline started callId={call_id}")
+        logger.info("[GATE1 AUDIO] inference_source=uploaded_bytes")
         # Step 1: Intent Classification
+        logger.info(f"[GATE1] Running intent classifier callId={call_id}")
         classifier = get_classifier()
+        logger.info(
+            f"[GATE1 MODEL] classifier loaded before load_model call={classifier.is_loaded}"
+        )
         if not classifier.is_loaded:
             classifier.load_model()
+        logger.info(
+            f"[GATE1 MODEL] classifier loaded after load_model call={classifier.is_loaded}"
+        )
+
+        risk_classifier = getattr(classifier, "_classifier", None)
+        feature_vector = None
+        if risk_classifier is not None:
+            feature_vector = risk_classifier.extract_features(
+                audio_data=contents,
+                transcript=transcript,
+            )
+
+        if feature_vector is None:
+            logger.error(
+                "[GATE1 AUDIO] Feature extraction unavailable - classifier._classifier missing"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Audio analysis failed: insufficient speech content",
+            )
+
+        non_zero_features = int(np.count_nonzero(feature_vector))
+        logger.info(
+            f"[GATE1 AUDIO] features extracted={non_zero_features} feature_vector_length={int(feature_vector.size)}"
+        )
+
+        if (
+            feature_vector.size == 0
+            or not np.isfinite(feature_vector).all()
+            or np.allclose(feature_vector, 0)
+        ):
+            logger.error(
+                "[GATE1 AUDIO] Feature extraction produced empty/invalid vector - default unknown would occur without this guard"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Audio analysis failed: insufficient speech content",
+            )
         
         prediction_result, audio_duration = classifier.predict(contents, transcript=transcript)
+        logger.info(
+            f"[GATE1 MODEL] intent prediction label={prediction_result.predicted_intent} confidence={prediction_result.confidence}"
+        )
         
         intent_analysis = {
             "intentLabel": prediction_result.predicted_intent,
@@ -570,6 +693,7 @@ async def upload_recording(
         
         # Step 2: Deception Analysis (NEW)
         from cultivator.services.inference import get_deception_detector
+        logger.info(f"[GATE1] Running deception detector callId={call_id}")
         deception_detector = get_deception_detector()
         if not deception_detector.is_loaded:
             deception_detector.load_model()
@@ -582,6 +706,10 @@ async def upload_recording(
         combined_decision = combine_intent_and_deception(
             intent_analysis,
             deception_result,
+        )
+        logger.info(
+            f"[GATE1] Final decision produced callId={call_id} decision={combined_decision.get('finalDecision')} "
+            f"recommendation={combined_decision.get('recommendation')} trustScore={combined_decision.get('trustScore')}"
         )
         
         # Store combined analysis
@@ -606,34 +734,34 @@ async def upload_recording(
             f"FinalDecision={combined_decision.get('finalDecision')}"
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"ML analysis failed: {e}")
-        # Default analysis on failure
-        analysis = {
-            "intentLabel": "unknown",
-            "confidence": 0.0,
-            "scores": {},
-            "finalDecision": "VERIFY",
-            "finalRecommendation": "manual_verify",
-            "reasoning": "Analysis failed - manual review required",
-            "riskLevel": "MEDIUM",
-            "analyzedAt": now,
-        }
+        logger.error(f"[GATE1 MODEL] inference failed because {e}")
+        raise HTTPException(status_code=500, detail=f"Audio analysis failed: {e}")
     
     # Update call record with recording info and analysis
-    await db.calls.update_one(
-        {"_id": ObjectId(call_id)},
-        {
-            "$set": {
-                "recording": {
-                    "backendFilePath": str(recording_path),
-                    "uploadedAt": now,
-                },
-                "analysis": analysis,
-                "updatedAt": now,
+    try:
+        logger.info(f"[GATE1 DB] saving analysis for callId={call_id} collection=calls")
+        await db.calls.update_one(
+            {"_id": ObjectId(call_id)},
+            {
+                "$set": {
+                    "recording": {
+                        "backendFilePath": str(recording_path),
+                        "debugFilePath": str(debug_recording_path),
+                        "uploadedAt": now,
+                    },
+                    "analysis": analysis,
+                    "updatedAt": now,
+                }
             }
-        }
-    )
+        )
+        logger.info(f"[GATE1 DB] save successful callId={call_id} collection=calls")
+    except Exception as e:
+        logger.error(f"[GATE1 DB] save failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to persist call analysis: {e}")
     
     # Also save to call_assessments collection for interview workflow
     call_assessment = {
@@ -656,13 +784,24 @@ async def upload_recording(
     }
     
     # Upsert call assessment
-    await db.call_assessments.update_one(
-        {"jobId": call["jobId"], "clientId": call["clientUserId"]},
-        {"$set": call_assessment},
-        upsert=True
-    )
+    try:
+        logger.info(
+            f"[GATE1 DB] saving analysis for callId={call_id} collection=call_assessments"
+        )
+        await db.call_assessments.update_one(
+            {"jobId": call["jobId"], "clientId": call["clientUserId"]},
+            {"$set": call_assessment},
+            upsert=True
+        )
+        logger.info(
+            f"[GATE1 DB] save successful callId={call_id} collection=call_assessments"
+        )
+    except Exception as e:
+        logger.error(f"[GATE1 DB] save failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to persist call assessment: {e}")
     
-    # Delete the recording file after successful analysis and database update
+    # Delete temporary processing file after successful analysis and database update.
+    # Permanent debug copy under backend/debug_recordings is retained.
     try:
         if recording_path.exists():
             recording_path.unlink()

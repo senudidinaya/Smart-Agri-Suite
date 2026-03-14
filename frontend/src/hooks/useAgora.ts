@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Platform, PermissionsAndroid } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import { AGORA_DEBUG } from '@/config';
 
 // Conditionally import Agora only on native platforms
@@ -686,10 +687,12 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
 
   /**
    * Start Agora audio recording
+   * Records to FileSystem.cacheDirectory with reliable cross-platform access
    */
   const startLocalRecording = useCallback(async (): Promise<boolean> => {
     if (!engineRef.current) {
       console.error('Engine not initialized for recording');
+      console.error('[GATE1] Recording start failed: engine not initialized');
       return false;
     }
 
@@ -703,18 +706,26 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
     }
 
     try {
-      const timestamp = Date.now();
-      const filename = `call_recording_${timestamp}.wav`;
-      
-      let filePath: string;
-      if (Platform.OS === 'android') {
-        filePath = `/data/user/0/com.smartagri.mobile/cache/${filename}`;
-      } else {
-        filePath = filename;
+      // ALWAYS require FileSystem.cacheDirectory - fail gracefully if unavailable
+      const cacheDir = FileSystem.cacheDirectory;
+      if (!cacheDir) {
+        console.error('[GATE1] Recording start failed: FileSystem.cacheDirectory is null');
+        console.error('[GATE1] Recording cannot proceed without cache directory access');
+        setState(prev => ({
+          ...prev,
+          error: 'Cannot access device storage for recording.',
+        }));
+        return false;
       }
 
+      const recordingUri = `${cacheDir}call_recording_${Date.now()}.wav`;
+      const agoraFilePath = recordingUri.replace('file://', '');
+
+      console.log(`[GATE1] Recording URI created: ${recordingUri}`);
+      console.log(`[GATE1] Agora path used: ${agoraFilePath}`);
+
       const result = engineRef.current.startAudioRecording({
-        filePath: filePath,
+        filePath: agoraFilePath,
         sampleRate: 16000,
         recordingChannel: 1,
         quality: AudioRecordingQualityType.AudioRecordingQualityMedium,
@@ -722,41 +733,86 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
       });
 
       if (result === 0) {
-        recordingPathRef.current = filePath;
+        // Store upload URI format as source of truth.
+        recordingPathRef.current = recordingUri;
         setIsRecording(true);
-        console.log('Agora recording started:', filePath);
+        console.log('Agora recording started:', agoraFilePath);
+        console.log(`[GATE1] Recording started successfully path=${agoraFilePath}`);
         return true;
       } else {
         console.error('Failed to start Agora recording, error code:', result);
+        console.error(`[GATE1] Recording start failed code=${result}`);
         return false;
       }
     } catch (error) {
       console.error('Failed to start recording:', error);
+      console.error(`[GATE1] Recording start exception=${String(error)}`);
       return false;
     }
   }, []);
 
   /**
    * Stop Agora audio recording
+   * Returns file:// URI format for upload (Expo FileSystem APIs require this)
    */
   const stopLocalRecording = useCallback(async (): Promise<string | null> => {
-    if (!engineRef.current) return null;
+    const recordingUri = recordingPathRef.current;
+
+    if (!engineRef.current) {
+      console.error('[GATE1] Recording stop failed: engine not initialized');
+      if (recordingUri) {
+        console.warn(`[GATE1] Recording stop fallback - returning URI=${recordingUri}`);
+        console.log(`[GATE1] Upload URI used: ${recordingUri}`);
+        recordingPathRef.current = null;
+        setIsRecording(false);
+        return recordingUri;
+      }
+      return null;
+    }
 
     try {
       const result = engineRef.current.stopAudioRecording();
       
       if (result === 0) {
-        const filePath = recordingPathRef.current;
         recordingPathRef.current = null;
         setIsRecording(false);
-        console.log('Agora recording stopped:', filePath);
-        return filePath;
+        
+        if (recordingUri) {
+          const agoraPath = recordingUri.replace('file://', '');
+          console.log('Agora recording stopped:', agoraPath);
+          console.log(`[GATE1] Recording stopped successfully - Agora path=${agoraPath} - Upload URI=${recordingUri}`);
+          console.log(`[GATE1] Upload URI used: ${recordingUri}`);
+          return recordingUri;
+        } else {
+          console.warn('[GATE1] Recording stopped but no path was stored');
+          return null;
+        }
       } else {
         console.error('Failed to stop Agora recording, error code:', result);
+        console.error(`[GATE1] Recording stop failed code=${result}`);
+        
+        if (recordingUri) {
+          // Return URI even on SDK error - file might still exist
+          console.warn(`[GATE1] Recording stop SDK error but returning URI=${recordingUri}`);
+          console.log(`[GATE1] Upload URI used: ${recordingUri}`);
+          recordingPathRef.current = null;
+          setIsRecording(false);
+          return recordingUri;
+        }
         return null;
       }
     } catch (error) {
       console.error('Failed to stop recording:', error);
+      console.error(`[GATE1] Recording stop exception=${String(error)}`);
+      
+      if (recordingUri) {
+        // Return URI even on exception - file might still exist
+        console.warn(`[GATE1] Recording stop exception but returning URI=${recordingUri}`);
+        console.log(`[GATE1] Upload URI used: ${recordingUri}`);
+        recordingPathRef.current = null;
+        setIsRecording(false);
+        return recordingUri;
+      }
       return null;
     }
   }, []);

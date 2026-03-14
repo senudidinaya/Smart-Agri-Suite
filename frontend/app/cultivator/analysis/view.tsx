@@ -12,6 +12,12 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { cultivatorApi as api } from '@/api/cultivatorApi';
 
+const DECISION_LABELS: Record<string, string> = {
+  APPROVE: 'Proceed',
+  VERIFY: 'Needs Manual Review',
+  REJECT: 'Do Not Proceed',
+};
+
 export default function ViewAnalysisScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ jobId?: string; jobTitle?: string }>();
@@ -71,6 +77,11 @@ export default function ViewAnalysisScreen() {
       default:
         return '#95a5a6';
     }
+  };
+
+  const getDecisionText = (decision?: string): string => {
+    if (!decision) return 'Pending';
+    return DECISION_LABELS[decision] || decision;
   };
 
   if (loading) {
@@ -140,9 +151,11 @@ export default function ViewAnalysisScreen() {
             {interviewAnalyses.map((interview, index) => (
               <View key={`iv-${index}`} style={styles.card}>
                 <Text style={styles.cardTitle}>Interview {index + 1}</Text>
-                <Text style={styles.meta}>Decision: {interview.analysisDecision || 'N/A'}</Text>
+                <Text style={styles.meta}>Recommendation: {getDecisionText(interview.analysisDecision)}</Text>
                 <Text style={styles.meta}>Confidence: {interview.confidence != null ? `${(interview.confidence * 100).toFixed(1)}%` : 'N/A'}</Text>
-                {!!interview.dominant_emotion && <Text style={styles.meta}>Dominant emotion: {interview.dominant_emotion}</Text>}
+                {!!interview.dominant_emotion && interview.dominant_emotion !== 'unknown' && (
+                  <Text style={styles.meta}>Dominant emotion: {interview.dominant_emotion}</Text>
+                )}
               </View>
             ))}
           </View>

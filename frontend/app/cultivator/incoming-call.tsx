@@ -102,9 +102,12 @@ export default function IncomingCallScreen() {
       const response = await api.acceptCall(callId);
 
       // PHASE 3: Frontend API response logging (client accept)
-      const token = response.agora.token;
+      const token = typeof response.agora?.token === 'string' ? response.agora.token : '';
       const startsWithOo6 = token.startsWith('006');
       console.log(`[AGORA-FRONTEND-RECEIVE] channel=${response.agora.channelName} uid=${response.agora.uid} prefix=${token.substring(0, 10)} length=${token.length} starts_with_006=${startsWithOo6}`);
+      if (!token) {
+        console.warn('[GATE1] Accept call payload missing token', { callId });
+      }
       
       // PHASE 4: AsyncStorage save logging (client accept)
       console.log(`[AGORA-FRONTEND-STORAGE-SAVE] prefix=${token.substring(0, 10)} length=${token.length}`);

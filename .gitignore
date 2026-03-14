@@ -2,3 +2,10 @@ node_modules
 .venv/
 __pycache__/
 .env
+# Ignore all audio recordings
+*.wav
+backend/debug_recordings/
+backend/recordings/
+
+# Ignore the large zip file
+_cultivator_intention_analyzer.zip

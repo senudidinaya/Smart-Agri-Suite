@@ -7,7 +7,8 @@ alembic
 python-dotenv
 python-multipart
 joblib
-numpy
+numpy>=1.26.0
+numba>=0.58.0
 scikit-learn
 xgboost
 pandas
@@ -22,3 +23,6 @@ bcrypt
 motor
 earthengine-api
 geopy
+agora-token-builder==1.0.0
+librosa>=0.10.1
+soundfile

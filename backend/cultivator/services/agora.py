@@ -75,12 +75,17 @@ class AgoraTokenBuilder:
                 privilege_expired_ts
             )
             return token
-        except ImportError:
-            # Fallback: generate a simple token for development
-            logger.warning("agora-token-builder not installed, using development token")
-            return AgoraTokenBuilder._build_dev_token(
-                app_id, channel_name, uid, privilege_expired_ts
+        except ImportError as exc:
+            logger.error(
+                "[AGORA-BACKEND-GENERATE] Missing dependency: 'agora-token-builder'. "
+                "Install it in the active backend environment to generate RTC tokens."
             )
+            raise RuntimeError(
+                "Agora token generation dependency missing: install 'agora-token-builder' in the active backend environment"
+            ) from exc
+        except Exception as exc:
+            logger.error(f"[AGORA-BACKEND-GENERATE] Token builder failure: {exc}")
+            raise RuntimeError(f"Agora token builder failed: {exc}") from exc
     
     @staticmethod
     def _build_dev_token(
@@ -380,41 +385,18 @@ def generate_agora_token(
     current_ts = int(time.time())
     privilege_expired_ts = current_ts + expire_seconds
 
-    if not app_id:
-        logger.warning("[AGORA-TOKEN-DEBUG] WARNING: app_id is empty; fallback token path may be used")
-    if not app_certificate:
-        logger.warning("[AGORA-TOKEN-DEBUG] WARNING: app_certificate is empty; fallback token path may be used")
-
     if not app_id or not app_certificate:
-        logger.warning("Agora credentials not configured, using development mode")
-        # Return a dev token for testing
-        token = AgoraTokenBuilder._build_dev_token(
-            app_id or "dev_app_id",
-            channel_name,
-            uid,
-            privilege_expired_ts
+        missing = []
+        if not app_id:
+            missing.append("AGORA_APP_ID")
+        if not app_certificate:
+            missing.append("AGORA_CERT")
+        msg = (
+            "Agora credentials missing: " + ", ".join(missing) +
+            ". Configure these in backend/.env before starting the backend."
         )
-        logger.info("[AGORA-TOKEN-DEBUG] Token generation")
-        logger.info(f"[AGORA-TOKEN-DEBUG] AppID length: {len(app_id)}")
-        logger.info(f"[AGORA-TOKEN-DEBUG] Certificate length: {len(app_certificate)}")
-        logger.info(f"[AGORA-TOKEN-DEBUG] Channel: {channel_name}")
-        logger.info(f"[AGORA-TOKEN-DEBUG] UID: {uid}")
-        logger.info(f"[AGORA-TOKEN-DEBUG] Role: {getattr(role, 'name', str(role))}")
-        logger.info(f"[AGORA-TOKEN-DEBUG] Current time: {current_ts}")
-        logger.info(f"[AGORA-TOKEN-DEBUG] Expiry: {privilege_expired_ts}")
-        logger.info(f"[AGORA-TOKEN-DEBUG] Token length: {len(token)}")
-        logger.info(f"[AGORA-TOKEN-DEBUG] Token preview: {token[:20]}...")
-        
-        # PHASE 1: Backend token generation logging (dev mode)
-        starts_with_006 = token.startswith('006')
-        print(f"[AGORA-BACKEND-GENERATE] channel={channel_name} uid={uid} prefix={token[:10]} length={len(token)} starts_with_006={starts_with_006}")
-        
-        print("[AGORA TOKEN GENERATED]")
-        print("channel:", channel_name)
-        print("uid:", uid)
-        print("token prefix:", token[:10])
-        print("token length:", len(token))
-        return token
+        logger.error(f"[AGORA-BACKEND-GENERATE] {msg}")
+        raise RuntimeError(msg)
 
     token = AgoraTokenBuilder.build_token_with_uid(
         app_id,
@@ -428,6 +410,14 @@ def generate_agora_token(
     # PHASE 1: Backend token generation logging
     starts_with_006 = token.startswith('006')
     print(f"[AGORA-BACKEND-GENERATE] channel={channel_name} uid={uid} prefix={token[:10]} length={len(token)} starts_with_006={starts_with_006}")
+
+    if not starts_with_006:
+        msg = (
+            "Generated token is not a valid Agora RTC token (expected prefix '006'). "
+            "Check Agora credentials and token builder package/version."
+        )
+        logger.error(f"[AGORA-BACKEND-GENERATE] {msg}")
+        raise RuntimeError(msg)
     
     logger.info("[AGORA-TOKEN-DEBUG] Token generation")
     logger.info(f"[AGORA-TOKEN-DEBUG] AppID length: {len(app_id)}")
@@ -528,7 +518,10 @@ def validate_agora_credentials_at_startup() -> bool:
 def get_agora_app_id() -> str:
     """Get the Agora App ID from settings."""
     settings = get_settings()
-    return settings.agora_app_id or "dev_app_id"
+    app_id = settings.agora_app_id or ""
+    if not app_id:
+        raise RuntimeError("Agora App ID missing: set AGORA_APP_ID in backend/.env")
+    return app_id
 
 
 # Singleton cloud recording manager

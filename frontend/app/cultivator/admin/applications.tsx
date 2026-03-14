@@ -31,6 +31,52 @@ interface ExtendedJob extends Job {
   applicationStatus?: string;
 }
 
+const DECISION_LABELS: Record<string, string> = {
+  APPROVE: 'Proceed',
+  VERIFY: 'Needs Manual Review',
+  REJECT: 'Do Not Proceed',
+};
+
+const TECHNICAL_SIGNAL_PATTERNS = [
+  /model not loaded/i,
+  /expected model at/i,
+  /gate\s*2\s*ml/i,
+  /model_path/i,
+];
+
+function sanitizeInterviewSignal(signal: string): string | null {
+  const normalized = String(signal || '').trim();
+  if (!normalized) return null;
+
+  if (TECHNICAL_SIGNAL_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return null;
+  }
+
+  if (/manual\s+(verification|review)\s+required/i.test(normalized)) {
+    return 'Automated interview scoring was limited, so manual review is recommended.';
+  }
+
+  if (/could not extract frames/i.test(normalized)) {
+    return 'Video quality was too low for complete frame analysis.';
+  }
+
+  if (/video may be corrupted|unsupported format/i.test(normalized)) {
+    return 'The interview video format or quality reduced analysis reliability.';
+  }
+
+  return normalized;
+}
+
+function getInterviewHighlights(interview: any): string[] {
+  const rawSignals: string[] = Array.isArray(interview?.top_signals) ? interview.top_signals : [];
+  const rawReasons: string[] = Array.isArray(interview?.reasons) ? interview.reasons : [];
+  const merged = [...rawSignals, ...rawReasons]
+    .map((item) => sanitizeInterviewSignal(item))
+    .filter((item): item is string => Boolean(item));
+
+  return Array.from(new Set(merged));
+}
+
 export default function AdminApplicationsScreen() {
   const router = useRouter();
   const [jobs, setJobs] = useState<ExtendedJob[]>([]);
@@ -346,6 +392,11 @@ export default function AdminApplicationsScreen() {
     }
   };
 
+  const getDecisionText = (label?: string) => {
+    if (!label) return 'Pending';
+    return DECISION_LABELS[label] || label;
+  };
+
   const filters: { key: FilterStatus; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'new', label: 'New' },
@@ -636,14 +687,14 @@ export default function AdminApplicationsScreen() {
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.modalTitle}>📊 Full Analysis</Text>
+                <Text style={styles.modalTitle}>Full Analysis</Text>
 
                 {/* ── Gate-1: Voice Analysis ── */}
                 {analysisData?.callAssessment && (() => {
                   const ca = analysisData.callAssessment!;
                   return (
                     <View style={styles.modalSection}>
-                      <Text style={styles.sectionTitle}>🎙️ Gate-1 — Voice Analysis</Text>
+                      <Text style={styles.sectionTitle}>Gate-1: Voice Analysis</Text>
 
                       <View style={styles.decisionRow}>
                         <View style={[styles.decisionBadge, { backgroundColor: getIntentColor(ca.decision) }]}>
@@ -686,10 +737,12 @@ export default function AdminApplicationsScreen() {
                       )}
                       {gate1Insight && (
                         <View style={styles.insightCard}>
-                          <Text style={styles.insightTitle}>🧠 AI Insight</Text>
+                          <Text style={styles.insightTitle}>AI Insight</Text>
                           <Text style={styles.insightText}>{gate1Insight}</Text>
                         </View>
                       )}
+
+                      <View style={styles.sectionDivider} />
                     </View>
                   );
                 })()}
@@ -697,13 +750,14 @@ export default function AdminApplicationsScreen() {
                 {/* ── Gate-2: Interview Analysis ── */}
                 {analysisData?.interview?.analysisDecision && (() => {
                   const iv = analysisData.interview!;
+                  const interviewHighlights = getInterviewHighlights(iv);
                   return (
                     <View style={styles.modalSection}>
-                      <Text style={styles.sectionTitle}>🎥 Gate-2 — Interview Analysis</Text>
+                      <Text style={styles.sectionTitle}>Gate-2: Interview Analysis</Text>
 
                       <View style={styles.decisionRow}>
                         <View style={[styles.decisionBadge, { backgroundColor: getDecisionColor(iv.analysisDecision!) }]}>
-                          <Text style={styles.decisionBadgeText}>{iv.analysisDecision}</Text>
+                          <Text style={styles.decisionBadgeText}>{getDecisionText(iv.analysisDecision)}</Text>
                         </View>
                         <Text style={styles.confidenceText}>
                           {((iv.confidence ?? 0) * 100).toFixed(1)}% confidence
@@ -711,7 +765,7 @@ export default function AdminApplicationsScreen() {
                       </View>
 
                       {/* Dominant Emotion */}
-                      {iv.dominant_emotion && (
+                      {iv.dominant_emotion && iv.dominant_emotion !== 'unknown' && (
                         <Text style={styles.dominantEmotion}>
                           Dominant Emotion: <Text style={{ fontWeight: '700' }}>{iv.dominant_emotion}</Text>
                         </Text>
@@ -744,11 +798,14 @@ export default function AdminApplicationsScreen() {
                       )}
 
                       {/* Top Signals */}
-                      {iv.top_signals && iv.top_signals.length > 0 && (
+                      {interviewHighlights.length > 0 && (
                         <View style={styles.signalsContainer}>
-                          <Text style={styles.scoresHeading}>Top Signals</Text>
-                          {iv.top_signals.map((sig: string, idx: number) => (
-                            <Text key={idx} style={styles.signalItem}>• {sig}</Text>
+                          <Text style={styles.scoresHeading}>Interview Highlights</Text>
+                          {interviewHighlights.map((sig: string, idx: number) => (
+                            <View key={idx} style={styles.signalRow}>
+                              <View style={styles.signalDot} />
+                              <Text style={styles.signalItem}>{sig}</Text>
+                            </View>
                           ))}
                         </View>
                       )}
@@ -777,10 +834,12 @@ export default function AdminApplicationsScreen() {
                       )}
                       {gate2Insight && (
                         <View style={styles.insightCard}>
-                          <Text style={styles.insightTitle}>🧠 AI Insight</Text>
+                          <Text style={styles.insightTitle}>AI Insight</Text>
                           <Text style={styles.insightText}>{gate2Insight}</Text>
                         </View>
                       )}
+
+                      <View style={styles.sectionDivider} />
                     </View>
                   );
                 })()}
@@ -1028,7 +1087,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
-    padding: 20,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   modalLoading: {
     alignItems: 'center',
@@ -1039,13 +1100,18 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 18,
     color: '#333',
   },
   modalSection: {
-    marginBottom: 25,
+    marginBottom: 16,
+    padding: 14,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   sectionTitle: {
     fontSize: 18,
@@ -1069,7 +1135,7 @@ const styles = StyleSheet.create({
   },
   confidenceText: {
     marginLeft: 15,
-    color: '#666',
+    color: '#475569',
     fontSize: 14,
   },
   scoresContainer: {
@@ -1130,16 +1196,37 @@ const styles = StyleSheet.create({
   },
   signalItem: {
     fontSize: 13,
-    color: '#666',
-    marginBottom: 6,
+    color: '#475569',
+    lineHeight: 19,
+    flex: 1,
+  },
+  signalRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 7,
+  },
+  signalDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16a34a',
+    marginTop: 7,
+    marginRight: 8,
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginTop: 12,
+    gap: 8,
   },
   statBox: {
     alignItems: 'center',
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   statValue: {
     fontSize: 16,
@@ -1163,10 +1250,10 @@ const styles = StyleSheet.create({
   },
   modalCloseButton: {
     backgroundColor: '#27ae60',
-    padding: 15,
+    paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 15,
+    marginTop: 12,
   },
   modalCloseButtonText: {
     color: '#fff',
@@ -1260,5 +1347,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#9E9E9E',
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginTop: 14,
   },
 });
