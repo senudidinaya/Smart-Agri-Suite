@@ -3,6 +3,7 @@
 # Branches merged:
 #   • feature/gee-xgboost-universal-analysis
 #   • new-smart-pricing-and-logistics-optimization
+#   • cultivator-screening (voice/video ML analysis)
 # ─────────────────────────────────────────────
 
 # --- Web Framework ---
@@ -42,3 +43,20 @@ pillow
 # --- Utilities ---
 python-dotenv
 python-multipart
+pydantic-settings
+pytz
+aiohttp
+
+# --- Audio Processing (Cultivator Screening) ---
+librosa>=0.10.1
+soundfile
+
+# --- Video Processing (Cultivator Screening) ---
+opencv-python
+
+# --- Third-Party Services (Cultivator Screening) ---
+agora-token-builder==1.0.0
+deepseek
+
+# --- Performance (librosa dependency) ---
+numba>=0.58.0
