@@ -1,0 +1,37 @@
+{
+  "model_name": "gate1_deception_model",
+  "version": "v1.0.0",
+  "model_type": "gradient_boosting",
+  "task": "audio_deception_detection",
+  "gate": "gate1",
+  "labels": [
+    0,
+    1
+  ],
+  "features": [
+    "duration_seconds",
+    "rms_mean",
+    "rms_std",
+    "f0_mean",
+    "f0_std",
+    "zcr_mean",
+    "spectral_centroid_mean",
+    "tempo_proxy",
+    "transcript_char_len",
+    "transcript_word_count",
+    "urgency_count",
+    "money_count",
+    "secrecy_count",
+    "pressure_count",
+    "id_avoidance_count",
+    "otp_pin_count"
+  ],
+  "n_features": 16,
+  "n_samples": 400,
+  "test_accuracy": 0.6,
+  "cv_accuracy": 0.55,
+  "roc_auc": 0.58,
+  "trained_at": "2026-03-06T15:20:22.013528",
+  "dataset_path": "data\\deception\\gate1_audio\\deception_audio_features.csv",
+  "description": "Audio-based deception detection model for cultivator intent analysis. Classifies speech as truthful or deceptive using prosodic features (pitch, energy, pauses, jitter, shimmer, MFCCs)."
+}
