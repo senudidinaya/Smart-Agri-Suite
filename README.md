@@ -4,7 +4,7 @@ This cross-platform mobile application empowers farmers with intelligent, real-t
 
 - 📈 **Live Crop Price Tracking** – Stay updated with dynamic market prices.
 - 🔮 **Demand Forecasting** – Anticipate crop demand trends using predictive analytics.
-- 🗣️ **Customer Voice Intention Analysis** – Enhance negotiation outcomes during land sales calls through voice-based sentiment prediction.
+- 🗣️ **Cultivator Voice Intention Analysis** – Enhance negotiation outcomes during land sales calls through voice-based sentiment prediction.
 - 🌦️ **Climate-Resilient Trade Recommendations** – Receive tailored suggestions for sustainable and profitable trade strategies.
 - 🛰️ **Universal Idle Land Detection** - Instantly analyze land anywehere in the world via **Google Earth Engine (GEE)** and **XGBoost**. View idle lands, vegetation, built-up areas, spice suitability, and intercropping recommendations. List your land on the integrated marketplace.
 

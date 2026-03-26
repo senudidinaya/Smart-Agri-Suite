@@ -3,13 +3,15 @@ Write-Host "============================================================" -Foreg
 Write-Host "  Smart-Agri-Suite Backend Launcher" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
+Write-Host "Run this script from a terminal where the Python virtual environment is already activated." -ForegroundColor Yellow
+Write-Host ""
 
 # 1. GEE / XGBoost Backend (Python FastAPI)
 Write-Host "[1/4] Starting GEE + XGBoost API (FastAPI) on port 8000..." -ForegroundColor Green
 $geeBackendPath = Join-Path $PSScriptRoot "backend"
 Start-Process powershell -ArgumentList @(
   "-NoExit", "-Command",
-  "cd '$geeBackendPath'; Write-Host 'Activating Python venv...' -ForegroundColor Yellow; & .venv\Scripts\Activate.ps1; Write-Host 'Starting FastAPI on http://localhost:8000' -ForegroundColor Green; python -m uvicorn idle_land_api:app --reload --host 0.0.0.0 --port 8000"
+  "cd '$geeBackendPath'; Write-Host 'Using current Python environment' -ForegroundColor Yellow; Write-Host 'Starting FastAPI on http://localhost:8000' -ForegroundColor Green; python -m uvicorn idle_land_api:app --reload --host 0.0.0.0 --port 8000"
 ) -WindowStyle Normal
 Write-Host "  GEE/XGBoost backend launched." -ForegroundColor Green
 Write-Host ""
@@ -29,7 +31,7 @@ Write-Host "[3/4] Starting Stock Prediction API (FastAPI) on port 8001..." -Fore
 $stockBackendPath = Join-Path $PSScriptRoot "backend\stock"
 Start-Process powershell -ArgumentList @(
   "-NoExit", "-Command",
-  "cd '$stockBackendPath'; Write-Host 'Activating Python venv...' -ForegroundColor Yellow; & ..\.venv\Scripts\Activate.ps1; Write-Host 'Starting Stock API on http://localhost:8001' -ForegroundColor Magenta; python -m uvicorn stock_prediction_api:app --reload --host 0.0.0.0 --port 8001"
+  "cd '$stockBackendPath'; Write-Host 'Using current Python environment' -ForegroundColor Yellow; Write-Host 'Starting Stock API on http://localhost:8001' -ForegroundColor Magenta; python -m uvicorn stock_prediction_api:app --reload --host 0.0.0.0 --port 8001"
 ) -WindowStyle Normal
 Write-Host "  Stock Prediction backend launched." -ForegroundColor Magenta
 Write-Host ""
@@ -39,7 +41,7 @@ Write-Host "[4/4] Starting Cultivator Screening API (FastAPI) on port 8002..." -
 $backendPath = Join-Path $PSScriptRoot "backend"
 Start-Process powershell -ArgumentList @(
   "-NoExit", "-Command",
-  "cd '$backendPath'; Write-Host 'Activating Python venv...' -ForegroundColor Yellow; & .venv\Scripts\Activate.ps1; Write-Host 'Starting Cultivator API on http://localhost:8002' -ForegroundColor Yellow; python -m uvicorn cultivator.main:app --reload --host 0.0.0.0 --port 8002"
+  "cd '$backendPath'; Write-Host 'Using current Python environment' -ForegroundColor Yellow; Write-Host 'Starting Cultivator API on http://localhost:8002' -ForegroundColor Yellow; python -m uvicorn cultivator.main:app --reload --host 0.0.0.0 --port 8002"
 ) -WindowStyle Normal
 Write-Host "  Cultivator Screening backend launched." -ForegroundColor Yellow
 Write-Host ""
