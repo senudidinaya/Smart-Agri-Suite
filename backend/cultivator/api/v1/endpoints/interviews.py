@@ -36,19 +36,27 @@ from cultivator.api.v1.endpoints.notifications import create_notification
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/admin/interviews", tags=["Interviews"])
+ADMIN_ROLES = {"interviewer", "admin"}
+
+
+def get_db_or_raise():
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    return db
 
 
 async def get_interviewer_user(user_id: str) -> dict:
-    """Resolve authenticated interviewer from user id."""
-    db = get_db()
+    """Resolve authenticated interviewer/admin from user id."""
+    db = get_db_or_raise()
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    if user.get("role") != "interviewer":
-        raise HTTPException(status_code=403, detail="Only interviewer can access this endpoint")
+    if user.get("role") not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Only interviewer or admin can access this endpoint")
     return {
         "sub": user_id,
-        "username": user.get("username", "interviewer"),
+        "username": user.get("username", "admin"),
         "role": user.get("role"),
     }
 
@@ -191,10 +199,7 @@ async def invite_for_interview(
     Creates/updates the interview record and sets application status.
     """
     admin = await get_interviewer_user(user_id)
-    db = get_db()
-    
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database not available")
+    db = get_db_or_raise()
     
     # Verify job exists
     job = await db.jobs.find_one({"_id": ObjectId(job_id)})
@@ -298,10 +303,7 @@ async def analyze_interview_video(
     - Video file is NOT stored permanently (deleted after analysis)
     """
     admin = await get_interviewer_user(user_id)
-    db = get_db()
-    
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database not available")
+    db = get_db_or_raise()
     
     # Verify interview exists
     interview = await db.inperson_interviews.find_one({
@@ -609,10 +611,7 @@ async def get_interview_status(
     Get interview status and call assessment for a job/client.
     """
     _ = await get_interviewer_user(user_id)
-    db = get_db()
-    
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database not available")
+    db = get_db_or_raise()
     
     # Get interview if exists
     interview = await db.inperson_interviews.find_one({
@@ -643,10 +642,7 @@ async def reject_application(
     Reject a client's application without interview.
     """
     _ = await get_interviewer_user(user_id)
-    db = get_db()
-    
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database not available")
+    db = get_db_or_raise()
     
     now = datetime.now(timezone.utc)
     

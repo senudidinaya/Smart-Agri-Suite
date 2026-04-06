@@ -91,6 +91,7 @@ class Gate2InferenceService:
         self.metadata: dict = {}
         self.is_loaded = False
         self.face_cascade = None
+        self.load_failure_reason: Optional[str] = None
         
         # Paths
         self.model_dir, resolved_paths = _resolve_gate2_model_dir([
@@ -118,19 +119,24 @@ class Gate2InferenceService:
         """Load the sklearn model, scaler, and class names."""
         try:
             import joblib
-            
+
+            missing_files = []
             if not self.model_path.exists():
-                print(f"[WARN] Gate 2 model not found: {self.model_path}")
-                self.is_loaded = False
-                return
-            
+                missing_files.append(self.model_path.name)
             if not self.scaler_path.exists():
-                print(f"[WARN] Gate 2 scaler not found: {self.scaler_path}")
-                self.is_loaded = False
-                return
-            
+                missing_files.append(self.scaler_path.name)
             if not self.class_names_path.exists():
-                print(f"[WARN] Gate 2 class names not found: {self.class_names_path}")
+                missing_files.append(self.class_names_path.name)
+
+            if missing_files:
+                self.load_failure_reason = (
+                    "Video emotion model artifacts missing: "
+                    + ", ".join(missing_files)
+                )
+                print(
+                    f"[WARN] {self.load_failure_reason} "
+                    f"(searched in {self.model_dir})"
+                )
                 self.is_loaded = False
                 return
             
@@ -150,10 +156,12 @@ class Gate2InferenceService:
                     self.metadata = json.load(f)
             
             self.is_loaded = True
+            self.load_failure_reason = None
             print(f"[INFO] Gate 2 model loaded successfully. Classes: {self.class_names}")
             
         except Exception as e:
-            print(f"[ERROR] Failed to load Gate 2 model: {e}")
+            self.load_failure_reason = f"Gate 2 model load failed: {e}"
+            print(f"[ERROR] {self.load_failure_reason}")
             import traceback
             traceback.print_exc()
             self.is_loaded = False
@@ -455,13 +463,17 @@ class Gate2InferenceService:
         """
         # Fallback if model not loaded
         if not self.is_loaded:
+            fallback_reason = (
+                self.load_failure_reason
+                or "Video model is warming up or unavailable"
+            )
             return Gate2InferenceResult(
                 decision_label="VERIFY",
                 confidence=0.5,
                 emotion_distribution={},
                 dominant_emotion="unknown",
                 top_signals=[
-                    "Video model is warming up or unavailable",
+                    fallback_reason,
                     "Manual verification recommended",
                     "Using conservative review decision"
                 ],
@@ -470,7 +482,8 @@ class Gate2InferenceService:
                     'faces_detected': 0,
                     'face_detection_rate': 0.0,
                     'stability': 0.0,
-                    'model_loaded': False
+                    'model_loaded': False,
+                    'fallback_reason': fallback_reason,
                 },
                 model_version="gate2-fallback-v1"
             )

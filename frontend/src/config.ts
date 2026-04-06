@@ -1,30 +1,19 @@
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { resolveBackendBaseUrl } from "./shared/backendUrl";
 
-const getAPIEndpoint = () => {
-    // Dynamically retrieve the laptop's local IP address from Expo Go running in LAN mode.
-    // This allows you to freely switch Wi-Fi networks and the app will automatically route back to the backend.
+const mergedBackend = resolveBackendBaseUrl({
+    explicitUrlEnvName: "EXPO_PUBLIC_API_BASE_URL",
+    fallbackHostEnvName: "EXPO_PUBLIC_DEV_SERVER_HOST",
+    fallbackHost: "172.20.10.14",
+    port: 8000,
+});
 
-    let hostIP = "172.20.10.14"; // Fallback IP
-
-    try {
-        const hostUri = Constants.expoConfig?.hostUri || Constants.experienceUrl;
-
-        if (hostUri) {
-            // Strip out 'exp://' if present and extract just the IP
-            const rawUrl = hostUri.replace('exp://', '');
-            hostIP = rawUrl.split(':')[0];
-        } else if (__DEV__ && Platform.OS === 'android') {
-            hostIP = "10.0.2.2"; // Android emulator localhost
-        } else if (__DEV__ && Platform.OS === 'ios') {
-            hostIP = "localhost"; // iOS simulator localhost
-        }
-    } catch (e) {
-        console.warn("Failed to extract dynamic IP, using fallback", e);
+if (__DEV__) {
+    console.info(`[MergedAPI] Base URL resolved to ${mergedBackend.baseUrl} via ${mergedBackend.source}`);
+    if (mergedBackend.warning) {
+        console.warn(`[MergedAPI] ${mergedBackend.warning}`);
     }
+}
 
-    return `http://${hostIP}:8000`;
-};
-
-export const API_BASE_URL = getAPIEndpoint();
+export const API_BASE_URL = mergedBackend.baseUrl;
 export const AUTH_API_BASE_URL = `${API_BASE_URL}/api/v1`;
+export const API_BASE_URL_SOURCE = mergedBackend.source;

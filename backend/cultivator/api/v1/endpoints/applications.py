@@ -22,10 +22,20 @@ from cultivator.services.admin_assignment import get_today_colombo_date_str, ass
 logger = get_logger(__name__)
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
+CLIENT_ROLES = {"client", "farmer"}
+ADMIN_ROLES = {"interviewer", "admin"}
+
+
+def get_db_or_raise():
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    return db
+
 
 async def get_current_user(user_id: str) -> dict:
     """Resolve authenticated user data for role and username checks."""
-    db = get_db()
+    db = get_db_or_raise()
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -57,10 +67,10 @@ async def apply_to_job(data: ApplicationCreate, user_id: str = Depends(require_a
     """Apply to a job. Only clients can apply."""
     user = await get_current_user(user_id)
     
-    if user["role"] != "client":
+    if user["role"] not in CLIENT_ROLES:
         raise HTTPException(status_code=403, detail="Only clients can apply to jobs")
     
-    db = get_db()
+    db = get_db_or_raise()
     
     # Check if job exists
     job = await db.jobs.find_one({"_id": ObjectId(data.jobId)})
@@ -123,13 +133,13 @@ async def get_applications(
     status: Optional[str] = Query(None),
     user_id: str = Depends(require_auth)
 ):
-    """Get all applications. Interviewer sees all, clients see their own."""
+    """Get all applications. Interviewer/admin sees all, clients see their own."""
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     
     query = {}
-    if user["role"] != "interviewer":
+    if user["role"] not in ADMIN_ROLES:
         query["applicantUserId"] = user["sub"]
     
     if status:
@@ -150,13 +160,13 @@ async def update_application_status(
     data: ApplicationStatusUpdate,
     user_id: str = Depends(require_auth)
 ):
-    """Update application status. Only interviewer can update."""
+    """Update application status. Only interviewer/admin can update."""
     user = await get_current_user(user_id)
     
-    if user["role"] != "interviewer":
-        raise HTTPException(status_code=403, detail="Only interviewer can update application status")
+    if user["role"] not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Only interviewer or admin can update application status")
     
-    db = get_db()
+    db = get_db_or_raise()
     
     result = await db.job_applications.update_one(
         {"_id": ObjectId(application_id)},

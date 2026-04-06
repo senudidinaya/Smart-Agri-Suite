@@ -14,6 +14,7 @@ from cultivator.core.database import get_db
 from cultivator.core.logging import get_logger
 
 logger = get_logger(__name__)
+ADMIN_ROLES = ["interviewer", "admin"]
 
 
 def get_today_colombo_date_str() -> str:
@@ -24,11 +25,11 @@ def get_today_colombo_date_str() -> str:
 
 
 async def get_active_interviewers() -> List[Dict[str, Any]]:
-    """Get list of active interviewers with their daily call limits."""
+    """Get list of active interviewer/admin users with their daily call limits."""
     db = get_db()
 
     cursor = db.users.find({
-        "role": "interviewer",
+        "role": {"$in": ADMIN_ROLES},
         "isActive": {"$ne": False}  # Default to true if missing
     })
 

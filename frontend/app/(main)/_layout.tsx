@@ -7,7 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 
 export default function TabLayout() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isPrivilegedUser = user?.role === "admin" || user?.role === "interviewer";
 
   return (
     <Tabs
@@ -86,7 +86,7 @@ export default function TabLayout() {
         name="dashboard"
         options={{
           title: "Admin",
-          href: isAdmin ? "/dashboard" : null,
+          href: isPrivilegedUser ? "/dashboard" : null,
           tabBarIcon: ({ color }) => (
             <IconText color={color} text="📊" />
           )

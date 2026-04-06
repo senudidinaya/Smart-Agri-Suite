@@ -63,9 +63,16 @@ CLIENT_UID_BASE = 2000
 RECORDING_UID_BASE = 9000
 
 
+def get_db_or_raise():
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    return db
+
+
 async def get_current_user(user_id: str) -> dict:
     """Resolve authenticated user data for role and username checks."""
-    db = get_db()
+    db = get_db_or_raise()
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -157,7 +164,7 @@ async def initiate_call(
     if user["role"] not in ["interviewer", "admin"]:
         raise HTTPException(status_code=403, detail="Only interviewer or admin can initiate calls")
     
-    db = get_db()
+    db = get_db_or_raise()
     settings = get_settings()
     
     # Get the job to find the client
@@ -337,7 +344,7 @@ async def check_incoming_call(
     user = await get_current_user(user_id)
     client_user_id = user["sub"]
     
-    db = get_db()
+    db = get_db_or_raise()
     
     # Find a ringing call for this client
     call = await db.calls.find_one({
@@ -393,7 +400,7 @@ async def accept_call(
     """
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     
     # Find the call
     call = await db.calls.find_one({"_id": ObjectId(call_id)})
@@ -462,7 +469,7 @@ async def reject_call(
     """
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     
     # Find the call
     call = await db.calls.find_one({"_id": ObjectId(call_id)})
@@ -506,7 +513,7 @@ async def end_call(
     """
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     
     # Find the call
     call = await db.calls.find_one({"_id": ObjectId(call_id)})
@@ -558,7 +565,7 @@ async def upload_recording(
     """
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     settings = get_settings()
     logger.info(
         f"[GATE1] Recording received on backend callId={call_id} filename={file.filename} content_type={file.content_type}"
@@ -690,6 +697,11 @@ async def upload_recording(
             "confidence": prediction_result.confidence,
             "scores": {score.label: score.score for score in prediction_result.all_scores},
         }
+        combined_intent_input = {
+            "predicted_intent": prediction_result.predicted_intent,
+            "confidence": prediction_result.confidence,
+            "all_scores": intent_analysis["scores"],
+        }
         
         # Step 2: Deception Analysis (NEW)
         from cultivator.services.inference import get_deception_detector
@@ -704,7 +716,7 @@ async def upload_recording(
         from cultivator.services.combined_analysis import combine_intent_and_deception
         
         combined_decision = combine_intent_and_deception(
-            intent_analysis,
+            combined_intent_input,
             deception_result,
         )
         logger.info(
@@ -827,7 +839,7 @@ async def get_call(
     """Get call details."""
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     
     call = await db.calls.find_one({"_id": ObjectId(call_id)})
     if not call:
@@ -872,7 +884,7 @@ async def start_cloud_recording(
     if user["role"] not in ["interviewer", "admin"]:
         raise HTTPException(status_code=403, detail="Only interviewer or admin can start cloud recording")
     
-    db = get_db()
+    db = get_db_or_raise()
     
     call = await db.calls.find_one({"_id": ObjectId(call_id)})
     if not call:
@@ -970,7 +982,7 @@ async def stop_cloud_recording(
     """
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     
     call = await db.calls.find_one({"_id": ObjectId(call_id)})
     if not call:

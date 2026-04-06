@@ -31,7 +31,7 @@ export default function RegisterScreen() {
     const [age, setAge] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [role, setRole] = useState<'client' | 'admin' | 'helper' | 'farmer'>('client');
+    const [role, setRole] = useState<'client' | 'admin' | 'helper' | 'farmer' | 'interviewer'>('client');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [secretCount, setSecretCount] = useState(0);
@@ -238,11 +238,11 @@ export default function RegisterScreen() {
                             <Text style={styles.inputLabel}>Join as *</Text>
                             <View style={styles.roleGrid}>
                                 <Pressable
-                                    style={[styles.roleButton, role === 'client' && styles.roleButtonActive]}
-                                    onPress={() => setRole('client')}
+                                    style={[styles.roleButton, role === 'interviewer' && styles.roleButtonActive]}
+                                    onPress={() => setRole('interviewer')}
                                 >
                                     <Text style={styles.roleEmoji}>👤</Text>
-                                    <Text style={[styles.roleText, role === 'client' && styles.roleTextActive]}>
+                                    <Text style={[styles.roleText, role === 'interviewer' && styles.roleTextActive]}>
                                         Interviewer
                                     </Text>
                                 </Pressable>

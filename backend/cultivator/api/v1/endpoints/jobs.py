@@ -18,10 +18,20 @@ from cultivator.schemas.interview import InterviewResponse
 logger = get_logger(__name__)
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
+CLIENT_ROLES = {"client", "farmer"}
+ADMIN_ROLES = {"interviewer", "admin"}
+
+
+def get_db_or_raise():
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    return db
+
 
 async def get_current_user(user_id: str) -> dict:
     """Resolve authenticated user data for role and username checks."""
-    db = get_db()
+    db = get_db_or_raise()
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -56,7 +66,7 @@ async def get_jobs(
     """Get all jobs. Optionally filter by status."""
     await get_current_user(user_id)  # Verify token and user exists
     
-    db = get_db()
+    db = get_db_or_raise()
     
     query = {}
     if status:
@@ -76,7 +86,7 @@ async def get_my_jobs(user_id: str = Depends(require_auth)):
     """Get jobs created by the current user."""
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     cursor = db.jobs.find({"createdByUserId": user["sub"]}).sort("createdAt", -1)
     jobs = await cursor.to_list(length=100)
     
@@ -91,10 +101,10 @@ async def create_job(data: JobCreate, user_id: str = Depends(require_auth)):
     """Create a new job posting. Only clients can create jobs."""
     user = await get_current_user(user_id)
     
-    if user["role"] != "client":
+    if user["role"] not in CLIENT_ROLES:
         raise HTTPException(status_code=403, detail="Only clients can create jobs")
     
-    db = get_db()
+    db = get_db_or_raise()
     now = datetime.now(timezone.utc)
     
     job_doc = {
@@ -123,16 +133,16 @@ async def update_job_status(
     status: str = Query(...),
     user_id: str = Depends(require_auth)
 ):
-    """Update job status. Only interviewer can update status."""
+    """Update job status. Only interviewer/admin can update status."""
     user = await get_current_user(user_id)
     
-    if user["role"] != "interviewer":
-        raise HTTPException(status_code=403, detail="Only interviewer can update job status")
+    if user["role"] not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Only interviewer or admin can update job status")
     
     if status not in ["new", "contacted", "closed"]:
         raise HTTPException(status_code=400, detail="Invalid status")
     
-    db = get_db()
+    db = get_db_or_raise()
     
     result = await db.jobs.update_one(
         {"_id": ObjectId(job_id)},
@@ -153,15 +163,15 @@ async def get_job_call_analyses(
     """Get all call analyses for a specific job."""
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     
     # Verify job exists and user has permission
     job = await db.jobs.find_one({"_id": ObjectId(job_id)})
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    # Only the job creator (client) or interviewers can view analyses
-    if user["role"] != "interviewer" and user["sub"] != job["createdByUserId"]:
+    # Only the job creator (client) or interviewer/admin can view analyses
+    if user["role"] not in ADMIN_ROLES and user["sub"] != job["createdByUserId"]:
         raise HTTPException(
             status_code=403,
             detail="You don't have permission to view this job's analyses"
@@ -209,15 +219,15 @@ async def get_job_interview_analyses(
     """Get all interview analyses for a specific job."""
     user = await get_current_user(user_id)
     
-    db = get_db()
+    db = get_db_or_raise()
     
     # Verify job exists and user has permission
     job = await db.jobs.find_one({"_id": ObjectId(job_id)})
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    # Only the job creator (client) or interviewers can view analyses
-    if user["role"] != "interviewer" and user["sub"] != job["createdByUserId"]:
+    # Only the job creator (client) or interviewer/admin can view analyses
+    if user["role"] not in ADMIN_ROLES and user["sub"] != job["createdByUserId"]:
         raise HTTPException(
             status_code=403,
             detail="You don't have permission to view this job's analyses"

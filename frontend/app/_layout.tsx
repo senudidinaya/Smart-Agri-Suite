@@ -81,6 +81,7 @@ function RootLayoutNav() {
               Core / Land screens  (gee-xgboost branch)
           ───────────────────────────────────────────────── */}
           <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="cultivator-module" options={{ headerShown: false }} />
           <Stack.Screen name="(main)" options={{ headerShown: false }} />
           <Stack.Screen name="land/[id]" options={{ title: "Land Details" }} />
           <Stack.Screen name="land/list-land-form" options={{ headerShown: false, presentation: "fullScreenModal" }} />

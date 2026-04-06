@@ -23,9 +23,16 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
+def get_db_or_raise():
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    return db
+
+
 async def get_current_user(user_id: str) -> dict:
     """Resolve authenticated user details."""
-    db = get_db()
+    db = get_db_or_raise()
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -105,10 +112,7 @@ async def get_notifications(
     - limit: Maximum number of notifications to return
     """
     user = await get_current_user(user_id)
-    db = get_db()
-    
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database not available")
+    db = get_db_or_raise()
     
     user_id = user["sub"]
     
@@ -144,10 +148,7 @@ async def mark_notifications_read(
     - If not provided, mark ALL notifications as read
     """
     user = await get_current_user(user_id)
-    db = get_db()
-    
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database not available")
+    db = get_db_or_raise()
     
     user_id = user["sub"]
     now = datetime.now(timezone.utc)
@@ -176,10 +177,7 @@ async def mark_notifications_read(
 async def get_unread_count(user_id: str = Depends(require_auth)):
     """Get the count of unread notifications for the current user."""
     user = await get_current_user(user_id)
-    db = get_db()
-    
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database not available")
+    db = get_db_or_raise()
     
     user_id = user["sub"]
     count = await db.notifications.count_documents({"userId": user_id, "isRead": False})

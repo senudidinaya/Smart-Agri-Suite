@@ -928,6 +928,22 @@ class Gate1DeceptionDetector:
         self.metadata: Dict[str, Any] = {}
         self.use_ml_model = False
         self.is_loaded = False
+        self.model_path: Optional[Path] = None
+        self.scaler_path: Optional[Path] = None
+        self.contract_mismatch_reason: Optional[str] = None
+
+    def _resolve_expected_feature_count(self) -> Optional[int]:
+        counts = []
+        metadata_count = self.metadata.get("n_features")
+        if isinstance(metadata_count, int):
+            counts.append(metadata_count)
+        scaler_count = getattr(self.scaler, "n_features_in_", None)
+        if isinstance(scaler_count, int):
+            counts.append(scaler_count)
+        model_count = getattr(self.model, "n_features_in_", None)
+        if isinstance(model_count, int):
+            counts.append(model_count)
+        return counts[0] if counts else None
 
     def load_model(self) -> bool:
         """Load the deception detection model."""
@@ -936,6 +952,8 @@ class Gate1DeceptionDetector:
             scaler_path = self.models_dir / "gate1_deception_scaler.pkl"
             encoder_path = self.models_dir / "gate1_deception_label_encoder.pkl"
             metadata_path = self.models_dir / "gate1_deception_metadata.json"
+            self.model_path = model_path
+            self.scaler_path = scaler_path
 
             logger.info(f"[GATE1 MODEL] resolved model path={model_path}")
             logger.info(f"[GATE1 MODEL] exists={model_path.exists()}")
@@ -955,6 +973,27 @@ class Gate1DeceptionDetector:
                 with open(metadata_path, "r") as f:
                     self.metadata = json.load(f)
 
+            expected_features = self._resolve_expected_feature_count()
+            runtime_features = len(DECEPTION_AUDIO_FEATURES)
+            logger.info(
+                f"[GATE1 DECEPTION] model_path={model_path} scaler_path={scaler_path} "
+                f"runtime_feature_count={runtime_features} expected_feature_count={expected_features} "
+                f"metadata_version={self.metadata.get('version', 'unknown')}"
+            )
+
+            if expected_features is not None and expected_features != runtime_features:
+                self.contract_mismatch_reason = (
+                    "Gate-1 deception artifact mismatch: "
+                    f"runtime extracts {runtime_features} features "
+                    f"({DECEPTION_AUDIO_FEATURES}), but loaded artifacts expect {expected_features}."
+                )
+                logger.error(f"[GATE1 DECEPTION] {self.contract_mismatch_reason}")
+                logger.warning("[GATE1 DECEPTION] Falling back to rules-based deception detection")
+                self.use_ml_model = False
+                self.is_loaded = True
+                return False
+
+            self.contract_mismatch_reason = None
             self.use_ml_model = True
             self.is_loaded = True
             logger.info("[GATE1 MODEL] loaded successfully")
@@ -1110,32 +1149,67 @@ class Gate1DeceptionDetector:
             Dict with keys: label, confidence, scores, features, signals
         """
         features = self.extract_deception_features(audio_data)
+        runtime_feature_names = list(DECEPTION_AUDIO_FEATURES)
+        runtime_feature_count = len(runtime_feature_names)
+        logger.info(
+            f"[GATE1 DECEPTION] runtime_feature_count={runtime_feature_count} "
+            f"feature_names={runtime_feature_names}"
+        )
 
         if self.use_ml_model and self.model is not None:
             feat_array = np.array(
                 [features[f] for f in DECEPTION_AUDIO_FEATURES]
             ).reshape(1, -1)
+            expected_features = self._resolve_expected_feature_count()
+            logger.info(
+                f"[GATE1 DECEPTION] entering scaler/model path runtime_feature_count={feat_array.shape[1]} "
+                f"expected_feature_count={expected_features}"
+            )
 
-            if self.scaler is not None:
-                feat_array = self.scaler.transform(feat_array)
+            if expected_features is not None and feat_array.shape[1] != expected_features:
+                self.contract_mismatch_reason = (
+                    "Gate-1 deception feature contract mismatch at predict time: "
+                    f"runtime={feat_array.shape[1]} expected={expected_features}"
+                )
+                logger.error(f"[GATE1 DECEPTION] {self.contract_mismatch_reason}")
+                logger.warning("[GATE1 DECEPTION] Falling back to rules-based deception detection")
+                self.use_ml_model = False
+                return self.predict(audio_data)
 
-            probs = self.model.predict_proba(feat_array)[0]
-            pred_idx = np.argmax(probs)
+            try:
+                if self.scaler is not None:
+                    feat_array = self.scaler.transform(feat_array)
 
-            if self.label_encoder is not None:
-                label = self.label_encoder.inverse_transform([pred_idx])[0]
-                all_labels = self.label_encoder.classes_
-            else:
-                label = DECEPTION_LABELS[pred_idx]
-                all_labels = DECEPTION_LABELS
+                probs = self.model.predict_proba(feat_array)[0]
+                pred_idx = np.argmax(probs)
 
-            confidence = float(probs[pred_idx])
-            scores = {
-                str(lbl): round(float(p), 4)
-                for lbl, p in zip(all_labels, probs)
-            }
+                if self.label_encoder is not None:
+                    label = self.label_encoder.inverse_transform([pred_idx])[0]
+                    all_labels = self.label_encoder.classes_
+                else:
+                    label = DECEPTION_LABELS[pred_idx]
+                    all_labels = DECEPTION_LABELS
+
+                confidence = float(probs[pred_idx])
+                scores = {
+                    str(lbl): round(float(p), 4)
+                    for lbl, p in zip(all_labels, probs)
+                }
+            except ValueError as exc:
+                self.contract_mismatch_reason = (
+                    "Gate-1 deception scaler/model rejected runtime features: "
+                    f"{exc}"
+                )
+                logger.error(f"[GATE1 DECEPTION] {self.contract_mismatch_reason}")
+                logger.warning("[GATE1 DECEPTION] Falling back to rules-based deception detection")
+                self.use_ml_model = False
+                label, confidence, scores = self._rules_based_predict(features)
         else:
             # Rules-based deception detection from prosodic cues
+            if self.contract_mismatch_reason:
+                logger.warning(
+                    f"[GATE1 DECEPTION] rules_fallback_reason={self.contract_mismatch_reason}"
+                )
             label, confidence, scores = self._rules_based_predict(features)
 
         # Generate interpretive signals

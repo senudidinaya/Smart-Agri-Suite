@@ -43,8 +43,8 @@ const COMPONENTS = [
         title: "Cultivator Intention Analyzer",
         subtitle: "Analyze farmer planting intentions and expected land utilization",
         icon: "🧠",
-        route: null,
-        active: false,
+        route: "/cultivator-module",
+        active: true,
         colors: ["#ec4899", "#db2777"],
         image: require("../assets/images/cultivator_intent_premium.png"),
     },
@@ -231,7 +231,7 @@ export default function AppHome() {
                         </View>
                     )}
                     <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {user?.role !== 'admin' && (
+                        {user?.role !== 'admin' && user?.role !== 'interviewer' && (
                             <Pressable
                                 style={({ pressed }) => [
                                     styles.themeToggle,

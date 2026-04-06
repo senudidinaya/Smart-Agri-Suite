@@ -17,19 +17,20 @@ from cultivator.services.admin_assignment import assign_or_queue_call_task, get_
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/call-tasks", tags=["Call Tasks"])
+ADMIN_ROLES = {"interviewer", "admin"}
 
 
 async def get_interviewer_user(user_id: str) -> dict:
-    """Resolve authenticated interviewer from user id."""
+    """Resolve authenticated interviewer/admin from user id."""
     db = get_db()
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    if user.get("role") != "interviewer":
-        raise HTTPException(status_code=403, detail="Only interviewer can access this endpoint")
+    if user.get("role") not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Only interviewer or admin can access this endpoint")
     return {
         "sub": user_id,
-        "username": user.get("username", "interviewer"),
+        "username": user.get("username", "admin"),
         "role": user.get("role"),
     }
 
