@@ -36,10 +36,19 @@ def combine_intent_and_deception(
     
     deception_label = deception_result.get("label", "unknown").lower()
     deception_confidence = deception_result.get("confidence", 0.5)
+    deception_scores = deception_result.get("scores", {}) or {}
+    if "deceptive" in deception_scores:
+        deception_probability = float(deception_scores["deceptive"])
+    elif deception_label == "deceptive":
+        deception_probability = deception_confidence
+    elif deception_label == "truthful":
+        deception_probability = 1.0 - deception_confidence
+    else:
+        deception_probability = 0.5
     
-    # Calculate trust score: commitment_confidence × (1 - deception_confidence)
+    # Calculate trust score: commitment_confidence x (1 - deception_probability)
     # Higher score = more trustworthy (strong commitment + low deception)
-    trust_score = intent_confidence * (1.0 - deception_confidence)
+    trust_score = intent_confidence * (1.0 - deception_probability)
     
     # Combined confidence: minimum of both
     combined_confidence = min(intent_confidence, deception_confidence)
@@ -54,7 +63,7 @@ def combine_intent_and_deception(
     elif intent_label == "PROCEED":
         if deception_label == "truthful":
             # PROCEED + TRUTHFUL = APPROVE
-            if intent_confidence >= 0.75 and deception_confidence <= 0.40:
+            if intent_confidence >= 0.75 and deception_probability <= 0.40:
                 final_decision = "APPROVE"
                 reasoning = "Cultivator shows strong commitment with honest communication. Trustworthy candidate for private land work."
                 recommendation = "auto_approve"

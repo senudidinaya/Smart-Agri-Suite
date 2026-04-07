@@ -234,7 +234,7 @@ async def get_job_interview_analyses(
         )
     
     # Get all interviews for this job that have analysis
-    cursor = db.interviews.find({
+    cursor = db.inperson_interviews.find({
         "jobId": job_id,
         "analysisDecision": {"$exists": True, "$ne": None}
     }).sort("createdAt", -1)
