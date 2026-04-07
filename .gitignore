@@ -1,5 +1,6 @@
 # dependencies
-node_modules/
+**/node_modules/
+**/bower_components/
 
 # Expo
 .expo/
@@ -15,6 +16,8 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+**/.gradle/
+**/build/
 
 # Metro
 .metro-health-check*
@@ -42,7 +45,6 @@ app-example
 /android
 
 # backend exclusions
-backend/node_modules/
 backend/Lib/
 backend/Scripts/
 backend/Include/
