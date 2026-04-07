@@ -1,6 +1,6 @@
 /**
  * View Analysis Screen - Display all completed call and interview analyses for a job
- * Shows both Gate-1 (voice intent) and Gate-2 (video emotion) analyses
+ * Shows Gate-1 call analysis and Gate-2 combined interview assessments.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -15,7 +15,14 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { api, CallStatusResponse, Interview, DeceptionAnalysis } from '../services/api';
+import {
+  api,
+  CallStatusResponse,
+  Gate2CombinedAssessment,
+  Gate2RawDeception,
+  Gate2RawEmotion,
+  Interview,
+} from '../services/api';
 
 interface RouteParams {
   jobId: string;
@@ -129,6 +136,144 @@ export default function ViewAnalysisScreen() {
     return normalized === 'truthful' ? 'Truthful' : normalized === 'deceptive' ? 'Deceptive' : label;
   };
 
+  const formatGate2Percent = (value?: number | null): string => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A';
+    const normalized = value <= 1 ? value * 100 : value;
+    return `${normalized.toFixed(1)}%`;
+  };
+
+  const renderBranchChip = (label: string, degraded?: boolean) => (
+    <View style={[styles.branchChip, { backgroundColor: degraded ? '#e74c3c' : '#27ae60' }]}>
+      <Text style={styles.branchChipText}>{label}</Text>
+    </View>
+  );
+
+  const renderReasonList = (items?: string[], emptyText = 'No details reported.') => (
+    <View style={styles.reasonsContainer}>
+      {(items && items.length > 0 ? items : [emptyText]).map((item, index) => (
+        <Text key={`${item}-${index}`} style={styles.reasonItem}>• {item}</Text>
+      ))}
+    </View>
+  );
+
+  const renderScoreBars = (scores?: Record<string, number>, color = '#8B5CF6') => {
+    if (!scores || Object.keys(scores).length === 0) return null;
+
+    return (
+      <View style={styles.scoresContainer}>
+        {Object.entries(scores).map(([label, value]) => {
+          const normalized = value <= 1 ? value * 100 : value;
+          return (
+            <View key={label} style={styles.scoreRow}>
+              <Text style={styles.scoreLabel}>{label}:</Text>
+              <View style={styles.scoreBarContainer}>
+                <View
+                  style={[
+                    styles.scoreBar,
+                    { width: `${Math.min(normalized, 100)}%`, backgroundColor: color },
+                  ]}
+                />
+              </View>
+              <Text style={styles.scoreValue}>{normalized.toFixed(1)}%</Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  const renderCombinedPanel = (combined: Gate2CombinedAssessment) => {
+    const degradedBranches = combined.degradedBranches ?? [];
+
+    return (
+      <View style={[styles.evidencePanel, styles.combinedEvidencePanel]}>
+        <Text style={styles.evidenceTitle}>Final Combined Gate-2 Assessment</Text>
+        <View style={[styles.decisionBadge, { backgroundColor: getDecisionColor(combined.finalDecision), alignSelf: 'flex-start', marginBottom: 8 }]}>
+          <Text style={styles.badgeText}>{combined.finalDecision}</Text>
+        </View>
+        <Text style={styles.confidenceText}>Overall confidence: {formatGate2Percent(combined.overallConfidence)}</Text>
+        <Text style={styles.evidenceMeta}>Risk level: {combined.riskLevel}</Text>
+        <Text style={styles.evidenceMeta}>Recommendation: {combined.recommendation}</Text>
+        <View style={styles.branchChipRow}>
+          {degradedBranches.length > 0
+            ? degradedBranches.map((branch) => (
+                <View key={branch}>{renderBranchChip(`${branch} degraded`, true)}</View>
+              ))
+            : renderBranchChip('all branches healthy', false)}
+        </View>
+        <Text style={styles.reasonsTitle}>Combined Reasoning:</Text>
+        {renderReasonList(combined.reasoning)}
+      </View>
+    );
+  };
+
+  const renderRawEmotionPanel = (
+    rawEmotion: Gate2RawEmotion | undefined,
+    legacy: {
+      dominantEmotion?: string;
+      emotionDistribution?: Record<string, number>;
+      topSignals?: string[];
+      modelVersion?: string;
+    },
+  ) => {
+    const degraded = rawEmotion ? rawEmotion.degraded : true;
+    const distribution = rawEmotion?.emotionDistribution ?? legacy.emotionDistribution;
+    const topSignals = rawEmotion?.topSignals ?? legacy.topSignals;
+
+    return (
+      <View style={[styles.evidencePanel, degraded && styles.degradedEvidencePanel]}>
+        <View style={styles.evidenceHeaderRow}>
+          <Text style={styles.evidenceTitle}>Raw Emotion Evidence</Text>
+          {renderBranchChip(rawEmotion ? (degraded ? 'degraded' : 'healthy') : 'legacy only', degraded)}
+        </View>
+        <Text style={styles.evidenceMeta}>Raw emotion decision: {rawEmotion?.decision ?? 'unknown'}</Text>
+        <Text style={styles.evidenceMeta}>Raw emotion confidence: {formatGate2Percent(rawEmotion?.confidence)}</Text>
+        <Text style={styles.evidenceMeta}>Dominant emotion: {rawEmotion?.dominantEmotion ?? legacy.dominantEmotion ?? 'unknown'}</Text>
+        {(rawEmotion?.modelVersion || legacy.modelVersion) && (
+          <Text style={styles.evidenceMeta}>Model version: {rawEmotion?.modelVersion ?? legacy.modelVersion}</Text>
+        )}
+        {rawEmotion?.fallbackReason && <Text style={styles.fallbackText}>Fallback reason: {rawEmotion.fallbackReason}</Text>}
+        {!rawEmotion && <Text style={styles.fallbackText}>Raw emotion health metadata was not returned; showing legacy emotion fields only.</Text>}
+        <Text style={styles.scoresTitle}>Raw Emotion Distribution:</Text>
+        {renderScoreBars(distribution, '#8B5CF6') ?? <Text style={styles.evidenceMeta}>No raw emotion distribution reported.</Text>}
+        <Text style={styles.reasonsTitle}>Raw Emotion Signals:</Text>
+        {renderReasonList(topSignals)}
+      </View>
+    );
+  };
+
+  const renderRawDeceptionPanel = (rawDeception?: Gate2RawDeception) => {
+    if (!rawDeception) {
+      return (
+        <View style={[styles.evidencePanel, styles.degradedEvidencePanel]}>
+          <View style={styles.evidenceHeaderRow}>
+            <Text style={styles.evidenceTitle}>Raw Deception Evidence</Text>
+            {renderBranchChip('not returned', true)}
+          </View>
+          <Text style={styles.fallbackText}>Raw Gate-2 deception evidence was not returned for this interview.</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.evidencePanel, rawDeception.degraded && styles.degradedEvidencePanel]}>
+        <View style={styles.evidenceHeaderRow}>
+          <Text style={styles.evidenceTitle}>Raw Deception Evidence</Text>
+          {renderBranchChip(rawDeception.degraded ? 'degraded' : 'healthy', rawDeception.degraded)}
+        </View>
+        <Text style={styles.evidenceMeta}>Raw deception label: {rawDeception.label}</Text>
+        <Text style={styles.evidenceMeta}>Raw deception confidence: {formatGate2Percent(rawDeception.confidence)}</Text>
+        {rawDeception.modelType && <Text style={styles.evidenceMeta}>Model type: {rawDeception.modelType}</Text>}
+        {rawDeception.modelVersion && <Text style={styles.evidenceMeta}>Model version: {rawDeception.modelVersion}</Text>}
+        {rawDeception.fallbackReason && <Text style={styles.fallbackText}>Fallback reason: {rawDeception.fallbackReason}</Text>}
+        <Text style={styles.scoresTitle}>Raw Deception Scores:</Text>
+        {renderScoreBars(rawDeception.scores, '#e67e22') ?? <Text style={styles.evidenceMeta}>No raw deception score distribution reported.</Text>}
+        <Text style={styles.reasonsTitle}>Raw Deception Signals:</Text>
+        {renderReasonList(rawDeception.topSignals)}
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -224,12 +369,41 @@ export default function ViewAnalysisScreen() {
           </View>
         )}
 
-        {/* Gate-2: Video Emotion Analyses */}
+        {/* Gate-2: Combined Interview Assessments */}
         {interviewAnalyses.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🎥 Video Emotion Analyses (Gate-2)</Text>
+            <Text style={styles.sectionTitle}>🎥 Combined Interview Assessments (Gate-2)</Text>
             {interviewAnalyses.map((interview, index) => (
               <View key={`interview-${index}`} style={styles.analysisCard}>
+                {(() => {
+                  const combinedAssessment = interview.combinedAssessment ?? {
+                    finalDecision: interview.analysisDecision ?? 'VERIFY',
+                    recommendation: 'Review raw Gate-2 evidence before acting on this result.',
+                    overallConfidence: interview.confidence ?? 0,
+                    trustScore: interview.confidence ?? 0,
+                    reasoning: interview.reasons ?? [],
+                    riskLevel: 'unknown' as const,
+                    degradedBranches: [],
+                    rulePath: 'legacy_top_level_fallback',
+                    aggregationVersion: 'legacy-compatible',
+                  };
+                  const rawDeception = interview.rawDeception ?? (interview.gate2_deception ? (() => {
+                    const legacyDeceptionDegraded = interview.gate2_deception.deception_model_type === 'rules';
+                    return {
+                    label: interview.gate2_deception.deception_label,
+                    confidence: interview.gate2_deception.deception_confidence,
+                    scores: interview.gate2_deception.deception_scores ?? {},
+                    topSignals: interview.gate2_deception.deception_signals ?? [],
+                    stats: {},
+                    modelType: interview.gate2_deception.deception_model_type,
+                    fallbackReason: legacyDeceptionDegraded ? 'Legacy Gate-2 deception record used rules fallback' : undefined,
+                    healthy: !legacyDeceptionDegraded,
+                    degraded: legacyDeceptionDegraded,
+                    };
+                  })() : undefined);
+
+                  return (
+                    <>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Interview {index + 1}</Text>
                   {interview.analysisDecision && (
@@ -241,36 +415,21 @@ export default function ViewAnalysisScreen() {
 
                 {interview.confidence && (
                   <Text style={styles.confidenceText}>
-                    Confidence: {(interview.confidence * 100).toFixed(1)}%
+                    Overall Gate-2 Confidence: {(interview.confidence * 100).toFixed(1)}%
                   </Text>
                 )}
 
-                {interview.dominant_emotion && (
-                  <View style={styles.emotionContainer}>
-                    <Text style={styles.emotionLabel}>Dominant Emotion:</Text>
-                    <Text style={styles.emotionValue}>{interview.dominant_emotion}</Text>
-                  </View>
-                )}
-
-                {interview.emotion_distribution && Object.keys(interview.emotion_distribution).length > 0 && (
-                  <View style={styles.scoresContainer}>
-                    <Text style={styles.scoresTitle}>Emotion Distribution:</Text>
-                    {Object.entries(interview.emotion_distribution).map(([emotion, score]) => (
-                      <View key={emotion} style={styles.scoreRow}>
-                        <Text style={styles.scoreLabel}>{emotion}:</Text>
-                        <View style={styles.scoreBarContainer}>
-                          <View
-                            style={[
-                              styles.scoreBar,
-                              { width: `${score * 100}%`, backgroundColor: '#8B5CF6' },
-                            ]}
-                          />
-                        </View>
-                        <Text style={styles.scoreValue}>{(score * 100).toFixed(1)}%</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
+                {renderCombinedPanel(combinedAssessment)}
+                {renderRawEmotionPanel(interview.rawEmotion, {
+                  dominantEmotion: interview.dominant_emotion,
+                  emotionDistribution: interview.emotion_distribution,
+                  topSignals: interview.top_signals,
+                  modelVersion: interview.model_version,
+                })}
+                {renderRawDeceptionPanel(rawDeception)}
+                    </>
+                  );
+                })()}
 
                 {/* Gate-1 Deception Analysis */}
                 {interview.gate1_deception && (
@@ -291,34 +450,6 @@ export default function ViewAnalysisScreen() {
                       <View style={styles.deceptionSignalsContainer}>
                         <Text style={styles.signalsTitle}>Vocal Cues:</Text>
                         {interview.gate1_deception.deception_signals.map((signal, i) => (
-                          <Text key={i} style={styles.signalItem}>
-                            • {signal}
-                          </Text>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* Gate-2 Deception Analysis */}
-                {interview.gate2_deception && (
-                  <View style={styles.deceptionContainer}>
-                    <Text style={styles.deceptionTitle}>👁️ Visual Truth Analysis (Gate-2)</Text>
-                    <View style={[styles.deceptionBadge, { backgroundColor: getDeceptionColor(interview.gate2_deception.deception_label) }]}>
-                      <Text style={styles.deceptionBadgeText}>
-                        {getDeceptionLabel(interview.gate2_deception.deception_label)}
-                      </Text>
-                    </View>
-                    <Text style={styles.deceptionConfidence}>
-                      Confidence: {(interview.gate2_deception.deception_confidence * 100).toFixed(1)}%
-                    </Text>
-                    {interview.gate2_deception.deception_model_type && (
-                      <Text style={styles.modelTypeText}>Model: {interview.gate2_deception.deception_model_type.toUpperCase()}</Text>
-                    )}
-                    {interview.gate2_deception.deception_signals && interview.gate2_deception.deception_signals.length > 0 && (
-                      <View style={styles.deceptionSignalsContainer}>
-                        <Text style={styles.signalsTitle}>Visual Cues:</Text>
-                        {interview.gate2_deception.deception_signals.map((signal, i) => (
                           <Text key={i} style={styles.signalItem}>
                             • {signal}
                           </Text>
@@ -471,6 +602,68 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 12,
+  },
+  evidencePanel: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#e6e0f2',
+  },
+  combinedEvidencePanel: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#8B5CF6',
+  },
+  degradedEvidencePanel: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#e74c3c',
+    backgroundColor: '#fff8f6',
+  },
+  evidenceHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  evidenceTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 8,
+  },
+  evidenceMeta: {
+    fontSize: 12,
+    color: '#555',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  branchChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  branchChip: {
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    alignSelf: 'flex-start',
+  },
+  branchChipText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  fallbackText: {
+    fontSize: 12,
+    color: '#a33',
+    lineHeight: 18,
+    marginBottom: 8,
+    fontWeight: '600',
   },
   emotionContainer: {
     backgroundColor: '#f5f5f5',

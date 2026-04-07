@@ -138,13 +138,13 @@ async def generate_gate2_insight(
     stats: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
-    Generate a DeepSeek-powered explanation for Gate-2 video interview results.
+    Generate a DeepSeek-powered explanation for Gate-2 combined interview results.
 
     Args:
-        decision: The predicted decision (APPROVE / VERIFY / REJECT).
-        confidence: Prediction confidence as a percentage (0-100).
-        dominant_emotion: The most frequently detected emotion.
-        emotion_distribution: Mapping of emotion names to percentages.
+        decision: The combined Gate-2 decision (APPROVE / VERIFY / REJECT).
+        confidence: Combined Gate-2 overall confidence as a percentage (0-100).
+        dominant_emotion: The raw emotion branch's most frequently detected emotion.
+        emotion_distribution: Raw emotion branch mapping of emotion names to percentages.
         top_signals: List of key behavioural signals detected.
         stats: Optional processing statistics (frames analysed, etc.).
 
@@ -152,7 +152,9 @@ async def generate_gate2_insight(
         A 4-6 sentence professional paragraph explaining the result.
     """
     user_content = (
-        f"Here are the Gate-2 video interview analysis results for a cultivator applicant:\n"
+        f"Here are the Gate-2 combined interview assessment results for a cultivator applicant:\n"
+        f"Decision and confidence are the combined Gate-2 assessment; "
+        f"dominant emotion and emotion distribution are raw emotion branch evidence.\n"
         f"• Decision: {decision}\n"
         f"• Confidence: {confidence:.1f}%\n"
         f"• Dominant Emotion: {dominant_emotion}\n"

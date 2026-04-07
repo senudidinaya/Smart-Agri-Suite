@@ -254,9 +254,16 @@ async def get_job_interview_analyses(
             "analysisDecision": interview.get("analysisDecision"),
             "confidence": interview.get("confidence"),
             "reasons": interview.get("reasons", []),
-            "emotion_distribution": interview.get("emotion_distribution"),
-            "dominant_emotion": interview.get("dominant_emotion"),
-            "top_signals": interview.get("top_signals"),
+            "emotion_distribution": interview.get("gate2_emotion_distribution") or interview.get("emotion_distribution"),
+            "dominant_emotion": interview.get("gate2_dominant_emotion") or interview.get("dominant_emotion"),
+            "top_signals": interview.get("gate2_top_signals") or interview.get("top_signals"),
+            "stats": interview.get("gate2_stats") or interview.get("stats"),
+            "model_version": interview.get("gate2_model_version") or interview.get("model_version"),
+            "gate1_deception": interview.get("gate1_deception"),
+            "gate2_deception": interview.get("gate2_deception"),
+            "rawEmotion": interview.get("rawEmotion"),
+            "rawDeception": interview.get("rawDeception"),
+            "combinedAssessment": interview.get("combinedAssessment"),
             "createdAt": interview.get("createdAt")
         }
         interview_analyses.append(interview_data)

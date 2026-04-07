@@ -29,22 +29,22 @@ class Gate1InsightRequest(BaseModel):
 
 
 class Gate2InsightRequest(BaseModel):
-    """Request body for Gate-2 video interview insight generation."""
+    """Request body for Gate-2 combined interview insight generation."""
 
     decision: str = Field(
-        description="Predicted decision label (APPROVE / VERIFY / REJECT)",
+        description="Combined Gate-2 final decision label (APPROVE / VERIFY / REJECT)",
         examples=["APPROVE"],
     )
     confidence: float = Field(
-        description="Prediction confidence as a percentage (0-100)",
+        description="Combined Gate-2 overall confidence as a percentage (0-100)",
         examples=[79.3],
     )
     dominant_emotion: str = Field(
-        description="The most frequently detected facial emotion",
+        description="Raw emotion branch dominant facial emotion",
         examples=["happy"],
     )
     emotion_distribution: Dict[str, float] = Field(
-        description="Mapping of emotion names to percentages",
+        description="Raw emotion branch mapping of emotion names to percentages",
         examples=[{"happy": 45.0, "neutral": 30.0, "surprise": 15.0, "sad": 10.0}],
     )
     top_signals: List[str] = Field(

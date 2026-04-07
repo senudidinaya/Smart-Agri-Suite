@@ -58,11 +58,11 @@ async def explain_gate1(body: Gate1InsightRequest) -> InsightResponse:
 @router.post(
     "/gate2",
     response_model=InsightResponse,
-    summary="Generate Gate-2 Video Interview Insight",
-    description="Uses DeepSeek AI to produce a professional paragraph explaining Gate-2 video interview analysis results.",
+    summary="Generate Gate-2 Combined Interview Insight",
+    description="Uses DeepSeek AI to produce a professional paragraph explaining the combined Gate-2 assessment with raw emotion evidence.",
 )
 async def explain_gate2(body: Gate2InsightRequest) -> InsightResponse:
-    """Generate an AI insight for Gate-2 video interview results."""
+    """Generate an AI insight for Gate-2 combined interview assessment results."""
     try:
         insight = await generate_gate2_insight(
             decision=body.decision,

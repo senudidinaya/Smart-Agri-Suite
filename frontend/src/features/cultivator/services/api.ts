@@ -152,6 +152,44 @@ export interface SafetyAssessment {
   admin_recommendation: string;
 }
 
+export interface Gate2RawEmotion {
+  decision: "APPROVE" | "VERIFY" | "REJECT";
+  confidence: number;
+  dominantEmotion: string;
+  emotionDistribution: Record<string, number>;
+  topSignals: string[];
+  stats: Record<string, any>;
+  modelVersion?: string;
+  fallbackReason?: string;
+  healthy: boolean;
+  degraded: boolean;
+}
+
+export interface Gate2RawDeception {
+  label: string;
+  confidence: number;
+  scores: Record<string, number>;
+  topSignals: string[];
+  stats: Record<string, any>;
+  modelVersion?: string;
+  modelType?: string;
+  fallbackReason?: string;
+  healthy: boolean;
+  degraded: boolean;
+}
+
+export interface Gate2CombinedAssessment {
+  finalDecision: "APPROVE" | "VERIFY" | "REJECT";
+  recommendation: string;
+  overallConfidence: number;
+  trustScore: number;
+  reasoning: string[];
+  riskLevel: "low" | "medium" | "high" | "unknown";
+  degradedBranches: string[];
+  rulePath: string;
+  aggregationVersion: string;
+}
+
 export interface InterviewAnalyzeResponse {
   success: boolean;
   interviewId: string;
@@ -167,6 +205,9 @@ export interface InterviewAnalyzeResponse {
   model_version?: string;
   gate1_deception?: DeceptionAnalysis;
   gate2_deception?: DeceptionAnalysis;
+  rawEmotion?: Gate2RawEmotion;
+  rawDeception?: Gate2RawDeception;
+  combinedAssessment?: Gate2CombinedAssessment;
   safety_assessment?: SafetyAssessment;
 }
 
@@ -204,6 +245,9 @@ export interface Interview {
   model_version?: string;
   gate1_deception?: DeceptionAnalysis;
   gate2_deception?: DeceptionAnalysis;
+  rawEmotion?: Gate2RawEmotion;
+  rawDeception?: Gate2RawDeception;
+  combinedAssessment?: Gate2CombinedAssessment;
   safety_assessment?: SafetyAssessment;
 }
 

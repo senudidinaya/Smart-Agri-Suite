@@ -31,6 +31,11 @@ from cultivator.schemas.interview import (
 )
 from cultivator.services.inference import get_risk_classifier, get_deception_detector
 from cultivator.services.gate2_inference import get_gate2_inference_service, get_gate2_deception_service
+from cultivator.services.gate2_combined_assessment import (
+    build_raw_deception,
+    build_raw_emotion,
+    combine_gate2_assessment,
+)
 from cultivator.services.safety_assessment import SafetyAssessmentService
 from cultivator.api.v1.endpoints.notifications import create_notification
 
@@ -164,6 +169,9 @@ def _serialize_interview(doc: dict) -> InterviewResponse:
         model_version=doc.get("gate2_model_version"),
         gate1_deception=g1_dec,
         gate2_deception=g2_dec,
+        rawEmotion=doc.get("rawEmotion"),
+        rawDeception=doc.get("rawDeception"),
+        combinedAssessment=doc.get("combinedAssessment"),
         safety_assessment=safety,
     )
 
@@ -400,19 +408,24 @@ async def analyze_interview_video(
 
         # Gate 2 (visual) deception: analyze video frames
         gate2_deception_result = None
+        gate2_deception_raw_result = None
+        gate2_deception_model_type = None
+        gate2_deception_fallback_reason = None
         try:
             gate2_deception_service = get_gate2_deception_service()
             g2_dec_result = await asyncio.to_thread(
                 gate2_deception_service.predict, temp_video_path
+            )
+            gate2_deception_raw_result = g2_dec_result
+            gate2_deception_model_type = (
+                "ml" if gate2_deception_service.is_loaded else "rules"
             )
             gate2_deception_result = DeceptionAnalysis(
                 deception_label=g2_dec_result.deception_label,
                 deception_confidence=g2_dec_result.deception_confidence,
                 deception_scores=g2_dec_result.deception_scores,
                 deception_signals=g2_dec_result.signals,
-                deception_model_type=(
-                    "ml" if gate2_deception_service.is_loaded else "rules"
-                ),
+                deception_model_type=gate2_deception_model_type,
             )
             reasons.append(
                 f"Visual deception analysis: {g2_dec_result.deception_label} "
@@ -423,22 +436,44 @@ async def analyze_interview_video(
                 f"({g2_dec_result.deception_confidence:.2%})"
             )
         except Exception as e:
+            gate2_deception_fallback_reason = f"Gate 2 deception analysis failed: {e}"
             logger.warning(f"Gate 2 deception analysis failed: {e}")
-        
-        # Adjust final decision based on deception results
-        deception_detected = False
-        if gate1_deception_result and gate1_deception_result.deception_label == "deceptive":
-            if gate1_deception_result.deception_confidence >= 0.6:
-                deception_detected = True
-        if gate2_deception_result and gate2_deception_result.deception_label == "deceptive":
-            if gate2_deception_result.deception_confidence >= 0.6:
-                deception_detected = True
 
-        if deception_detected and decision == "APPROVE":
-            decision = "VERIFY"
+        raw_emotion = build_raw_emotion(result)
+        raw_deception = build_raw_deception(
+            gate2_deception_raw_result,
+            model_type=gate2_deception_model_type,
+            fallback_reason=gate2_deception_fallback_reason,
+        )
+        combined_assessment = combine_gate2_assessment(raw_emotion, raw_deception)
+
+        decision = combined_assessment["finalDecision"]
+        confidence = combined_assessment["overallConfidence"]
+        reasons = combined_assessment["reasoning"].copy()
+
+        if raw_emotion["dominantEmotion"] != "unknown":
+            reasons.append(f"Emotion evidence: dominant={raw_emotion['dominantEmotion']}")
+        if raw_emotion["topSignals"]:
+            reasons.extend([f"Emotion: {signal}" for signal in raw_emotion["topSignals"]])
+        if raw_deception["label"] != "unknown":
             reasons.append(
-                "Decision adjusted to VERIFY due to deception indicators"
+                f"Visual deception evidence: {raw_deception['label']} "
+                f"({raw_deception['confidence']:.0%})"
             )
+        if raw_deception["topSignals"]:
+            reasons.extend([f"Visual deception: {signal}" for signal in raw_deception["topSignals"]])
+
+        logger.info(
+            "[GATE2 COMBINED] emotion_healthy=%s deception_healthy=%s "
+            "degraded=%s final=%s confidence=%.2f rule=%s version=%s",
+            raw_emotion["healthy"],
+            raw_deception["healthy"],
+            combined_assessment["degradedBranches"],
+            combined_assessment["finalDecision"],
+            combined_assessment["overallConfidence"],
+            combined_assessment["rulePath"],
+            combined_assessment["aggregationVersion"],
+        )
 
         # === SAFETY ASSESSMENT ===
         # Combine intent (from Gate 1 / CallAssessment) with deception signals
@@ -518,6 +553,9 @@ async def analyze_interview_video(
             "gate2_top_signals": result.top_signals,
             "gate2_stats": result.stats,
             "gate2_model_version": result.model_version,
+            "rawEmotion": raw_emotion,
+            "rawDeception": raw_deception,
+            "combinedAssessment": combined_assessment,
         }
 
         # Add deception results if available
@@ -529,18 +567,6 @@ async def analyze_interview_video(
         # Add safety assessment if available
         if safety_assessment_result:
             update_fields["safety_assessment"] = safety_assessment_result.model_dump()
-
-        # If Gate-2 emotion model is unavailable, derive a practical decision from
-        # combined safety assessment so output is still actionable.
-        if result.model_version == "gate2-fallback-v1" and safety_assessment_result:
-            action = safety_assessment_result.admin_action
-            if action in ["PROCEED", "APPROVE"]:
-                decision = "APPROVE"
-            elif action == "REJECT":
-                decision = "REJECT"
-            else:
-                decision = "VERIFY"
-            update_fields["analysisDecision"] = decision
 
         await db.inperson_interviews.update_one(
             {"_id": interview["_id"]},
@@ -579,6 +605,9 @@ async def analyze_interview_video(
             # Deception detection results
             gate1_deception=gate1_deception_result,
             gate2_deception=gate2_deception_result,
+            rawEmotion=raw_emotion,
+            rawDeception=raw_deception,
+            combinedAssessment=combined_assessment,
             # Safety assessment
             safety_assessment=safety_assessment_result,
         )

@@ -96,6 +96,47 @@ class DeceptionAnalysis(BaseModel):
     deception_model_type: Optional[str] = None  # ml / rules
 
 
+class Gate2RawEmotion(BaseModel):
+    """Raw Gate-2 emotion branch evidence."""
+    decision: InterviewDecision
+    confidence: float = Field(0.0, ge=0.0, le=1.0)
+    dominantEmotion: str = "unknown"
+    emotionDistribution: Dict[str, float] = {}
+    topSignals: List[str] = []
+    stats: Dict[str, Any] = {}
+    modelVersion: Optional[str] = None
+    fallbackReason: Optional[str] = None
+    healthy: bool = False
+    degraded: bool = True
+
+
+class Gate2RawDeception(BaseModel):
+    """Raw Gate-2 visual deception branch evidence."""
+    label: str = "unknown"
+    confidence: float = Field(0.0, ge=0.0, le=1.0)
+    scores: Dict[str, float] = {}
+    topSignals: List[str] = []
+    stats: Dict[str, Any] = {}
+    modelVersion: Optional[str] = None
+    modelType: Optional[str] = None
+    fallbackReason: Optional[str] = None
+    healthy: bool = False
+    degraded: bool = True
+
+
+class Gate2CombinedAssessment(BaseModel):
+    """Business-facing Gate-2 combined assessment."""
+    finalDecision: InterviewDecision
+    recommendation: str
+    overallConfidence: float = Field(0.0, ge=0.0, le=1.0)
+    trustScore: float = Field(0.0, ge=0.0, le=1.0)
+    reasoning: List[str] = []
+    riskLevel: Literal["low", "medium", "high", "unknown"] = "unknown"
+    degradedBranches: List[str] = []
+    rulePath: str
+    aggregationVersion: str
+
+
 class SafetyAssessment(BaseModel):
     """Combined safety/trustworthiness assessment from intent + deception."""
     safety_score: float = Field(..., ge=0.0, le=1.0)  # 0=unsafe, 1=safe
@@ -123,6 +164,10 @@ class InterviewAnalyzeResponse(BaseModel):
     # Deception detection fields (Gate 1 audio + Gate 2 visual)
     gate1_deception: Optional[DeceptionAnalysis] = None
     gate2_deception: Optional[DeceptionAnalysis] = None
+    # Explicit Gate-2 raw + combined contract
+    rawEmotion: Optional[Gate2RawEmotion] = None
+    rawDeception: Optional[Gate2RawDeception] = None
+    combinedAssessment: Optional[Gate2CombinedAssessment] = None
     # Safety assessment (combined intent + deception)
     safety_assessment: Optional[SafetyAssessment] = None
 
@@ -150,6 +195,10 @@ class InterviewResponse(BaseModel):
     # Deception detection fields
     gate1_deception: Optional[DeceptionAnalysis] = None
     gate2_deception: Optional[DeceptionAnalysis] = None
+    # Explicit Gate-2 raw + combined contract
+    rawEmotion: Optional[Gate2RawEmotion] = None
+    rawDeception: Optional[Gate2RawDeception] = None
+    combinedAssessment: Optional[Gate2CombinedAssessment] = None
     # Safety assessment
     safety_assessment: Optional[SafetyAssessment] = None
 

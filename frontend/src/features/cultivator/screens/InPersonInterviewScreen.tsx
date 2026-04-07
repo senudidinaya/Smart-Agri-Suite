@@ -409,7 +409,7 @@ export default function InPersonInterviewScreen() {
             </Text>
             
             <View style={styles.confidenceContainer}>
-              <Text style={styles.confidenceLabel}>Confidence</Text>
+              <Text style={styles.confidenceLabel}>Overall Gate-2 Confidence</Text>
               <Text style={styles.confidenceValue}>
                 {(analysisResult.confidence * 100).toFixed(1)}%
               </Text>

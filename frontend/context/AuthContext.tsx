@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AUTH_API_BASE_URL } from '../src/config';
+import { API_BASE_URL_SOURCE, AUTH_API_BASE_URL } from '../src/config';
 
 const TOKEN_KEY = 'smartagri_token';
 const USER_KEY = 'smartagri_user';
@@ -93,11 +93,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const login = useCallback(async (username: string, password: string) => {
-        const res = await fetch(`${AUTH_API_BASE_URL}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, rememberMe: true }),
-        });
+        const loginUrl = `${AUTH_API_BASE_URL}/auth/login`;
+        if (__DEV__) {
+            console.info(`[AuthAPI] POST ${loginUrl} via ${API_BASE_URL_SOURCE}`);
+        }
+
+        let res: Response;
+        try {
+            res = await fetch(loginUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, rememberMe: true }),
+            });
+        } catch (error) {
+            if (__DEV__) {
+                console.warn(`[AuthAPI] Network failure POST ${loginUrl}`, error);
+            }
+            throw error;
+        }
 
         const data = await res.json();
 
