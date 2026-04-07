@@ -155,7 +155,7 @@ export default function InventoryRestockScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Record Available Stock</Text>
-          <Text style={styles.cardInfo}>Recording stock here automatically curates AI price and creates marketplace listing.</Text>
+          <Text style={styles.cardInfo}>Recording stock here automatically curates Smart price and creates marketplace listing.</Text>
           
           {entries.map((entry) => (
             <View key={entry.id} style={styles.entryWrapper}>
@@ -283,3 +283,4 @@ const styles = StyleSheet.create({
   modalItem: { paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   modalItemText: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
 });
+
