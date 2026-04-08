@@ -822,6 +822,29 @@ export default function AdminApplicationsScreen() {
                         The decision above is the combined final call outcome. This percentage comes from the raw Gate-1 voice-intent model.
                       </Text>
 
+                      {(ca.deceptionLabel || ca.reasoning || typeof ca.trustScore === 'number' || ca.riskLevel) && (
+                        <View style={styles.evidencePanel}>
+                          <Text style={styles.evidenceTitle}>Gate-1 Combined Decision Context</Text>
+                          {ca.deceptionLabel && (
+                            <Text style={styles.evidenceMeta}>
+                              Audio truthfulness: {ca.deceptionLabel}
+                              {typeof ca.deceptionConfidence === 'number' ? ` (${(ca.deceptionConfidence * 100).toFixed(1)}%)` : ''}
+                            </Text>
+                          )}
+                          {typeof ca.trustScore === 'number' && (
+                            <Text style={styles.evidenceMeta}>
+                              Trust score: {(ca.trustScore * 100).toFixed(1)}%
+                            </Text>
+                          )}
+                          {ca.riskLevel && (
+                            <Text style={styles.evidenceMeta}>Risk level: {ca.riskLevel}</Text>
+                          )}
+                          {ca.reasoning && (
+                            <Text style={styles.evidenceMeta}>{ca.reasoning}</Text>
+                          )}
+                        </View>
+                      )}
+
                       {/* Score bars */}
                       {ca.scores && Object.keys(ca.scores).length > 0 && (
                         <View style={styles.scoresContainer}>

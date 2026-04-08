@@ -46,9 +46,15 @@ class CallAssessmentResponse(BaseModel):
     callStartedAt: Optional[datetime] = None
     callEndedAt: Optional[datetime] = None
     decision: str
+    recommendation: Optional[str] = None
     confidence: float
+    trustScore: Optional[float] = None
+    riskLevel: Optional[str] = None
+    reasoning: Optional[str] = None
     reasons: List[str]
     scores: Optional[Dict[str, float]] = None
+    deceptionLabel: Optional[str] = None
+    deceptionConfidence: Optional[float] = None
     createdAt: datetime
 
 

@@ -188,9 +188,15 @@ def _serialize_call_assessment(doc: dict) -> CallAssessmentResponse:
         callStartedAt=doc.get("callStartedAt"),
         callEndedAt=doc.get("callEndedAt"),
         decision=doc["decision"],
+        recommendation=doc.get("recommendation"),
         confidence=doc["confidence"],
+        trustScore=doc.get("trustScore"),
+        riskLevel=doc.get("riskLevel"),
+        reasoning=doc.get("reasoning"),
         reasons=doc.get("reasons", []),
         scores=doc.get("scores"),
+        deceptionLabel=doc.get("deceptionLabel"),
+        deceptionConfidence=doc.get("deceptionConfidence"),
         createdAt=doc["createdAt"],
     )
 

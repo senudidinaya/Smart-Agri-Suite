@@ -219,9 +219,15 @@ export interface CallAssessment {
   callStartedAt?: string;
   callEndedAt?: string;
   decision: string;
+  recommendation?: string;
   confidence: number;
+  trustScore?: number;
+  riskLevel?: string;
+  reasoning?: string;
   reasons: string[];
   scores?: Record<string, number>;
+  deceptionLabel?: string;
+  deceptionConfidence?: number;
   createdAt: string;
 }
 
