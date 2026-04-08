@@ -808,20 +808,23 @@ export default function AdminApplicationsScreen() {
                   const ca = analysisData.callAssessment!;
                   return (
                     <View style={styles.modalSection}>
-                      <Text style={styles.sectionTitle}>Final Gate-1 Combined Decision</Text>
+                      <Text style={styles.sectionTitle}>Final Call Assessment</Text>
 
                       <View style={styles.decisionRow}>
                         <View style={[styles.decisionBadge, { backgroundColor: getIntentColor(ca.decision) }]}>
                           <Text style={styles.decisionBadgeText}>{ca.decision}</Text>
                         </View>
+                        <Text style={styles.confidenceText}>
+                          Raw intent confidence: {(ca.confidence * 100).toFixed(1)}%
+                        </Text>
                       </View>
                       <Text style={styles.summaryHintText}>
-                        This is the final Gate-1 screening outcome after combining raw voice-intent output with truthfulness and risk signals.
+                        The decision above is the combined final call outcome. This percentage comes from the raw Gate-1 voice-intent model.
                       </Text>
 
                       {(ca.deceptionLabel || ca.reasoning || typeof ca.trustScore === 'number' || ca.riskLevel) && (
                         <View style={styles.evidencePanel}>
-                          <Text style={styles.evidenceTitle}>Why this decision was made</Text>
+                          <Text style={styles.evidenceTitle}>Gate-1 Combined Decision Context</Text>
                           {ca.deceptionLabel && (
                             <Text style={styles.evidenceMeta}>
                               Audio truthfulness: {ca.deceptionLabel}
@@ -836,9 +839,6 @@ export default function AdminApplicationsScreen() {
                           {ca.riskLevel && (
                             <Text style={styles.evidenceMeta}>Risk level: {ca.riskLevel}</Text>
                           )}
-                          {ca.recommendation && (
-                            <Text style={styles.evidenceMeta}>Recommendation: {ca.recommendation}</Text>
-                          )}
                           {ca.reasoning && (
                             <Text style={styles.evidenceMeta}>{ca.reasoning}</Text>
                           )}
@@ -847,16 +847,8 @@ export default function AdminApplicationsScreen() {
 
                       {/* Score bars */}
                       {ca.scores && Object.keys(ca.scores).length > 0 && (
-                        <View style={styles.evidencePanel}>
-                          <Text style={styles.evidenceTitle}>Raw Voice Intent Model Output</Text>
-                          <Text style={styles.summaryHintText}>
-                            This section shows the raw voice-intent model output only. It supports the final Gate-1 decision above, but does not determine it by itself.
-                          </Text>
-                          <Text style={styles.evidenceMeta}>
-                            Raw model confidence: {(ca.confidence * 100).toFixed(1)}%
-                          </Text>
-                          <View style={styles.scoresContainer}>
-                            <Text style={styles.scoresHeading}>Score Breakdown</Text>
+                        <View style={styles.scoresContainer}>
+                          <Text style={styles.scoresHeading}>Raw Intent Score Breakdown</Text>
                           {Object.entries(ca.scores)
                             .sort(([, a], [, b]) => b - a)
                             .map(([label, score]) => (
@@ -876,7 +868,6 @@ export default function AdminApplicationsScreen() {
                                 <Text style={styles.scoreValue}>{(score * 100).toFixed(1)}%</Text>
                               </View>
                             ))}
-                          </View>
                         </View>
                       )}
 

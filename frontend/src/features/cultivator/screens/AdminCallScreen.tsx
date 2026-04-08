@@ -382,15 +382,12 @@ export default function AdminCallScreen() {
 
           {analysisResult && (
             <View style={styles.analysisContainer}>
-              <Text style={styles.analysisTitle}>🎯 Raw Voice Intent Model Output</Text>
+              <Text style={styles.analysisTitle}>🎯 Raw Voice Intent Analysis</Text>
               <View style={[styles.intentBadge, { backgroundColor: getIntentColor(analysisResult.intentLabel) }]}>
                 <Text style={styles.intentText}>{getIntentLabel(analysisResult.intentLabel)}</Text>
               </View>
               <Text style={styles.confidenceText}>
                 Intent confidence: {(analysisResult.confidence * 100).toFixed(1)}%
-              </Text>
-              <Text style={styles.helperText}>
-                This is the initial model-only Gate-1 result captured at call end. The Full Analysis view later shows the final Gate-1 combined decision with truthfulness and risk context.
               </Text>
               {analysisResult.scores && Object.keys(analysisResult.scores).length > 0 && (
                 <View style={styles.scoresContainer}>
@@ -773,14 +770,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  helperText: {
-    color: '#b8b8b8',
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 8,
   },
   scoresContainer: {
     width: '100%',
