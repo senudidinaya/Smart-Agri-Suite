@@ -808,7 +808,7 @@ export default function AdminApplicationsScreen() {
                   const ca = analysisData.callAssessment!;
                   return (
                     <View style={styles.modalSection}>
-                      <Text style={styles.sectionTitle}>Final Gate-1 Combined Decision</Text>
+                      <Text style={styles.sectionTitle}>☎️ Final Gate-1 Combined Decision</Text>
 
                       <View style={styles.decisionRow}>
                         <View style={[styles.decisionBadge, { backgroundColor: getIntentColor(ca.decision) }]}>
@@ -824,7 +824,7 @@ export default function AdminApplicationsScreen() {
 
                       {(ca.deceptionLabel || ca.reasoning || typeof ca.trustScore === 'number' || ca.riskLevel) && (
                         <View style={styles.evidencePanel}>
-                          <Text style={styles.evidenceTitle}>Gate-1 Combined Decision Context</Text>
+                          <Text style={styles.evidenceTitle}>Why this decision was made</Text>
                           {ca.deceptionLabel && (
                             <Text style={styles.evidenceMeta}>
                               Audio truthfulness: {ca.deceptionLabel}
@@ -848,7 +848,7 @@ export default function AdminApplicationsScreen() {
                       {/* Score bars */}
                       {ca.scores && Object.keys(ca.scores).length > 0 && (
                         <View style={styles.scoresContainer}>
-                          <Text style={styles.scoresHeading}>Raw Intent Score Breakdown</Text>
+                          <Text style={styles.scoresHeading}>Raw Voice Intent Model Output</Text>
                           {Object.entries(ca.scores)
                             .sort(([, a], [, b]) => b - a)
                             .map(([label, score]) => (
