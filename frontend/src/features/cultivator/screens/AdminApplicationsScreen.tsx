@@ -21,21 +21,57 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   api,
+  Application,
   Gate2CombinedAssessment,
   Gate2RawDeception,
   Gate2RawEmotion,
   Job,
   InterviewStatusResponse,
-  InsightResponse,
 } from '../services/api';
 
 type FilterStatus = 'all' | 'new' | 'contacted' | 'invited_interview' | 'approved' | 'rejected' | 'closed';
 
 // Extended Job interface with interview status
 interface ExtendedJob extends Job {
+  applicationId?: string;
+  applicantUserId?: string;
+  applicantName?: string;
   interviewStatus?: InterviewStatusResponse;
   applicationStatus?: string;
 }
+
+const DECISION_FILTERS = new Set<FilterStatus>(['invited_interview', 'approved', 'rejected']);
+
+const getRowKey = (job: ExtendedJob) => job.applicationId || `${job.id}:${job.applicantUserId || 'unknown'}`;
+
+const resolveFilterStatus = (job: ExtendedJob, activeFilter: FilterStatus): string => {
+  if (DECISION_FILTERS.has(activeFilter)) {
+    return job.applicationStatus || job.status;
+  }
+
+  return job.status;
+};
+
+const getDisplayStatusLabel = (status: string) => {
+  switch (status) {
+    case 'new':
+      return 'New';
+    case 'contacted':
+      return 'Contacted';
+    case 'invited_interview':
+      return 'Interview Invited';
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    case 'closed':
+      return 'Closed';
+    default:
+      return String(status)
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+};
 
 export default function AdminApplicationsScreen() {
   const navigation = useNavigation<any>();
@@ -54,38 +90,71 @@ export default function AdminApplicationsScreen() {
 
   const loadJobs = useCallback(async () => {
     try {
-      const result = await api.getJobs();
-      // Filter based on selected filter
-      const filteredJobs = filter === 'all' 
-        ? result.jobs 
-        : result.jobs.filter((job: Job) => job.status === filter);
+      const [jobResult, applicationResult] = await Promise.all([
+        api.getJobs(),
+        api.getApplications(),
+      ]);
 
-      // Show jobs immediately so UI is responsive even on slow networks.
-      const baseJobs = filteredJobs.map((job) => ({ ...job } as ExtendedJob));
-      setJobs(baseJobs);
+      // Keep jobs as the base list so the screen still renders when no applications
+      // exist or when application rows do not join cleanly for some jobs.
+      const applicationByJobId = new Map<string, Application>();
+      applicationResult.applications.forEach((application: Application) => {
+        if (!applicationByJobId.has(application.jobId)) {
+          applicationByJobId.set(application.jobId, application);
+        }
+      });
+
+      const mergedRows = jobResult.jobs.map((job) => {
+        const application = applicationByJobId.get(job.id);
+        if (!application) {
+          return {
+            ...job,
+            applicationId: undefined,
+            applicantUserId: undefined,
+            applicantName: undefined,
+            applicationStatus: undefined,
+          } as ExtendedJob;
+        }
+
+        return {
+          ...job,
+          applicationId: application.id,
+          applicantUserId: application.applicantUserId,
+          applicantName: application.applicantName,
+          applicationStatus: application.status,
+        } as ExtendedJob;
+      });
+
+      const baseCandidates = filter === 'all'
+        ? mergedRows
+        : mergedRows.filter((job) => resolveFilterStatus(job, filter) === filter);
+
+      setJobs(baseCandidates);
 
       // Enrich interview status in background without blocking list rendering.
       Promise.allSettled(
-        filteredJobs.map(async (job: Job) => {
-          const interviewStatus = await api.getInterviewStatus(job.id, job.createdByUserId);
-          return { jobId: job.id, interviewStatus };
-        })
+        baseCandidates.map(async (job) => {
+            const interviewStatus = await api.getInterviewStatus(job.id, job.createdByUserId);
+            return { rowKey: getRowKey(job), interviewStatus };
+          })
       ).then((results) => {
         const statusMap = new Map<string, InterviewStatusResponse>();
         results.forEach((result) => {
           if (result.status === 'fulfilled') {
-            statusMap.set(result.value.jobId, result.value.interviewStatus);
+            statusMap.set(result.value.rowKey, result.value.interviewStatus);
           }
         });
 
-        if (statusMap.size > 0) {
-          setJobs((prev) =>
-            prev.map((job) => ({
-              ...job,
-              interviewStatus: statusMap.get(job.id) ?? job.interviewStatus,
-            }))
-          );
-        }
+        const enrichedJobs = baseCandidates.map((job) => {
+          const interviewStatus = statusMap.get(getRowKey(job));
+          return {
+            ...job,
+            interviewStatus: interviewStatus ?? undefined,
+            applicationStatus: job.applicationStatus,
+          } as ExtendedJob;
+        });
+
+        setJobs(enrichedJobs);
       });
     } catch (e: any) {
       Alert.alert('Error', e.message);
@@ -106,6 +175,16 @@ export default function AdminApplicationsScreen() {
     await loadJobs();
     setRefreshing(false);
   };
+
+  const filters: { key: FilterStatus; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'new', label: 'New' },
+    { key: 'contacted', label: 'Contacted' },
+    { key: 'invited_interview', label: 'Interview Invited' },
+    { key: 'approved', label: 'Approved' },
+    { key: 'rejected', label: 'Rejected' },
+    { key: 'closed', label: 'Closed' },
+  ];
 
   const handleContactClient = async (job: Job) => {
     Alert.alert(
@@ -142,6 +221,51 @@ export default function AdminApplicationsScreen() {
             try {
               await api.updateJobStatus(job.id, 'closed');
               Alert.alert('Success', 'Job has been closed');
+              loadJobs();
+            } catch (e: any) {
+              Alert.alert('Error', e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRejectJob = async (job: Job) => {
+    Alert.alert(
+      'Reject Job',
+      `Are you sure you want to reject this job post from ${job.createdByUsername}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.updateJobStatus(job.id, 'rejected');
+              Alert.alert('Success', 'Job has been rejected');
+              loadJobs();
+            } catch (e: any) {
+              Alert.alert('Error', e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleApproveJob = async (job: Job) => {
+    Alert.alert(
+      'Approve Job',
+      `Are you sure you want to approve this job post from ${job.createdByUsername}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Approve',
+          onPress: async () => {
+            try {
+              await api.updateJobStatus(job.id, 'approved');
+              Alert.alert('Success', 'Job has been approved');
               loadJobs();
             } catch (e: any) {
               Alert.alert('Error', e.message);
@@ -246,7 +370,7 @@ export default function AdminApplicationsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await api.rejectApplication(job.id, job.createdByUserId);
+              await api.rejectApplication(job.id, job.applicantUserId || job.createdByUserId);
               Alert.alert('Success', 'Application rejected');
               loadJobs();
             } catch (e: any) {
@@ -306,7 +430,7 @@ export default function AdminApplicationsScreen() {
 
       await Promise.all(promises);
       setInsightLoading(false);
-    } catch (e: any) {
+    } catch {
       Alert.alert('Error', 'Failed to load analysis data');
       setAnalysisModalVisible(false);
     } finally {
@@ -508,22 +632,13 @@ export default function AdminApplicationsScreen() {
     );
   };
 
-  const filters: { key: FilterStatus; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'new', label: 'New' },
-    { key: 'contacted', label: 'Contacted' },
-    { key: 'invited_interview', label: 'Invited' },
-    { key: 'approved', label: 'Approved' },
-    { key: 'rejected', label: 'Rejected' },
-    { key: 'closed', label: 'Closed' },
-  ];
-
   const renderJob = ({ item }: { item: ExtendedJob }) => {
-    const status = item.applicationStatus || item.status;
+    const status = resolveFilterStatus(item, filter);
+    const displayStatusLabel = getDisplayStatusLabel(status);
     const hasCallAssessment = item.interviewStatus?.callAssessment != null;
-    const hasInterview = item.interviewStatus?.hasInterview;
     const interviewCompleted = item.interviewStatus?.interview?.status === 'completed';
-    
+    const hasApplication = Boolean(item.applicationId || item.applicantUserId || item.applicationStatus);
+
     return (
     <View style={styles.jobCard}>
       <View style={styles.jobHeader}>
@@ -533,7 +648,7 @@ export default function AdminApplicationsScreen() {
         <View style={styles.jobInfo}>
           <Text style={styles.jobTitle}>{item.title}</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) }]}>
-            <Text style={styles.statusText}>{status.toUpperCase().replace('_', ' ')}</Text>
+            <Text style={styles.statusText}>{displayStatusLabel}</Text>
           </View>
         </View>
       </View>
@@ -541,7 +656,7 @@ export default function AdminApplicationsScreen() {
       <View style={styles.jobDetails}>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Posted By:</Text>
-          <Text style={styles.detailValue}>{item.createdByUsername}</Text>
+          <Text style={styles.detailValue}>{item.applicantName || item.createdByUsername}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Location:</Text>
@@ -559,53 +674,6 @@ export default function AdminApplicationsScreen() {
           <Text style={styles.detailLabel}>Posted:</Text>
           <Text style={styles.detailValue}>{new Date(item.createdAt).toLocaleDateString()}</Text>
         </View>
-        
-        {/* Show call assessment result if available */}
-        {hasCallAssessment && (
-          <TouchableOpacity 
-            style={styles.assessmentRow}
-            onPress={() => handleViewCallAssessment(item)}
-          >
-            <Text style={styles.assessmentLabel}>Final Call Decision</Text>
-            <View style={styles.assessmentSummary}>
-              <View style={[
-                styles.assessmentBadge, 
-                { backgroundColor: 
-                  item.interviewStatus?.callAssessment?.decision === 'PROCEED' ? '#27ae60' :
-                  item.interviewStatus?.callAssessment?.decision === 'REJECT' ? '#e74c3c' : '#f39c12'
-                }
-              ]}>
-                <Text style={styles.assessmentText}>
-                  {item.interviewStatus?.callAssessment?.decision}
-                </Text>
-              </View>
-              <Text style={styles.assessmentSubtext}>
-                Raw intent confidence: {((item.interviewStatus?.callAssessment?.confidence ?? 0) * 100).toFixed(0)}%
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        
-        {/* Show interview result if completed */}
-        {interviewCompleted && item.interviewStatus?.interview && (
-          <TouchableOpacity 
-            style={styles.interviewResultRow}
-            onPress={() => handleViewCallAssessment(item)}
-          >
-            <Text style={styles.detailLabel}>Interview Result:</Text>
-            <View style={[
-              styles.assessmentBadge,
-              { backgroundColor: 
-                item.interviewStatus.interview.analysisDecision === 'APPROVE' ? '#27ae60' :
-                item.interviewStatus.interview.analysisDecision === 'REJECT' ? '#e74c3c' : '#f39c12'
-              }
-            ]}>
-              <Text style={styles.assessmentText}>
-                {item.interviewStatus.interview.analysisDecision}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
 
         {/* View Full Analysis button */}
         {(hasCallAssessment || interviewCompleted) && (
@@ -664,12 +732,35 @@ export default function AdminApplicationsScreen() {
             >
               <Text style={styles.analysisButtonText}>📊 View Analysis</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.rejectButton}
-              onPress={() => handleRejectApplication(item)}
-            >
-              <Text style={styles.rejectButtonText}>✗ Reject</Text>
-            </TouchableOpacity>
+            {hasApplication ? (
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={() => handleRejectApplication(item)}
+              >
+                <Text style={styles.rejectButtonText}>✗ Reject</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.approveButton}
+                  onPress={() => handleApproveJob(item)}
+                >
+                  <Text style={styles.approveButtonText}>✓ Approve</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.rejectButton}
+                  onPress={() => handleRejectJob(item)}
+                >
+                  <Text style={styles.rejectButtonText}>✗ Reject</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => handleCloseJob(item)}
+                >
+                  <Text style={styles.closeButtonText}>✗ Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </>
         )}
         
@@ -688,12 +779,35 @@ export default function AdminApplicationsScreen() {
             >
               <Text style={styles.analysisButtonText}>📊 View Analysis</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.rejectButton}
-              onPress={() => handleRejectApplication(item)}
-            >
-              <Text style={styles.rejectButtonText}>✗ Reject</Text>
-            </TouchableOpacity>
+            {hasApplication ? (
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={() => handleRejectApplication(item)}
+              >
+                <Text style={styles.rejectButtonText}>✗ Reject</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.approveButton}
+                  onPress={() => handleApproveJob(item)}
+                >
+                  <Text style={styles.approveButtonText}>✓ Approve</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.rejectButton}
+                  onPress={() => handleRejectJob(item)}
+                >
+                  <Text style={styles.rejectButtonText}>✗ Reject</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => handleCloseJob(item)}
+                >
+                  <Text style={styles.closeButtonText}>✗ Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </>
         )}
         
@@ -712,12 +826,35 @@ export default function AdminApplicationsScreen() {
             >
               <Text style={styles.analysisButtonText}>📊 View Analysis</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.rejectButton}
-              onPress={() => handleRejectApplication(item)}
-            >
-              <Text style={styles.rejectButtonText}>✗ Reject</Text>
-            </TouchableOpacity>
+            {hasApplication ? (
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={() => handleRejectApplication(item)}
+              >
+                <Text style={styles.rejectButtonText}>✗ Reject</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.approveButton}
+                  onPress={() => handleApproveJob(item)}
+                >
+                  <Text style={styles.approveButtonText}>✓ Approve</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.rejectButton}
+                  onPress={() => handleRejectJob(item)}
+                >
+                  <Text style={styles.rejectButtonText}>✗ Reject</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => handleCloseJob(item)}
+                >
+                  <Text style={styles.closeButtonText}>✗ Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </>
         )}
         
@@ -748,36 +885,57 @@ export default function AdminApplicationsScreen() {
       <Text style={styles.emptyIcon}>📋</Text>
       <Text style={styles.emptyText}>No job posts found</Text>
       <Text style={styles.emptySubtext}>
-        {filter === 'all' ? 'No job posts yet' : `No ${filter} job posts`}
+        {filter === 'all'
+          ? 'No job posts yet'
+          : `No ${getDisplayStatusLabel(filter).toLowerCase()} job posts`}
       </Text>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        {filters.map((f) => (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.filterTab, filter === f.key && styles.filterTabActive]}
-            onPress={() => {
-              setFilter(f.key);
-              setLoading(true);
-            }}
-          >
-            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.filtersPanel}>
+        <Text style={styles.screenTitle}>Cultivator Intention Analyzer</Text>
+        <Text style={styles.screenSubtitle}>
+          Review client job applications with a cleaner filter bar and more readable screening cards.
+        </Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipScroll}
+          contentContainerStyle={styles.chipScrollContent}
+        >
+          {filters.map((f) => (
+            <TouchableOpacity
+              key={f.key}
+              style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+              onPress={() => {
+                setFilter(f.key);
+                setLoading(true);
+              }}
+            >
+              <Text style={[styles.filterChipText, filter === f.key && styles.filterChipTextActive]}>
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View style={styles.filterSummaryRow}>
+          <Text style={styles.filterSummaryText}>
+            Showing {jobs.length} {jobs.length === 1 ? 'job post' : 'job posts'}
+          </Text>
+          <Text style={styles.filterSummaryText}>
+            {filters.find((item) => item.key === filter)?.label}
+          </Text>
+        </View>
       </View>
 
-      {/* Jobs List */}
       <FlatList
         data={jobs}
         renderItem={renderJob}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => getRowKey(item)}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={!loading ? renderEmpty : null}
         refreshControl={
@@ -1012,25 +1170,84 @@ const styles = StyleSheet.create({
   filterTextActive: {
     color: '#fff',
   },
+  filtersPanel: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e7ecef',
+  },
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1f2933',
+  },
+  screenSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#667085',
+    marginTop: 4,
+  },
+  chipScroll: {
+    marginTop: 12,
+  },
+  chipScrollContent: {
+    paddingRight: 8,
+  },
+  filterChip: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#d7dde3',
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: '#e8f5ec',
+    borderColor: '#27ae60',
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#52606d',
+  },
+  filterChipTextActive: {
+    color: '#1c7c45',
+  },
+  filterSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 12,
+  },
+  filterSummaryText: {
+    fontSize: 12,
+    color: '#667085',
+  },
   listContent: {
-    padding: 15,
-    paddingBottom: 20,
+    padding: 16,
+    paddingBottom: 24,
   },
   jobCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 14,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: '#edf1f3',
     ...Platform.select({
       web: {
-        boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.1)',
+        boxShadow: '0px 8px 20px rgba(15, 23, 42, 0.05)',
       },
       default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
         elevation: 2,
       },
     }),
@@ -1057,8 +1274,8 @@ const styles = StyleSheet.create({
   },
   jobHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 14,
   },
   avatarContainer: {
     width: 45,
@@ -1078,17 +1295,20 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   jobTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1f2933',
+    marginRight: 10,
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
   },
   statusText: {
     fontSize: 11,
@@ -1096,65 +1316,90 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   jobDetails: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
+    backgroundColor: '#f8fafb',
+    borderRadius: 14,
     padding: 12,
-    marginBottom: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#eef2f4',
   },
   detailRow: {
     flexDirection: 'row',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   detailLabel: {
     fontSize: 13,
-    color: '#666',
-    width: 90,
+    color: '#667085',
+    width: 92,
   },
   detailValue: {
     fontSize: 13,
-    color: '#333',
-    fontWeight: '500',
+    color: '#1f2933',
+    fontWeight: '600',
     flex: 1,
   },
   jobActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   callClientButton: {
-    backgroundColor: '#27ae60',
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    backgroundColor: '#1f8f4d',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: 'center',
+    minWidth: 110,
   },
   callClientButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   contactButton: {
     flex: 1,
-    backgroundColor: '#27ae60',
-    borderRadius: 20,
-    paddingVertical: 10,
+    minWidth: 140,
+    backgroundColor: '#eef7f1',
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#cde8d6',
   },
   contactButtonText: {
-    color: '#fff',
+    color: '#1c7c45',
     fontSize: 14,
     fontWeight: '600',
   },
   closeButton: {
     flex: 1,
-    backgroundColor: '#e74c3c',
-    borderRadius: 20,
-    paddingVertical: 10,
+    minWidth: 110,
+    backgroundColor: '#fff5f4',
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#f3c8c3',
   },
   closeButtonText: {
-    color: '#fff',
+    color: '#c0392b',
     fontSize: 14,
     fontWeight: '600',
+  },
+  approveButton: {
+    flex: 1,
+    minWidth: 110,
+    backgroundColor: '#eef7f1',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center' as const,
+    borderWidth: 1,
+    borderColor: '#cde8d6',
+  },
+  approveButtonText: {
+    color: '#1c7c45',
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
   emptyContainer: {
     flex: 1,
@@ -1178,14 +1423,14 @@ const styles = StyleSheet.create({
   // Interview workflow styles
   assessmentRow: {
     paddingTop: 12,
-    paddingBottom: 2,
+    paddingBottom: 10,
     alignItems: 'stretch',
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     paddingHorizontal: 12,
     marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderWidth: 1,
+    borderColor: '#edf1f3',
   },
   assessmentLabel: {
     fontSize: 12,
@@ -1217,48 +1462,63 @@ const styles = StyleSheet.create({
   interviewResultRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#edf1f3',
   },
   inviteButton: {
     flex: 1,
-    backgroundColor: '#9C27B0',
-    borderRadius: 20,
-    paddingVertical: 10,
+    minWidth: 150,
+    backgroundColor: '#1f8f4d',
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   inviteButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   analysisButton: {
     flex: 1,
-    backgroundColor: '#3498db',
-    borderRadius: 20,
-    paddingVertical: 10,
+    minWidth: 120,
+    backgroundColor: '#eff5fb',
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#cddff0',
   },
   analysisButtonText: {
-    color: '#fff',
+    color: '#2f6ea8',
     fontSize: 14,
     fontWeight: '600',
   },
   rejectButton: {
     flex: 1,
-    backgroundColor: '#e74c3c',
-    borderRadius: 20,
-    paddingVertical: 10,
+    minWidth: 110,
+    backgroundColor: '#fff5f4',
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#f3c8c3',
   },
   rejectButtonText: {
-    color: '#fff',
+    color: '#c0392b',
     fontSize: 14,
     fontWeight: '600',
   },
   startInterviewButton: {
     flex: 2,
-    backgroundColor: '#FF9800',
-    borderRadius: 20,
+    minWidth: 170,
+    backgroundColor: '#1f8f4d',
+    borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
   },
@@ -1284,13 +1544,15 @@ const styles = StyleSheet.create({
   // View Analysis button
   viewAnalysisButton: {
     marginTop: 14,
-    backgroundColor: '#8B5CF6',
-    borderRadius: 10,
+    backgroundColor: '#f4f7fb',
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dde6ef',
   },
   viewAnalysisButtonText: {
-    color: '#fff',
+    color: '#2f6ea8',
     fontSize: 14,
     fontWeight: '600',
   },

@@ -659,7 +659,7 @@ async def get_interview_status(
         "jobId": job_id,
         "clientId": client_id,
     })
-    
+
     return InterviewStatusResponse(
         hasInterview=interview is not None,
         interview=_serialize_interview(interview) if interview else None,

@@ -139,7 +139,7 @@ async def update_job_status(
     if user["role"] not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Only interviewer or admin can update job status")
     
-    if status not in ["new", "contacted", "closed"]:
+    if status not in ["new", "contacted", "closed", "rejected", "approved"]:
         raise HTTPException(status_code=400, detail="Invalid status")
     
     db = get_db_or_raise()
