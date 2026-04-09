@@ -1,0 +1,30 @@
+# Dependency directories
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Expo
+.expo/
+frontend/.expo/
+dist/
+
+# Python venv
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+
+# OS Files
+.DS_Store
+Thumbs.db
+.env
+frontend/.env
+backend/.env
+
+# Visual Studio Code
+.vscode/
+
+# Build artifacts
+build/
+*.pkl
+ml/*.pkl

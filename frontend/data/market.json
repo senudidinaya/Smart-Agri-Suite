@@ -1,0 +1,50 @@
+[
+  {
+    "date": "2025-01-01",
+    "spice": "Cinnamon",
+    "farmer": "F1",
+    "district": "Matale",
+    "price_per_kg": 1800,
+    "quantity": 120
+  },
+  {
+    "date": "2025-01-02",
+    "spice": "Pepper",
+    "farmer": "F2",
+    "district": "Kandy",
+    "price_per_kg": 2200,
+    "quantity": 90
+  },
+  {
+    "date": "2025-01-03",
+    "spice": "Clove",
+    "farmer": "F3",
+    "district": "Dambulla",
+    "price_per_kg": 3500,
+    "quantity": 60
+  },
+  {
+    "date": "2025-01-04",
+    "spice": "Cardamom",
+    "farmer": "F4",
+    "district": "Matale",
+    "price_per_kg": 4200,
+    "quantity": 40
+  },
+  {
+    "date": "2025-01-05",
+    "spice": "Nutmeg",
+    "farmer": "F5",
+    "district": "Kurunegala",
+    "price_per_kg": 2800,
+    "quantity": 70
+  },
+  {
+    "date": "2025-01-06",
+    "spice": "Cinnamon",
+    "farmer": "F6",
+    "district": "Kandy",
+    "price_per_kg": 1850,
+    "quantity": 100
+  }
+]
