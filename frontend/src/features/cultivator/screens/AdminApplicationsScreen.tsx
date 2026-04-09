@@ -808,7 +808,7 @@ export default function AdminApplicationsScreen() {
                   const ca = analysisData.callAssessment!;
                   return (
                     <View style={styles.modalSection}>
-                      <Text style={styles.sectionTitle}>Final Call Assessment</Text>
+                      <Text style={styles.sectionTitle}>Final Gate-1 Combined Decision</Text>
 
                       <View style={styles.decisionRow}>
                         <View style={[styles.decisionBadge, { backgroundColor: getIntentColor(ca.decision) }]}>
@@ -819,7 +819,7 @@ export default function AdminApplicationsScreen() {
                         </Text>
                       </View>
                       <Text style={styles.summaryHintText}>
-                        The decision above is the combined final call outcome. This percentage comes from the raw Gate-1 voice-intent model.
+                        This is the final Gate-1 screening outcome after combining raw voice-intent output with truthfulness and risk signals.
                       </Text>
 
                       {(ca.deceptionLabel || ca.reasoning || typeof ca.trustScore === 'number' || ca.riskLevel) && (
