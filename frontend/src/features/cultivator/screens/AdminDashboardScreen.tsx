@@ -317,11 +317,13 @@ export default function AdminDashboardScreen() {
                 }}
                 width={chartWidth}
                 height={160}
+                yAxisLabel=""
+                yAxisSuffix=""
                 fromZero
                 showValuesOnTopOfBars={false}
                 withInnerLines={false}
-                withHorizontalLines
-                withVerticalLines={false}
+                withHorizontalLabels
+                withVerticalLabels={false}
                 segments={3}
                 chartConfig={{
                   backgroundColor: '#fdfefe',

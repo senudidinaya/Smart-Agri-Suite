@@ -351,7 +351,7 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
         if (filePath) {
           for (let attempt = 0; attempt < 5; attempt += 1) {
             try {
-              const fileInfo = await FileSystem.getInfoAsync(filePath, { size: true });
+              const fileInfo = await FileSystem.getInfoAsync(filePath);
               console.log("[CultivatorRecording] Stopped local recording:", {
                 uri: filePath,
                 nativeFilePath,

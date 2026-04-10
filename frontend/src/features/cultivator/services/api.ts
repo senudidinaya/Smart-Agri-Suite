@@ -501,7 +501,7 @@ class ApiService {
 
     let fileInfo: { exists: boolean; size?: number | null } | null = null;
     try {
-      fileInfo = await FileSystem.getInfoAsync(fileUri, { size: true });
+      fileInfo = await FileSystem.getInfoAsync(fileUri);
     } catch (fileInfoError) {
       console.warn("[CultivatorAPI] Failed to inspect upload file before request", {
         callId,

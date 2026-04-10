@@ -46,6 +46,7 @@ export default function ClientCallScreen() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingAttemptedRef = useRef(false);
   const callEndingRef = useRef(false);
+  const isRecordingRef = useRef(false);
 
   // Configure Agora
   const agoraConfig: AgoraConfig | null = agora ? {
@@ -66,6 +67,11 @@ export default function ClientCallScreen() {
     startLocalRecording,
     stopLocalRecording,
   } = useAgora(agoraConfig);
+
+  // Keep ref in sync so async handlers always see latest recording state
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   // Join Agora channel on mount
   useEffect(() => {
@@ -105,14 +111,12 @@ export default function ClientCallScreen() {
       const tryStartRecording = async () => {
         console.log('[CultivatorRecordingRace] Recording start requested after channel join', {
           isJoined: agoraState.isJoined,
-          callStatus,
           callEnding: callEndingRef.current,
         });
         // Small delay to let audio engine fully stabilize after join
         await new Promise(resolve => setTimeout(resolve, 500));
-        if (callEndingRef.current || callStatus === 'ended') {
+        if (callEndingRef.current) {
           console.log('[CultivatorRecordingRace] Suppressing late recording start before first attempt', {
-            callStatus,
             callEnding: callEndingRef.current,
           });
           return;
@@ -122,17 +126,15 @@ export default function ClientCallScreen() {
         let success = await startLocalRecording();
         console.log('[CultivatorRecordingRace] Recording start completed', {
           success,
-          callStatus,
           callEnding: callEndingRef.current,
         });
-        if (callEndingRef.current || callStatus === 'ended') {
+        if (callEndingRef.current) {
           if (success) {
             console.log('[CultivatorRecordingRace] Late recording start succeeded after ending began; stopping immediately');
             await stopLocalRecording();
           }
           console.log('[CultivatorRecordingRace] Recording start resolved after call began ending', {
             success,
-            callStatus,
             callEnding: callEndingRef.current,
           });
           return;
@@ -140,20 +142,18 @@ export default function ClientCallScreen() {
         
         // Retry up to 2 more times with increasing delays
         for (let attempt = 1; !success && attempt <= 2; attempt++) {
-          if (callEndingRef.current || callStatus === 'ended') {
+          if (callEndingRef.current) {
             console.log('[CultivatorRecordingRace] Suppressing recording retry because call is ending/ended', {
               attempt,
-              callStatus,
               callEnding: callEndingRef.current,
             });
             return;
           }
           console.log(`Recording start retry attempt ${attempt}...`);
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-          if (callEndingRef.current || callStatus === 'ended') {
+          if (callEndingRef.current) {
             console.log('[CultivatorRecordingRace] Suppressing recording retry after wait because call is ending/ended', {
               attempt,
-              callStatus,
               callEnding: callEndingRef.current,
             });
             return;
@@ -162,10 +162,9 @@ export default function ClientCallScreen() {
           console.log('[CultivatorRecordingRace] Recording retry completed', {
             attempt,
             success,
-            callStatus,
             callEnding: callEndingRef.current,
           });
-          if ((callEndingRef.current || callStatus === 'ended') && success) {
+          if (callEndingRef.current && success) {
             console.log('[CultivatorRecordingRace] Late recording retry succeeded after ending began; stopping immediately');
             await stopLocalRecording();
             return;
@@ -179,7 +178,7 @@ export default function ClientCallScreen() {
       
       tryStartRecording();
     }
-  }, [agoraState.isJoined, callStatus, startLocalRecording]);
+  }, [agoraState.isJoined, startLocalRecording]);
 
   // Update call status based on Agora connection
   useEffect(() => {
@@ -256,18 +255,18 @@ export default function ClientCallScreen() {
       
       // Leave Agora channel and stop recording
       console.log('Call ended by admin, evaluating recording stop...', {
-        isRecording,
+        isRecording: isRecordingRef.current,
         isRecordingStarting,
         callStatus,
       });
       let uri: string | null = null;
-      if (isRecording) {
+      if (isRecordingRef.current) {
         console.log('[CultivatorRecordingRace] Taking stop/upload path for admin-ended call');
         uri = await stopLocalRecording();
         console.log('Recording stopped, URI:', uri);
       } else {
         console.warn('[CultivatorRecordingRace] Skipping stop/upload because recording was not ready when admin ended the call', {
-          isRecording,
+          isRecording: isRecordingRef.current,
           isRecordingStarting,
         });
       }
@@ -314,11 +313,7 @@ export default function ClientCallScreen() {
           setIsUploading(false);
         });
       
-      // Auto-close after 2 seconds so user can move on
-      // Analysis happens in background and is stored in database
-      setTimeout(() => {
-        navigation.goBack();
-      }, 2000);
+      // Auto-close is handled by the useEffect that watches callStatus === 'ended'
     } catch (error: any) {
       console.error('Upload initiation failed:', error);
       setIsUploading(false);
@@ -360,18 +355,18 @@ export default function ClientCallScreen() {
       
       // Stop recording first
       console.log('Client end-call requested', {
-        isRecording,
+        isRecording: isRecordingRef.current,
         isRecordingStarting,
         callStatus,
       });
       let uri: string | null = null;
-      if (isRecording) {
+      if (isRecordingRef.current) {
         console.log('[CultivatorRecordingRace] Recording is ready, stopping and preparing upload');
         uri = await stopLocalRecording();
         console.log('Recording stopped, URI:', uri);
       } else {
         console.warn('[CultivatorRecordingRace] Recording not ready at end-call; stop/upload path will be skipped', {
-          isRecording,
+          isRecording: isRecordingRef.current,
           isRecordingStarting,
           callStatus,
         });

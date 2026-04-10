@@ -20,8 +20,7 @@ import { api, AgoraTokenInfo } from '../services/api';
 
 interface RouteParams {
   callId: string;
-  adminUsername?: string;
-  interviewerUsername: string;
+  adminUsername: string;
   jobTitle: string;
   agora?: AgoraTokenInfo;
   // Legacy
@@ -31,7 +30,7 @@ interface RouteParams {
 export default function IncomingCallScreen() {
   const route = useRoute();
   const navigation = useNavigation<any>();
-  const { callId, interviewerUsername, adminUsername, jobTitle, agora } = route.params as RouteParams;
+  const { callId, adminUsername, jobTitle, agora } = route.params as RouteParams;
 
   const [showLegalNotice, setShowLegalNotice] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
@@ -129,7 +128,7 @@ export default function IncomingCallScreen() {
             <Text style={styles.avatarText}>📞</Text>
           </Animated.View>
           <Text style={styles.incomingText}>Incoming Call</Text>
-          <Text style={styles.callerName}>{interviewerUsername || adminUsername || 'Interviewer'}</Text>
+          <Text style={styles.callerName}>{adminUsername || 'Interviewer'}</Text>
           <Text style={styles.jobTitle}>Re: {jobTitle || 'Job Application'}</Text>
         </View>
 
