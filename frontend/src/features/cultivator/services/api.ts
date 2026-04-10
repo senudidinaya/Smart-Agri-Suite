@@ -641,11 +641,31 @@ class ApiService {
     return this.request("GET", "/notifications/unread-count");
   }
 
-  async getGate1Insight(intentLabel: string, confidence: number, scores: Record<string, number>): Promise<InsightResponse> {
+  async getGate1Insight(
+    intentLabel: string,
+    confidence: number,
+    scores: Record<string, number>,
+    opts?: {
+      recommendation?: string;
+      trustScore?: number;
+      riskLevel?: string;
+      reasoning?: string;
+      reasons?: string[];
+      deceptionLabel?: string;
+      deceptionConfidence?: number;
+    },
+  ): Promise<InsightResponse> {
     return this.request("POST", "/explain/gate1", {
       intent_label: intentLabel,
       confidence,
       scores,
+      ...(opts?.recommendation != null && { recommendation: opts.recommendation }),
+      ...(opts?.trustScore != null && { trust_score: opts.trustScore }),
+      ...(opts?.riskLevel != null && { risk_level: opts.riskLevel }),
+      ...(opts?.reasoning != null && { reasoning: opts.reasoning }),
+      ...(opts?.reasons != null && { reasons: opts.reasons }),
+      ...(opts?.deceptionLabel != null && { deception_label: opts.deceptionLabel }),
+      ...(opts?.deceptionConfidence != null && { deception_confidence: opts.deceptionConfidence }),
     });
   }
 
@@ -655,7 +675,15 @@ class ApiService {
     dominantEmotion: string,
     emotionDistribution: Record<string, number>,
     topSignals: string[],
-    stats?: Record<string, any>
+    stats?: Record<string, any>,
+    opts?: {
+      combinedReasoning?: string[];
+      trustScore?: number;
+      riskLevel?: string;
+      rawEmotion?: Record<string, any>;
+      rawDeception?: Record<string, any>;
+      safetyAssessment?: Record<string, any>;
+    },
   ): Promise<InsightResponse> {
     return this.request("POST", "/explain/gate2", {
       decision,
@@ -664,6 +692,12 @@ class ApiService {
       emotion_distribution: emotionDistribution,
       top_signals: topSignals,
       stats,
+      ...(opts?.combinedReasoning != null && { combined_reasoning: opts.combinedReasoning }),
+      ...(opts?.trustScore != null && { trust_score: opts.trustScore }),
+      ...(opts?.riskLevel != null && { risk_level: opts.riskLevel }),
+      ...(opts?.rawEmotion != null && { raw_emotion: opts.rawEmotion }),
+      ...(opts?.rawDeception != null && { raw_deception: opts.rawDeception }),
+      ...(opts?.safetyAssessment != null && { safety_assessment: opts.safetyAssessment }),
     });
   }
 

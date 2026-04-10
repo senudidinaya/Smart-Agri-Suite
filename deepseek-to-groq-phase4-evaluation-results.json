@@ -1,0 +1,295 @@
+{
+  "evaluation_timestamp": "2026-04-10T11:26:24.532857+00:00",
+  "total_cases": 9,
+  "passed": 9,
+  "failed": 0,
+  "overall_mean_score": 4.69,
+  "cases": [
+    {
+      "case_id": "g1e_proceed_high_conf",
+      "flow": "gate1_explanation",
+      "description": "Clear PROCEED with high confidence and strong scores",
+      "prompt_version": "v1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": 1781.0,
+      "success": true,
+      "generated_text": "The Gate-1 voice intent analysis results for the cultivator applicant indicate a predicted intent of PROCEED, with a confidence level of 91.2%, suggesting that the applicant is likely to be a strong candidate. The score breakdown reveals that the dimensions of Tone Positivity, Engagement, and Clarity drove this result, with scores of 93.0%, 88.0%, and 85.5% respectively, indicating that the applicant demonstrated a positive and engaged demeanor during the screening call, and was able to clearly articulate their thoughts and experiences. The Trust Score of 87.5% and low Risk Level further support this assessment, suggesting that the applicant's responses were deemed truthful, with an 82.0% confidence level in the Deception Assessment. The admin recruiter may wish to explore further the applicant's consistency, which scored 79.0%, to gain a more comprehensive understanding of their overall fit for the role. Overall, the analysis suggests that the applicant presented themselves in a positive and sincere manner, which may be worth further investigation through an in-person interview, as recommended by the pipeline.",
+      "scores": {
+        "faithfulness": 5,
+        "clarity": 5,
+        "decision_separation": 5,
+        "uncertainty_handling": 4,
+        "actionability": 5
+      },
+      "mean_score": 4.8,
+      "label": "excellent",
+      "notes": {
+        "Must NOT invent additional scores not in the input": "manual-check-required",
+        "Must NOT say the admin should hire the applicant": "manual-check-required"
+      }
+    },
+    {
+      "case_id": "g1e_reject_low_conf",
+      "flow": "gate1_explanation",
+      "description": "REJECT with low confidence and mixed scores",
+      "prompt_version": "v1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": 1234.0,
+      "success": true,
+      "generated_text": "The voice intent analysis results for the cultivator applicant predict a reject outcome with a confidence level of 52.3%, indicating a moderate level of certainty in the assessment. The score breakdown reveals that the dimensions driving this result are primarily low engagement, with a score of 35.0%, and consistency, which scored 28.0%, suggesting that the applicant's conversation patterns were inconsistent and lacking in engagement. Additionally, the tone positivity score of 42.0% and trust score of 38.0% further support this prediction, while the deception assessment, which indicates a 61.0% confidence level of deceptive behavior, raises concerns about the applicant's credibility. The admin may wish to explore these areas further, particularly the inconsistent response patterns and low engagement, to better understand the applicant's intentions and potential fit for the role. Overall, the pipeline recommendation for further verification is well-supported by the data, and the admin may want to consider additional screening or evaluation methods to validate the applicant's qualifications and suitability for the position.",
+      "scores": {
+        "faithfulness": 5,
+        "clarity": 5,
+        "decision_separation": 5,
+        "uncertainty_handling": 5,
+        "actionability": 5
+      },
+      "mean_score": 5.0,
+      "label": "excellent",
+      "notes": {
+        "Must acknowledge low confidence / uncertainty": "manual-check-required",
+        "Must NOT upgrade REJECT to VERIFY or PROCEED": "manual-check-required",
+        "Must NOT tell admin to reject \u2014 only explain evidence": "manual-check-required"
+      }
+    },
+    {
+      "case_id": "g1e_verify_minimal",
+      "flow": "gate1_explanation",
+      "description": "VERIFY with minimal Phase-2 evidence (only required fields)",
+      "prompt_version": "v1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": 1438.0,
+      "success": true,
+      "generated_text": "The voice intent analysis results for the cultivator applicant indicate a predicted intent of VERIFY, with a confidence level of 65.0%, suggesting that the applicant's intentions and responses during the screening call warrant further verification. The score breakdown reveals that the dimensions driving this result are Clarity, with a score of 70.0%, and Tone Positivity, scoring 60.0%, which implies that the applicant was relatively clear in their communication and maintained a somewhat positive tone throughout the conversation. However, the Engagement score of 55.0% is slightly lower, which may suggest that the applicant could have been more actively involved or enthusiastic during the discussion. The admin recruiter may wish to explore further the aspects of the conversation that led to the moderate Engagement score, as this could provide valuable insights into the applicant's overall fit for the cultivator role. Overall, the results suggest that while the applicant has shown some promising communication skills, additional assessment or follow-up questions may be necessary to fully determine their suitability for the position. By examining the specific areas of the conversation that contributed to the predicted intent and scores, the admin recruiter can gain a more comprehensive understanding of the applicant's qualifications and potential.",
+      "scores": {
+        "faithfulness": 5,
+        "clarity": 5,
+        "decision_separation": 5,
+        "uncertainty_handling": 4,
+        "actionability": 5
+      },
+      "mean_score": 4.8,
+      "label": "excellent",
+      "notes": {
+        "Must NOT hallucinate trust_score or risk_level when not provided": "manual-check-required",
+        "Must NOT hallucinate deception analysis when not provided": "manual-check-required"
+      }
+    },
+    {
+      "case_id": "g2e_approve_full",
+      "flow": "gate2_explanation",
+      "description": "APPROVE with full evidence including deception + safety",
+      "prompt_version": "v1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": 1422.0,
+      "success": true,
+      "generated_text": "The cultivator applicant has been assessed through a comprehensive Gate-2 combined interview evaluation, resulting in an approval decision with a confidence level of 85.0%. The dominant emotion expressed by the applicant during the interview was happiness, which accounted for 52.0% of the emotion distribution, followed by neutral, surprise, sad, and angry emotions. The key signals detected, including consistent positive expressions, good eye contact, and natural smile patterns, suggest that the applicant was engaged and genuinely enthusiastic throughout the interview. The trust score of 88.0% and low risk level further support the approval decision, indicating that the applicant's emotional authenticity and deception branches both yielded healthy results. The admin may wish to explore further how the applicant's positive demeanor and truthful responses, as indicated by the deception branch with 79.0% confidence, will translate to their performance and interactions in a team environment, but overall, the assessment results provide a strong foundation for an informed hiring decision.",
+      "scores": {
+        "faithfulness": 2,
+        "clarity": 5,
+        "decision_separation": 5,
+        "uncertainty_handling": 4,
+        "actionability": 5
+      },
+      "mean_score": 4.2,
+      "label": "good",
+      "notes": {
+        "Must NOT tell admin to hire the applicant": "manual-check-required",
+        "Must NOT invent additional signals not in top_signals": "manual-check-required"
+      }
+    },
+    {
+      "case_id": "g2e_reject_degraded",
+      "flow": "gate2_explanation",
+      "description": "REJECT with degraded emotion branch and safety flags",
+      "prompt_version": "v1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": 1406.0,
+      "success": true,
+      "generated_text": "The Gate-2 combined interview assessment for the cultivator applicant has resulted in a decision to reject the candidate, with a confidence level of 60.5%. The dominant emotion expressed by the applicant during the interview was neutral, which accounted for 65.0% of the emotion distribution, followed by sad, angry, and happy emotions. The key signals detected by the system include a flat affect throughout the interview and avoidant gaze patterns, which may indicate a lack of engagement or authenticity. The administrator may wish to explore further the inconsistencies flagged by the deception branch, which reported a 68.0% confidence level in detecting deceptive behavior, as well as the low face detection rate and micro-expression inconsistencies that contributed to the degraded emotion branch results. It is also notable that the trust score is relatively low at 32.0% and the risk level is classified as high, which may be a concern for the hiring team. Overall, the results suggest that the applicant may not be a strong fit for the cultivator role, and the administrator should carefully consider these findings in making their hiring decision.",
+      "scores": {
+        "faithfulness": 2,
+        "clarity": 5,
+        "decision_separation": 5,
+        "uncertainty_handling": 3,
+        "actionability": 5
+      },
+      "mean_score": 4.0,
+      "label": "good",
+      "notes": {
+        "Must mention degraded emotion branch": "manual-check-required",
+        "Must NOT hide risk_flags": "manual-check-required",
+        "Must NOT upgrade REJECT to VERIFY": "manual-check-required"
+      }
+    },
+    {
+      "case_id": "g2e_verify_minimal",
+      "flow": "gate2_explanation",
+      "description": "VERIFY with minimal Phase-2 evidence",
+      "prompt_version": "v1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": 1625.0,
+      "success": true,
+      "generated_text": "The Gate-2 combined interview assessment for the cultivator applicant has yielded a decision of \"VERIFY\" with a confidence level of 58.0%, indicating a moderate level of assurance in the evaluation. The dominant emotion expressed by the applicant during the interview was surprise, which accounted for 40.0% of the emotion distribution, followed by neutral, happy, and sad emotions. The surprise emotion may suggest that the applicant was genuinely interested or intrigued by certain aspects of the interview, while the neutral emotion, which comprised 35.0% of the distribution, could indicate a reserved or cautious demeanor. The key signals detected by the model, which analysed 200 frames and detected faces in 190 of them, may warrant further exploration by the admin to better understand the applicant's emotional authenticity and engagement. The admin may wish to review the interview footage or conduct additional assessments to gain a more comprehensive understanding of the applicant's surprise emotion and how it may relate to their potential fit for the cultivator role. Overall, the results provide a nuanced insight into the applicant's emotional state during the interview, which can inform the admin's hiring decision.",
+      "scores": {
+        "faithfulness": 5,
+        "clarity": 5,
+        "decision_separation": 5,
+        "uncertainty_handling": 5,
+        "actionability": 5
+      },
+      "mean_score": 5.0,
+      "label": "excellent",
+      "notes": {
+        "Must NOT invent trust_score or deception results": "manual-check-required",
+        "Should acknowledge limited signal set": "manual-check-required"
+      }
+    },
+    {
+      "case_id": "q_gate1_cinnamon",
+      "flow": "gate1_questions",
+      "description": "Gate-1 screening questions for cinnamon harvesting",
+      "prompt_version": "v1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": 1344.0,
+      "success": true,
+      "generated_questions": [
+        {
+          "question": "What motivated you to apply for this harvesting role, and are you available to start work immediately?",
+          "purpose": "Verify interest and availability",
+          "follow_up_hint": "If not immediate, ask for a specific timeline"
+        },
+        {
+          "question": "Can you tell me a little about your previous experience working in plantations, specifically with cinnamon?",
+          "purpose": "Understand relevant experience",
+          "follow_up_hint": "Ask for details about job responsibilities or notable achievements"
+        },
+        {
+          "question": "How would you describe your physical ability to perform manual labor in a harvesting environment?",
+          "purpose": "Assess suitability for harvesting work",
+          "follow_up_hint": "Explore any concerns or limitations"
+        },
+        {
+          "question": "What do you know about the harvesting process for cinnamon, and how do you think you can contribute to it?",
+          "purpose": "Evaluate knowledge and enthusiasm",
+          "follow_up_hint": "Gauge their understanding of the crop's specific needs"
+        },
+        {
+          "question": "How would you handle working in a team environment, potentially in a fast-paced harvesting setting?",
+          "purpose": "Assess communication skills and teamwork",
+          "follow_up_hint": "Inquire about previous team experiences or challenges"
+        }
+      ],
+      "scores": {
+        "format_validity": 5,
+        "relevance": 5,
+        "specificity": 5,
+        "purpose_quality": 5,
+        "followup_usefulness": 4
+      },
+      "mean_score": 4.8,
+      "label": "excellent",
+      "notes": {
+        "Questions must relate to harvesting and/or cinnamon": "manual-check-required",
+        "Must NOT be overly technical for a screening call": "manual-check-required"
+      }
+    },
+    {
+      "case_id": "q_gate2_tea",
+      "flow": "gate2_questions",
+      "description": "Gate-2 interview questions for tea plantation planting",
+      "prompt_version": "v1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": 1671.0,
+      "success": true,
+      "generated_questions": [
+        {
+          "question": "What methods do you use to ensure proper soil preparation for tea seedlings, and how do you adapt these methods to different soil types?",
+          "purpose": "Assess technical knowledge and hands-on experience in tea planting",
+          "follow_up_hint": "Can you give an example from your previous experience?"
+        },
+        {
+          "question": "How would you handle a situation where tea seedlings are not germinating as expected, and what steps would you take to troubleshoot the issue?",
+          "purpose": "Evaluate problem-solving abilities in agricultural contexts",
+          "follow_up_hint": "What potential causes would you consider, and how would you prioritize your investigation?"
+        },
+        {
+          "question": "Describe your experience with tea plantation maintenance, including pruning, fertilization, and pest management. How do you prioritize these tasks during different growth stages?",
+          "purpose": "Understand work ethic, reliability, and commitment to tea cultivation",
+          "follow_up_hint": "Can you walk me through your daily or weekly routine in a tea plantation?"
+        },
+        {
+          "question": "How do you work with other team members to achieve planting targets, and what role do you think teamwork plays in ensuring the success of a tea plantation?",
+          "purpose": "Assess cultural fit and teamwork capabilities",
+          "follow_up_hint": "Can you give an example of a time when you had to collaborate with others to overcome a challenge in a tea plantation?"
+        },
+        {
+          "question": "What are some common tea plant diseases or pests you have encountered, and how do you identify and manage them effectively?",
+          "purpose": "Verify specific skills relevant to tea plantations",
+          "follow_up_hint": "How do you stay up-to-date with the latest research or best practices in tea plant disease management?"
+        }
+      ],
+      "scores": {
+        "format_validity": 5,
+        "relevance": 5,
+        "specificity": 5,
+        "purpose_quality": 5,
+        "followup_usefulness": 4
+      },
+      "mean_score": 4.8,
+      "label": "excellent",
+      "notes": {
+        "Questions must be detailed/scenario-based for an interview": "manual-check-required",
+        "Must relate to planting and tea plantations": "manual-check-required"
+      }
+    },
+    {
+      "case_id": "q_gate1_mixed",
+      "flow": "gate1_questions",
+      "description": "Gate-1 screening for irrigation across multiple plantation types",
+      "prompt_version": "v1",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": 1172.0,
+      "success": true,
+      "generated_questions": [
+        {
+          "question": "What motivated you to apply for this cultivator role, and are you available to start work immediately?",
+          "purpose": "Verify interest and availability",
+          "follow_up_hint": "If not available immediately, ask for a specific start date"
+        },
+        {
+          "question": "Have you had any experience working in plantations, particularly with crops like cinnamon, cardamom, or pepper?",
+          "purpose": "Assess relevant experience",
+          "follow_up_hint": "If yes, ask for a brief description of their role and responsibilities"
+        },
+        {
+          "question": "How would you describe your experience with irrigation systems, and are you comfortable working in a physically demanding outdoor environment?",
+          "purpose": "Assess communication skills and professionalism",
+          "follow_up_hint": "If no experience, ask if they are willing to learn and take on new challenges"
+        }
+      ],
+      "scores": {
+        "format_validity": 5,
+        "relevance": 5,
+        "specificity": 5,
+        "purpose_quality": 5,
+        "followup_usefulness": 4
+      },
+      "mean_score": 4.8,
+      "label": "excellent",
+      "notes": {
+        "Questions should cover irrigation broadly": "manual-check-required",
+        "Should reference multiple plantation types where natural": "manual-check-required"
+      }
+    }
+  ]
+}

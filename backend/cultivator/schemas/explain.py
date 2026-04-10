@@ -27,6 +27,36 @@ class Gate1InsightRequest(BaseModel):
         examples=[{"Engagement": 82.0, "Clarity": 74.5, "Tone Positivity": 91.0}],
     )
 
+    # --- Phase-2 optional richer evidence ---
+    recommendation: Optional[str] = Field(
+        default=None,
+        description="Pipeline recommendation text (e.g. 'Proceed to interview')",
+    )
+    trust_score: Optional[float] = Field(
+        default=None,
+        description="Overall trust score (0-100)",
+    )
+    risk_level: Optional[str] = Field(
+        default=None,
+        description="Risk level label (low / medium / high)",
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Pipeline reasoning summary",
+    )
+    reasons: Optional[List[str]] = Field(
+        default=None,
+        description="List of reason strings from the pipeline",
+    )
+    deception_label: Optional[str] = Field(
+        default=None,
+        description="Deception model label (e.g. 'truthful', 'deceptive')",
+    )
+    deception_confidence: Optional[float] = Field(
+        default=None,
+        description="Deception model confidence (0-100)",
+    )
+
 
 class Gate2InsightRequest(BaseModel):
     """Request body for Gate-2 combined interview insight generation."""
@@ -55,6 +85,32 @@ class Gate2InsightRequest(BaseModel):
     stats: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Processing statistics (frames_analyzed, faces_detected_frames, etc.)",
+    )
+
+    # --- Phase-2 optional richer evidence ---
+    combined_reasoning: Optional[List[str]] = Field(
+        default=None,
+        description="Reasoning strings from the combined assessment aggregator",
+    )
+    trust_score: Optional[float] = Field(
+        default=None,
+        description="Combined assessment trust score (0-100)",
+    )
+    risk_level: Optional[str] = Field(
+        default=None,
+        description="Combined assessment risk level (low / medium / high)",
+    )
+    raw_emotion: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Full raw emotion branch payload (decision, confidence, healthy, degraded, etc.)",
+    )
+    raw_deception: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Full raw deception branch payload (label, confidence, scores, etc.)",
+    )
+    safety_assessment: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Safety assessment payload (safety_score, risk_flags, admin_action, etc.)",
     )
 
 

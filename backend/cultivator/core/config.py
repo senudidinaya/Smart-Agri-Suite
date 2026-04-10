@@ -139,14 +139,34 @@ class Settings(BaseSettings):
         description="Directory to keep permanent debug copies of uploaded call recordings",
     )
 
-    # DeepSeek API settings (AI-powered explainability)
+    # DeepSeek API settings (AI-powered explainability) — legacy, kept for reference
     deepseek_api_key: str = Field(
         default="",
-        description="DeepSeek API key for generating AI-powered insights",
+        description="DeepSeek API key (legacy — replaced by Groq)",
     )
     deepseek_base_url: str = Field(
         default="https://api.deepseek.com",
-        description="DeepSeek API base URL",
+        description="DeepSeek API base URL (legacy — replaced by Groq)",
+    )
+
+    # Groq API settings (AI-powered explainability — active provider)
+    groq_api_key: str = Field(
+        default="",
+        description="Groq API key for generating AI-powered insights and questions",
+    )
+    groq_base_url: str = Field(
+        default="https://api.groq.com/openai/v1",
+        description="Groq API base URL (OpenAI-compatible)",
+    )
+    groq_model: str = Field(
+        default="llama-3.3-70b-versatile",
+        description="Groq model used for explanation and question generation",
+    )
+
+    # Explanation audit persistence (Phase 3)
+    explanation_audit_persist: bool = Field(
+        default=True,
+        description="Persist LLM explanation/question audit records to MongoDB",
     )
 
     # Logging settings

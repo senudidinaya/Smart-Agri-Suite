@@ -147,5 +147,10 @@ async def _create_indexes() -> None:
     await db.notifications.create_index("userId")
     await db.notifications.create_index([("userId", 1), ("isRead", 1)])
     await db.notifications.create_index([("userId", 1), ("createdAt", -1)])
+
+    # Explanation audit indexes (Phase 3)
+    await db.explanation_audits.create_index([("generated_at", -1)])
+    await db.explanation_audits.create_index("flow")
+    await db.explanation_audits.create_index("correlation_id")
     
     logger.info("Database indexes created")

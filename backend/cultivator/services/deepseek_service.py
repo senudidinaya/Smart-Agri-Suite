@@ -1,19 +1,38 @@
 """
-DeepSeek AI Integration Service.
+LLM Explanation & Question-Generation Service.
 
 Generates human-readable, professional explanations for Gate-1 (voice intent)
-and Gate-2 (video interview) analysis results using the DeepSeek chat API.
-Helps admins interpret ML predictions with actionable, contextual insights.
+and Gate-2 (video interview) analysis results using the Groq chat API.
+Helps admins interpret ML predictions with evidence-grounded insights.
+
+Note: This file retains its original name to avoid import-path churn in Phase 1.
+The active provider is Groq (OpenAI-compatible). DeepSeek references in
+function names are kept for backward-compatibility with existing callers.
 """
 
 import logging
-from typing import Any, Dict, Optional
+import time
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 import httpx
 
 from cultivator.core.config import get_settings
+from cultivator.core.database import get_db
+from cultivator.core.middleware import get_correlation_id
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Prompt version identifiers  (Phase 3 – auditability)
+# ---------------------------------------------------------------------------
+
+GATE1_EXPLANATION_PROMPT_VERSION = "v1"
+GATE2_EXPLANATION_PROMPT_VERSION = "v1"
+GATE1_QUESTIONS_PROMPT_VERSION = "v1"
+GATE2_QUESTIONS_PROMPT_VERSION = "v1"
+
+_PROVIDER = "groq"
 
 # ---------------------------------------------------------------------------
 # Prompt templates
@@ -21,29 +40,41 @@ logger = logging.getLogger(__name__)
 
 GATE1_SYSTEM_PROMPT = (
     "You are an expert agricultural HR analytics advisor. Your role is to "
-    "interpret voice-based intent analysis results from screening calls between "
-    "an admin recruiter and a cultivator (farm worker) applicant. The system "
-    "analyses paralinguistic vocal features and conversation content to predict "
-    "the cultivator's genuine intention level.\n\n"
+    "explain voice-based intent analysis results from screening calls between "
+    "an admin recruiter and a cultivator (farm worker) applicant. The ML system "
+    "has already analysed paralinguistic vocal features and conversation content "
+    "to predict the cultivator's genuine intention level.\n\n"
+    "IMPORTANT CONSTRAINTS:\n"
+    "- You are an explanation layer ONLY. The decision has already been made by "
+    "the ML pipeline. Do NOT override, upgrade, or downgrade it.\n"
+    "- Base your explanation strictly on the evidence provided below. Do NOT "
+    "invent facts, scores, or signals not present in the input.\n"
+    "- Do NOT make a new decision or tell the admin what to do.\n\n"
     "Provide a detailed, professional paragraph (4-6 sentences) that:\n"
-    "1. Summarises the overall prediction and confidence level.\n"
+    "1. Summarises the prediction and confidence the model produced.\n"
     "2. Highlights which score dimensions drove the result.\n"
-    "3. Offers a practical recommendation to the admin on next steps.\n"
+    "3. Notes any areas the admin may wish to explore further.\n"
     "Keep the tone informative yet accessible. Do NOT use bullet points — "
     "write a single cohesive paragraph."
 )
 
 GATE2_SYSTEM_PROMPT = (
     "You are an expert agricultural HR analytics advisor. Your role is to "
-    "interpret video-based facial expression analysis results from an "
-    "in-person interview with a cultivator (farm worker) applicant. The system "
-    "analyses facial micro-expressions across video frames to assess emotional "
-    "authenticity and engagement.\n\n"
+    "explain video-based facial expression analysis results from an "
+    "in-person interview with a cultivator (farm worker) applicant. The ML system "
+    "has already analysed facial micro-expressions across video frames to assess "
+    "emotional authenticity and engagement.\n\n"
+    "IMPORTANT CONSTRAINTS:\n"
+    "- You are an explanation layer ONLY. The decision has already been made by "
+    "the ML pipeline. Do NOT override, upgrade, or downgrade it.\n"
+    "- Base your explanation strictly on the evidence provided below. Do NOT "
+    "invent facts, scores, or signals not present in the input.\n"
+    "- Do NOT make a new decision or tell the admin what to do.\n\n"
     "Provide a detailed, professional paragraph (4-6 sentences) that:\n"
-    "1. Summarises the overall decision and confidence level.\n"
+    "1. Summarises the decision and confidence the model produced.\n"
     "2. Interprets the dominant emotion and emotion distribution.\n"
-    "3. Comments on key signals detected.\n"
-    "4. Offers a practical recommendation to the admin on next steps.\n"
+    "3. Comments on the key signals detected.\n"
+    "4. Notes any areas the admin may wish to explore further.\n"
     "Keep the tone informative yet accessible. Do NOT use bullet points — "
     "write a single cohesive paragraph."
 )
@@ -100,14 +131,29 @@ async def generate_gate1_insight(
     intent_label: str,
     confidence: float,
     scores: Dict[str, float],
+    *,
+    recommendation: Optional[str] = None,
+    trust_score: Optional[float] = None,
+    risk_level: Optional[str] = None,
+    reasoning: Optional[str] = None,
+    reasons: Optional[List[str]] = None,
+    deception_label: Optional[str] = None,
+    deception_confidence: Optional[float] = None,
 ) -> str:
     """
-    Generate a DeepSeek-powered explanation for Gate-1 voice intent results.
+    Generate an AI-powered explanation for Gate-1 voice intent results.
 
     Args:
         intent_label: The predicted intent label (PROCEED / VERIFY / REJECT).
         confidence: Prediction confidence as a percentage (0-100).
         scores: Dictionary mapping score names to their values.
+        recommendation: Optional pipeline recommendation text.
+        trust_score: Optional overall trust score (0-100).
+        risk_level: Optional risk level label.
+        reasoning: Optional pipeline reasoning summary.
+        reasons: Optional list of reason strings.
+        deception_label: Optional deception model label.
+        deception_confidence: Optional deception model confidence (0-100).
 
     Returns:
         A 4-6 sentence professional paragraph explaining the result.
@@ -121,12 +167,34 @@ async def generate_gate1_insight(
     for name, value in scores.items():
         user_content += f"  - {name}: {value:.1f}%\n"
 
+    # Phase-2 richer evidence (appended only when available)
+    if trust_score is not None:
+        user_content += f"• Trust Score: {trust_score:.1f}%\n"
+    if risk_level:
+        user_content += f"• Risk Level: {risk_level}\n"
+    if recommendation:
+        user_content += f"• Pipeline Recommendation: {recommendation}\n"
+    if reasoning:
+        user_content += f"• Pipeline Reasoning: {reasoning}\n"
+    if reasons:
+        user_content += f"• Key Reasons: {'; '.join(reasons)}\n"
+    if deception_label:
+        user_content += f"• Deception Assessment: {deception_label}"
+        if deception_confidence is not None:
+            user_content += f" ({deception_confidence:.1f}% confidence)"
+        user_content += "\n"
+
     user_content += (
         "\nPlease provide a professional interpretation of these results "
         "to help the admin recruiter make an informed decision."
     )
 
-    return await _call_deepseek(GATE1_SYSTEM_PROMPT, user_content)
+    return await _call_deepseek(
+        GATE1_SYSTEM_PROMPT,
+        user_content,
+        flow="gate1_explanation",
+        prompt_version=GATE1_EXPLANATION_PROMPT_VERSION,
+    )
 
 
 async def generate_gate2_insight(
@@ -136,9 +204,16 @@ async def generate_gate2_insight(
     emotion_distribution: Dict[str, float],
     top_signals: list,
     stats: Optional[Dict[str, Any]] = None,
+    *,
+    combined_reasoning: Optional[List[str]] = None,
+    trust_score: Optional[float] = None,
+    risk_level: Optional[str] = None,
+    raw_emotion: Optional[Dict[str, Any]] = None,
+    raw_deception: Optional[Dict[str, Any]] = None,
+    safety_assessment: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
-    Generate a DeepSeek-powered explanation for Gate-2 combined interview results.
+    Generate an AI-powered explanation for Gate-2 combined interview results.
 
     Args:
         decision: The combined Gate-2 decision (APPROVE / VERIFY / REJECT).
@@ -147,6 +222,12 @@ async def generate_gate2_insight(
         emotion_distribution: Raw emotion branch mapping of emotion names to percentages.
         top_signals: List of key behavioural signals detected.
         stats: Optional processing statistics (frames analysed, etc.).
+        combined_reasoning: Optional reasoning strings from the aggregator.
+        trust_score: Optional combined trust score (0-100).
+        risk_level: Optional risk level label.
+        raw_emotion: Optional full raw emotion branch payload.
+        raw_deception: Optional full raw deception branch payload.
+        safety_assessment: Optional safety assessment payload.
 
     Returns:
         A 4-6 sentence professional paragraph explaining the result.
@@ -172,12 +253,45 @@ async def generate_gate2_insight(
             f"faces detected in {stats.get('faces_detected_frames', 'N/A')} frames\n"
         )
 
+    # Phase-2 richer evidence (appended only when available)
+    if trust_score is not None:
+        user_content += f"• Trust Score: {trust_score:.1f}%\n"
+    if risk_level:
+        user_content += f"• Risk Level: {risk_level}\n"
+    if combined_reasoning:
+        user_content += f"• Aggregator Reasoning: {'; '.join(combined_reasoning)}\n"
+    if raw_deception:
+        dec_label = raw_deception.get('label', 'N/A')
+        dec_conf = raw_deception.get('confidence')
+        user_content += f"• Deception Branch: {dec_label}"
+        if dec_conf is not None:
+            normalized = dec_conf * 100 if dec_conf <= 1 else dec_conf
+            user_content += f" ({normalized:.1f}% confidence)"
+        user_content += "\n"
+        dec_signals = raw_deception.get('topSignals', [])
+        if dec_signals:
+            user_content += f"  Deception Signals: {', '.join(dec_signals)}\n"
+    if raw_emotion and raw_emotion.get('degraded'):
+        user_content += "• ⚠ Emotion branch was degraded (results may be less reliable).\n"
+    if safety_assessment:
+        score = safety_assessment.get('safety_score')
+        action = safety_assessment.get('admin_action', 'N/A')
+        user_content += f"• Safety Assessment: score {score}, recommended action {action}\n"
+        flags = safety_assessment.get('risk_flags', [])
+        if flags:
+            user_content += f"  Risk Flags: {', '.join(flags)}\n"
+
     user_content += (
         "\nPlease provide a professional interpretation of these results "
         "to help the admin make an informed hiring decision."
     )
 
-    return await _call_deepseek(GATE2_SYSTEM_PROMPT, user_content)
+    return await _call_deepseek(
+        GATE2_SYSTEM_PROMPT,
+        user_content,
+        flow="gate2_explanation",
+        prompt_version=GATE2_EXPLANATION_PROMPT_VERSION,
+    )
 
 
 async def generate_questions(
@@ -219,7 +333,17 @@ async def generate_questions(
         f"No additional text or explanation."
     )
 
-    response_text = await _call_deepseek(system_prompt, user_content)
+    qp_version = (
+        GATE1_QUESTIONS_PROMPT_VERSION if gate.lower() == "gate1"
+        else GATE2_QUESTIONS_PROMPT_VERSION
+    )
+
+    response_text = await _call_deepseek(
+        system_prompt,
+        user_content,
+        flow="question_generation",
+        prompt_version=qp_version,
+    )
 
     # Parse the JSON response
     try:
@@ -247,7 +371,7 @@ async def generate_questions(
         return validated_questions
 
     except json.JSONDecodeError as exc:
-        logger.error("Failed to parse DeepSeek question response: %s", exc)
+        logger.error("Failed to parse LLM question response: %s", exc)
         logger.debug("Raw response: %s", response_text)
         raise RuntimeError("Failed to parse AI-generated questions") from exc
 
@@ -256,25 +380,56 @@ async def generate_questions(
 # Internal helper
 # ---------------------------------------------------------------------------
 
-async def _call_deepseek(system_prompt: str, user_content: str) -> str:
+async def _call_deepseek(
+    system_prompt: str,
+    user_content: str,
+    *,
+    flow: str = "unknown",
+    prompt_version: str = "unknown",
+) -> str:
     """
-    Call the DeepSeek Chat Completions API.
+    Call the Groq Chat Completions API (OpenAI-compatible).
+
+    Function name kept as ``_call_deepseek`` to avoid import-path churn in
+    Phase 1.  The actual provider is now Groq.
+
+    Phase 3 additions:
+    - Structured audit logging (provider, model, prompt_version, flow,
+      correlation_id, latency, success/failure).
+    - Optional MongoDB persistence to ``explanation_audits`` collection.
 
     Raises:
         RuntimeError: If the API call fails or the key is missing.
     """
     settings = get_settings()
 
-    if not settings.deepseek_api_key:
-        raise RuntimeError("DEEPSEEK_API_KEY is not configured in .env")
+    if not settings.groq_api_key:
+        raise RuntimeError("GROQ_API_KEY is not configured in .env")
 
-    url = f"{settings.deepseek_base_url}/chat/completions"
+    correlation_id = get_correlation_id()
+    model = settings.groq_model
+
+    # Common audit fields shared by success and failure paths
+    audit_base = {
+        "provider": _PROVIDER,
+        "model": model,
+        "prompt_version": prompt_version,
+        "flow": flow,
+        "correlation_id": correlation_id,
+    }
+
+    logger.info(
+        "LLM call started",
+        extra={"extra_data": {**audit_base, "event": "llm_call_start"}},
+    )
+
+    url = f"{settings.groq_base_url}/chat/completions"
     headers = {
-        "Authorization": f"Bearer {settings.deepseek_api_key}",
+        "Authorization": f"Bearer {settings.groq_api_key}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "deepseek-chat",
+        "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content},
@@ -283,15 +438,110 @@ async def _call_deepseek(system_prompt: str, user_content: str) -> str:
         "max_tokens": 512,
     }
 
+    t0 = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
             data = response.json()
-            return data["choices"][0]["message"]["content"].strip()
+            generated_text = data["choices"][0]["message"]["content"].strip()
+
+        latency_ms = round((time.monotonic() - t0) * 1000, 1)
+        usage = data.get("usage", {})
+
+        logger.info(
+            "LLM call succeeded",
+            extra={"extra_data": {
+                **audit_base,
+                "event": "llm_call_success",
+                "latency_ms": latency_ms,
+                "prompt_tokens": usage.get("prompt_tokens"),
+                "completion_tokens": usage.get("completion_tokens"),
+                "total_tokens": usage.get("total_tokens"),
+            }},
+        )
+
+        # --- Persist audit record (non-blocking, best-effort) ---
+        if settings.explanation_audit_persist:
+            await _persist_audit(
+                audit_base=audit_base,
+                success=True,
+                latency_ms=latency_ms,
+                user_content=user_content,
+                generated_text=generated_text,
+                usage=usage,
+            )
+
+        return generated_text
+
     except httpx.HTTPStatusError as exc:
-        logger.error("DeepSeek API HTTP error: %s – %s", exc.response.status_code, exc.response.text)
-        raise RuntimeError(f"DeepSeek API returned {exc.response.status_code}") from exc
+        latency_ms = round((time.monotonic() - t0) * 1000, 1)
+        logger.error(
+            "LLM call HTTP error",
+            extra={"extra_data": {
+                **audit_base,
+                "event": "llm_call_failure",
+                "latency_ms": latency_ms,
+                "http_status": exc.response.status_code,
+            }},
+        )
+        if settings.explanation_audit_persist:
+            await _persist_audit(
+                audit_base=audit_base,
+                success=False,
+                latency_ms=latency_ms,
+                user_content=user_content,
+                error=f"HTTP {exc.response.status_code}",
+            )
+        raise RuntimeError(f"Groq API returned {exc.response.status_code}") from exc
     except Exception as exc:
-        logger.error("DeepSeek API call failed: %s", exc)
-        raise RuntimeError(f"DeepSeek API call failed: {exc}") from exc
+        latency_ms = round((time.monotonic() - t0) * 1000, 1)
+        logger.error(
+            "LLM call failed",
+            extra={"extra_data": {
+                **audit_base,
+                "event": "llm_call_failure",
+                "latency_ms": latency_ms,
+                "error": str(exc)[:200],
+            }},
+        )
+        if settings.explanation_audit_persist:
+            await _persist_audit(
+                audit_base=audit_base,
+                success=False,
+                latency_ms=latency_ms,
+                user_content=user_content,
+                error=str(exc)[:200],
+            )
+        raise RuntimeError(f"Groq API call failed: {exc}") from exc
+
+
+async def _persist_audit(
+    *,
+    audit_base: dict,
+    success: bool,
+    latency_ms: float,
+    user_content: str,
+    generated_text: str = "",
+    usage: dict | None = None,
+    error: str = "",
+) -> None:
+    """Best-effort write to the ``explanation_audits`` MongoDB collection."""
+    try:
+        db = get_db()
+        if db is None:
+            return
+        doc = {
+            **audit_base,
+            "success": success,
+            "latency_ms": latency_ms,
+            "evidence_payload": user_content,
+            "generated_text": generated_text,
+            "generated_at": datetime.now(timezone.utc),
+            "error": error,
+        }
+        if usage:
+            doc["usage"] = usage
+        await db.explanation_audits.insert_one(doc)
+    except Exception:
+        logger.warning("Failed to persist explanation audit record", exc_info=True)

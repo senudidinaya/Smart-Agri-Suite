@@ -1,9 +1,10 @@
 """
-Explain endpoints – DeepSeek AI-powered insight generation.
+Explain endpoints – AI-powered insight generation (Groq).
 
 Provides human-readable, professional explanations for both Gate-1 (voice
-intent) and Gate-2 (video interview) analysis results to help admins make
-informed decisions. Also generates tailored questions for calls and interviews.
+intent) and Gate-2 (video interview) analysis results to help admins
+interpret ML decisions. Also generates tailored questions for calls and
+interviews. The active LLM provider is Groq.
 """
 
 import logging
@@ -33,7 +34,7 @@ router = APIRouter(prefix="/explain", tags=["Explain"])
     "/gate1",
     response_model=InsightResponse,
     summary="Generate Gate-1 Voice Intent Insight",
-    description="Uses DeepSeek AI to produce a professional paragraph explaining Gate-1 voice intent analysis results.",
+    description="Produces a professional paragraph explaining Gate-1 voice intent analysis results.",
 )
 async def explain_gate1(body: Gate1InsightRequest) -> InsightResponse:
     """Generate an AI insight for Gate-1 voice intent results."""
@@ -42,6 +43,13 @@ async def explain_gate1(body: Gate1InsightRequest) -> InsightResponse:
             intent_label=body.intent_label,
             confidence=body.confidence,
             scores=body.scores,
+            recommendation=body.recommendation,
+            trust_score=body.trust_score,
+            risk_level=body.risk_level,
+            reasoning=body.reasoning,
+            reasons=body.reasons,
+            deception_label=body.deception_label,
+            deception_confidence=body.deception_confidence,
         )
         return InsightResponse(success=True, insight=insight)
     except RuntimeError as exc:
@@ -59,7 +67,7 @@ async def explain_gate1(body: Gate1InsightRequest) -> InsightResponse:
     "/gate2",
     response_model=InsightResponse,
     summary="Generate Gate-2 Combined Interview Insight",
-    description="Uses DeepSeek AI to produce a professional paragraph explaining the combined Gate-2 assessment with raw emotion evidence.",
+    description="Produces a professional paragraph explaining the combined Gate-2 assessment with raw emotion evidence.",
 )
 async def explain_gate2(body: Gate2InsightRequest) -> InsightResponse:
     """Generate an AI insight for Gate-2 combined interview assessment results."""
@@ -71,6 +79,12 @@ async def explain_gate2(body: Gate2InsightRequest) -> InsightResponse:
             emotion_distribution=body.emotion_distribution,
             top_signals=body.top_signals,
             stats=body.stats,
+            combined_reasoning=body.combined_reasoning,
+            trust_score=body.trust_score,
+            risk_level=body.risk_level,
+            raw_emotion=body.raw_emotion,
+            raw_deception=body.raw_deception,
+            safety_assessment=body.safety_assessment,
         )
         return InsightResponse(success=True, insight=insight)
     except RuntimeError as exc:
@@ -88,7 +102,7 @@ async def explain_gate2(body: Gate2InsightRequest) -> InsightResponse:
     "/questions",
     response_model=QuestionGenerationResponse,
     summary="Generate Call/Interview Questions",
-    description="Uses DeepSeek AI to generate tailored questions for admins to ask during Gate-1 calls or Gate-2 interviews.",
+    description="Generates tailored questions for admins to ask during Gate-1 calls or Gate-2 interviews.",
 )
 async def generate_interview_questions(body: QuestionGenerationRequest) -> QuestionGenerationResponse:
     """Generate AI-powered questions based on job type and plantation."""

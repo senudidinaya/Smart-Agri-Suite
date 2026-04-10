@@ -406,7 +406,15 @@ export default function AdminApplicationsScreen() {
           }
         }
         promises.push(
-          api.getGate1Insight(ca.decision, ca.confidence * 100, scores)
+          api.getGate1Insight(ca.decision, ca.confidence * 100, scores, {
+            recommendation: ca.recommendation,
+            trustScore: ca.trustScore != null ? ca.trustScore * 100 : undefined,
+            riskLevel: ca.riskLevel,
+            reasoning: ca.reasoning,
+            reasons: ca.reasons.length ? ca.reasons : undefined,
+            deceptionLabel: ca.deceptionLabel,
+            deceptionConfidence: ca.deceptionConfidence != null ? ca.deceptionConfidence * 100 : undefined,
+          })
             .then(res => { if (res.success) setGate1Insight(res.insight); })
             .catch(() => {})
         );
@@ -422,6 +430,14 @@ export default function AdminApplicationsScreen() {
             iv.emotion_distribution || {},
             iv.top_signals || [],
             iv.stats,
+            {
+              combinedReasoning: iv.combinedAssessment?.reasoning,
+              trustScore: iv.combinedAssessment?.trustScore != null ? iv.combinedAssessment.trustScore * 100 : undefined,
+              riskLevel: iv.combinedAssessment?.riskLevel,
+              rawEmotion: iv.rawEmotion as Record<string, any> | undefined,
+              rawDeception: iv.rawDeception as Record<string, any> | undefined,
+              safetyAssessment: iv.safety_assessment as Record<string, any> | undefined,
+            },
           )
             .then(res => { if (res.success) setGate2Insight(res.insight); })
             .catch(() => {})
