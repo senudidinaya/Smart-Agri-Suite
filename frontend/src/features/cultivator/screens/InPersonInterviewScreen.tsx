@@ -15,13 +15,12 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
-import { api, InterviewAnalyzeResponse, InsightResponse, Question } from '../services/api';
+import { api, Question } from '../services/api';
 
 type RouteParams = {
   InPersonInterview: {
@@ -45,11 +44,8 @@ export default function InPersonInterviewScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<InterviewAnalyzeResponse | null>(null);
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [deepseekInsight, setDeepseekInsight] = useState<string | null>(null);
-  const [insightLoading, setInsightLoading] = useState(false);
   
   // Questions state
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -115,76 +111,7 @@ export default function InPersonInterviewScreen() {
     fetchQuestions();
   }, [jobTitle, priorExperience]);
 
-  // Fetch DeepSeek insight when analysis results arrive
-  useEffect(() => {
-    if (!analysisResult) return;
-    const fetchInsight = async () => {
-      setInsightLoading(true);
-      try {
-        const res = await api.getGate2Insight(
-          analysisResult.decision,
-          analysisResult.confidence * 100,
-          analysisResult.dominant_emotion || 'neutral',
-          analysisResult.emotion_distribution || {},
-          analysisResult.top_signals || [],
-          analysisResult.stats,
-        );
-        if (res.success) {
-          setDeepseekInsight(res.insight);
-        }
-      } catch (err) {
-        console.error('Failed to fetch DeepSeek insight:', err);
-      } finally {
-        setInsightLoading(false);
-      }
-    };
-    fetchInsight();
-  }, [analysisResult]);
 
-  useEffect(() => {
-    if (!analysisResult) return;
-
-    const fetchInsight = async () => {
-      setInsightLoading(true);
-      try {
-        const distribution = analysisResult.emotion_distribution || {};
-        const distributionPercent: Record<string, number> = {};
-        for (const [emotion, score] of Object.entries(distribution)) {
-          distributionPercent[emotion] = score * 100;
-        }
-
-        const statsPayload = analysisResult.stats
-          ? {
-              frames_analyzed: analysisResult.stats.frames_used,
-              faces_detected_frames: analysisResult.stats.faces_detected,
-              face_detection_rate: analysisResult.stats.face_detection_rate,
-              stability: analysisResult.stats.stability,
-              avg_model_confidence: analysisResult.stats.avg_model_confidence,
-              predictions_count: analysisResult.stats.predictions_count,
-            }
-          : undefined;
-
-        const res = await api.getGate2Insight(
-          analysisResult.decision,
-          analysisResult.confidence * 100,
-          analysisResult.dominant_emotion || 'unknown',
-          distributionPercent,
-          analysisResult.top_signals || analysisResult.reasons || [],
-          statsPayload,
-        );
-
-        if (res.success) {
-          setDeepseekInsight(res.insight);
-        }
-      } catch (error) {
-        console.error('Failed to fetch DeepSeek Gate-2 insight:', error);
-      } finally {
-        setInsightLoading(false);
-      }
-    };
-
-    fetchInsight();
-  }, [analysisResult]);
 
   const handleConsentAgree = () => {
     if (!cameraPermission?.granted || !micPermission?.granted) {
@@ -263,8 +190,6 @@ export default function InPersonInterviewScreen() {
         durationSeconds
       );
       
-      setAnalysisResult(result);
-      
       // Delete local video after successful analysis (privacy rule)
       try {
         await FileSystem.deleteAsync(uri, { idempotent: true });
@@ -273,6 +198,9 @@ export default function InPersonInterviewScreen() {
       } catch (e) {
         console.warn('Failed to delete local video:', e);
       }
+      
+      // Navigate back after successful analysis
+      navigation.goBack();
       
     } catch (error: any) {
       console.error('Analysis error:', error);
@@ -309,35 +237,7 @@ export default function InPersonInterviewScreen() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getDecisionColor = (decision: string) => {
-    switch (decision) {
-      case 'APPROVE':
-        return '#27ae60';
-      case 'REJECT':
-        return '#e74c3c';
-      case 'VERIFY':
-        return '#f39c12';
-      default:
-        return '#666';
-    }
-  };
 
-  const getDecisionIcon = (decision: string) => {
-    switch (decision) {
-      case 'APPROVE':
-        return '✅';
-      case 'REJECT':
-        return '❌';
-      case 'VERIFY':
-        return '⚠️';
-      default:
-        return '❓';
-    }
-  };
-
-  const handleDone = () => {
-    navigation.goBack();
-  };
 
   // Consent Modal
   if (showConsent) {
@@ -384,155 +284,6 @@ export default function InPersonInterviewScreen() {
             </View>
           </View>
         </Modal>
-      </SafeAreaView>
-    );
-  }
-
-  // Analysis Result Screen
-  if (analysisResult) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView 
-          contentContainerStyle={styles.resultScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.resultContainer}>
-            <Text style={styles.resultIcon}>
-              {getDecisionIcon(analysisResult.decision)}
-            </Text>
-            
-            <Text style={[
-              styles.resultDecision,
-              { color: getDecisionColor(analysisResult.decision) }
-            ]}>
-              {analysisResult.decision}
-            </Text>
-            
-            <View style={styles.confidenceContainer}>
-              <Text style={styles.confidenceLabel}>Overall Gate-2 Confidence</Text>
-              <Text style={styles.confidenceValue}>
-                {(analysisResult.confidence * 100).toFixed(1)}%
-              </Text>
-            </View>
-            
-            {/* Gate 2: Emotion Distribution */}
-            {analysisResult.emotion_distribution && Object.keys(analysisResult.emotion_distribution).length > 0 && (
-              <View style={styles.emotionContainer}>
-                <Text style={styles.emotionTitle}>Emotion Analysis</Text>
-                {analysisResult.dominant_emotion && (
-                  <Text style={styles.dominantEmotion}>
-                    Dominant: {analysisResult.dominant_emotion}
-                  </Text>
-                )}
-                <View style={styles.emotionBars}>
-                  {Object.entries(analysisResult.emotion_distribution)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
-                    .map(([emotion, score]) => (
-                      <View key={emotion} style={styles.emotionBarRow}>
-                        <Text style={styles.emotionLabel}>{emotion}</Text>
-                        <View style={styles.emotionBarBg}>
-                          <View 
-                            style={[
-                              styles.emotionBarFill, 
-                              { width: `${Math.min(score * 100, 100)}%` }
-                            ]} 
-                          />
-                        </View>
-                        <Text style={styles.emotionPercent}>
-                          {(score * 100).toFixed(0)}%
-                        </Text>
-                      </View>
-                    ))}
-                </View>
-              </View>
-            )}
-            
-            {/* Gate 2: Top Signals */}
-            {analysisResult.top_signals && analysisResult.top_signals.length > 0 && (
-              <View style={styles.reasonsContainer}>
-                <Text style={styles.reasonsTitle}>Analysis Signals</Text>
-                {analysisResult.top_signals.map((signal, index) => (
-                  <View key={index} style={styles.reasonItem}>
-                    <Text style={styles.reasonBullet}>•</Text>
-                    <Text style={styles.reasonText}>{signal}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-            
-            {/* Fallback to reasons if no top_signals */}
-            {(!analysisResult.top_signals || analysisResult.top_signals.length === 0) && 
-             analysisResult.reasons && analysisResult.reasons.length > 0 && (
-              <View style={styles.reasonsContainer}>
-                <Text style={styles.reasonsTitle}>Analysis Reasons</Text>
-                {analysisResult.reasons.map((reason, index) => (
-                  <View key={index} style={styles.reasonItem}>
-                    <Text style={styles.reasonBullet}>•</Text>
-                    <Text style={styles.reasonText}>{reason}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-            
-            {/* Gate 2: Stats */}
-            {analysisResult.stats && (
-              <View style={styles.statsContainer}>
-                <Text style={styles.statsTitle}>Analysis Stats</Text>
-                <View style={styles.statsRow}>
-                  <Text style={styles.statsLabel}>Frames analyzed:</Text>
-                  <Text style={styles.statsValue}>{analysisResult.stats.frames_used}</Text>
-                </View>
-                <View style={styles.statsRow}>
-                  <Text style={styles.statsLabel}>Face detection:</Text>
-                  <Text style={styles.statsValue}>
-                    {(analysisResult.stats.face_detection_rate * 100).toFixed(0)}%
-                  </Text>
-                </View>
-                <View style={styles.statsRow}>
-                  <Text style={styles.statsLabel}>Stability:</Text>
-                  <Text style={styles.statsValue}>
-                    {(analysisResult.stats.stability * 100).toFixed(0)}%
-                  </Text>
-                </View>
-                {analysisResult.model_version && (
-                  <View style={styles.statsRow}>
-                    <Text style={styles.statsLabel}>Model:</Text>
-                    <Text style={styles.statsValue}>{analysisResult.model_version}</Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            <View style={styles.insightContainer}>
-              <Text style={styles.insightTitle}>🧠 Deepseek Insight</Text>
-              {insightLoading ? (
-                <View style={styles.insightLoadingContainer}>
-                  <ActivityIndicator size="small" color="#8B5CF6" />
-                  <Text style={styles.insightLoadingText}>Generating AI insight...</Text>
-                </View>
-              ) : deepseekInsight ? (
-                <Text style={styles.insightText}>{deepseekInsight}</Text>
-              ) : (
-                <Text style={styles.insightErrorText}>Insight unavailable at the moment.</Text>
-              )}
-            </View>
-            
-            <View style={styles.statusContainer}>
-              <Text style={styles.statusLabel}>Application Status:</Text>
-              <Text style={styles.statusValue}>
-                {analysisResult.applicationStatus.toUpperCase().replace('_', ' ')}
-              </Text>
-            </View>
-            
-            <TouchableOpacity 
-              style={styles.doneButton}
-              onPress={handleDone}
-            >
-              <Text style={styles.doneButtonText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1015,219 +766,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // Result Screen
-  resultScrollContent: {
-    flexGrow: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  resultContainer: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-    alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 40,
-  },
-  resultIcon: {
-    fontSize: 80,
-    marginBottom: 20,
-  },
-  resultDecision: {
-    fontSize: 36,
-    fontWeight: '700',
-    marginBottom: 20,
-  },
-  confidenceContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  confidenceLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  confidenceValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#333',
-  },
-  reasonsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    width: '100%',
-    marginBottom: 20,
-  },
-  reasonsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 10,
-  },
-  reasonItem: {
-    flexDirection: 'row',
-    marginBottom: 5,
-  },
-  reasonBullet: {
-    fontSize: 14,
-    color: '#27ae60',
-    marginRight: 8,
-  },
-  reasonText: {
-    fontSize: 14,
-    color: '#666',
-    flex: 1,
-  },
-  statusContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  statusLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  statusValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#27ae60',
-  },
-  doneButton: {
-    backgroundColor: '#27ae60',
-    paddingVertical: 15,
-    paddingHorizontal: 50,
-    borderRadius: 25,
-  },
-  doneButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  // Gate 2: Emotion Analysis Styles
-  emotionContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    width: '100%',
-    marginBottom: 15,
-  },
-  emotionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  dominantEmotion: {
-    fontSize: 14,
-    color: '#27ae60',
-    fontWeight: '500',
-    marginBottom: 12,
-  },
-  emotionBars: {
-    gap: 8,
-  },
-  emotionBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  emotionLabel: {
-    width: 80,
-    fontSize: 13,
-    color: '#666',
-    textTransform: 'capitalize',
-  },
-  emotionBarBg: {
-    flex: 1,
-    height: 12,
-    backgroundColor: '#e8e8e8',
-    borderRadius: 6,
-    marginHorizontal: 8,
-    overflow: 'hidden',
-  },
-  emotionBarFill: {
-    height: '100%',
-    backgroundColor: '#27ae60',
-    borderRadius: 6,
-  },
-  emotionPercent: {
-    width: 40,
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'right',
-  },
-  // Gate 2: Stats Styles
-  statsContainer: {
-    backgroundColor: '#f0f7f7',
-    borderRadius: 12,
-    padding: 15,
-    width: '100%',
-    marginBottom: 15,
-  },
-  statsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#27ae60',
-    marginBottom: 10,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  statsLabel: {
-    fontSize: 13,
-    color: '#666',
-  },
-  statsValue: {
-    fontSize: 13,
-    color: '#333',
-    fontWeight: '500',
-  },
-  insightContainer: {
-    backgroundColor: '#f3efff',
-    borderRadius: 12,
-    padding: 15,
-    width: '100%',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ddd4ff',
-  },
-  insightTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6D5BD0',
-    marginBottom: 10,
-  },
-  insightText: {
-    fontSize: 14,
-    color: '#4B4B4B',
-    lineHeight: 21,
-  },
-  insightLoadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-  },
-  insightLoadingText: {
-    fontSize: 13,
-    color: '#6D5BD0',
-    marginLeft: 10,
-  },
-  insightErrorText: {
-    fontSize: 13,
-    color: '#7B7B7B',
-    fontStyle: 'italic',
-  },
+
   // Questions panel styles
   questionsSection: {
     backgroundColor: 'rgba(92, 154, 154, 0.15)',

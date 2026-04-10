@@ -14,7 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { api, AnalysisResult, AgoraTokenInfo, InsightResponse, Question, QuestionGenerationResponse } from '../services/api';
+import { api, AgoraTokenInfo, Question, QuestionGenerationResponse } from '../services/api';
 import { useAgora, AgoraConfig } from '../hooks/useAgora';
 
 interface RouteParams {
@@ -35,13 +35,9 @@ export default function AdminCallScreen() {
   const navigation = useNavigation();
   const { callId, clientUsername, jobTitle, priorExperience, agora } = route.params as RouteParams;
 
-  const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'connected' | 'ended'>('connecting');
+  const [callStatus, setCallStatus] = useState<'connecting' | 'ringing' | 'connected'>('connecting');
   const [callDuration, setCallDuration] = useState(0);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [waitingForAnalysis, setWaitingForAnalysis] = useState(false);
   const [isCloudRecording, setIsCloudRecording] = useState(false);
-  const [deepseekInsight, setDeepseekInsight] = useState<string | null>(null);
-  const [insightLoading, setInsightLoading] = useState(false);
   
   // Questions state
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -121,35 +117,6 @@ export default function AdminCallScreen() {
     };
   }, [callStatus]);
 
-  // Fetch DeepSeek insight when analysis results arrive
-  useEffect(() => {
-    if (!analysisResult) return;
-    const fetchInsight = async () => {
-      setInsightLoading(true);
-      try {
-        const scores: Record<string, number> = {};
-        if (analysisResult.scores) {
-          for (const [label, score] of Object.entries(analysisResult.scores)) {
-            scores[label] = score * 100;
-          }
-        }
-        const res = await api.getGate1Insight(
-          analysisResult.intentLabel,
-          analysisResult.confidence * 100,
-          scores,
-        );
-        if (res.success) {
-          setDeepseekInsight(res.insight);
-        }
-      } catch (err) {
-        console.error('Failed to fetch DeepSeek insight:', err);
-      } finally {
-        setInsightLoading(false);
-      }
-    };
-    fetchInsight();
-  }, [analysisResult]);
-
   // Fetch AI-generated questions when call is initiated
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -217,45 +184,16 @@ export default function AdminCallScreen() {
       try {
         const response = await api.getCallStatus(callId);
         
-        if (response.status === 'accepted' && callStatus !== 'connected' && callStatus !== 'ended') {
+        if (response.status === 'accepted' && callStatus !== 'connected') {
           setCallStatus('connected');
         } else if (response.status === 'ended' || response.status === 'rejected') {
-          setCallStatus('ended');
-          cleanup();
-          
-          if (response.analysis) {
-            setAnalysisResult(response.analysis);
-          } else if (response.status === 'ended') {
-            setWaitingForAnalysis(true);
-            pollForAnalysis();
-          }
+          await cleanup();
+          navigation.goBack();
         }
       } catch (error) {
         console.debug('Status poll error:', error);
       }
     }, 2000);
-  };
-
-  const pollForAnalysis = () => {
-    const analysisPoll = setInterval(async () => {
-      try {
-        const response = await api.getCallStatus(callId);
-        if (response.analysis) {
-          setAnalysisResult(response.analysis);
-          setWaitingForAnalysis(false);
-          clearInterval(analysisPoll);
-        }
-      } catch (error) {
-        console.debug('Analysis poll error:', error);
-      }
-    }, 3000);
-
-    // Wait up to 5 minutes (300 seconds) for analysis
-    // Matches client-side upload timeout which can take time on slow networks
-    setTimeout(() => {
-      clearInterval(analysisPoll);
-      setWaitingForAnalysis(false);
-    }, 300000);
   };
 
   const formatDuration = (seconds: number): string => {
@@ -278,27 +216,14 @@ export default function AdminCallScreen() {
       
       // End the call on backend
       await api.endCall(callId);
-      setCallStatus('ended');
-      cleanup();
       
-      // Start polling for analysis but allow admin to leave
-      // Analysis runs in background and will be available in "View Analysis" section
-      setWaitingForAnalysis(true);
-      pollForAnalysis();
-      
-      // Auto-close after 3 seconds
-      // Admin can view analysis later in the job's "View Analysis" section
-      setTimeout(() => {
-        navigation.goBack();
-      }, 3000);
+      // Clean up timers and navigate back immediately
+      // Analysis runs in background and is accessible later via View Analysis
+      await cleanup();
+      navigation.goBack();
     } catch (error: any) {
       Alert.alert('Error', error.message);
     }
-  };
-
-  const handleClose = () => {
-    cleanup();
-    navigation.goBack();
   };
 
   const getStatusText = () => {
@@ -306,48 +231,7 @@ export default function AdminCallScreen() {
       case 'connecting': return 'Connecting...';
       case 'ringing': return 'Calling client...';
       case 'connected': return formatDuration(callDuration);
-      case 'ended': return 'Call Ended';
       default: return '';
-    }
-  };
-
-  const getIntentColor = (intent: string): string => {
-    const normalized = intent.toUpperCase();
-    switch (normalized) {
-      case 'PROCEED':
-      case 'HIGH_INTENT':
-        return '#27ae60'; // Green - positive
-      case 'VERIFY':
-      case 'MEDIUM_INTENT':
-        return '#f39c12'; // Orange - needs verification
-      case 'REJECT':
-      case 'LOW_INTENT':
-      case 'NO_INTENT':
-        return '#e74c3c'; // Red - negative
-      default:
-        return '#95a5a6'; // Gray - unknown
-    }
-  };
-
-  const getIntentLabel = (intent: string): string => {
-    const normalized = intent.toUpperCase();
-    switch (normalized) {
-      case 'PROCEED':
-        return 'Proceed';
-      case 'VERIFY':
-        return 'Verify';
-      case 'REJECT':
-        return 'Reject';
-      case 'HIGH_INTENT':
-        return 'High Interest';
-      case 'MEDIUM_INTENT':
-        return 'Moderate Interest';
-      case 'LOW_INTENT':
-        return 'Low Interest';
-      case 'NO_INTENT':
-        return 'No Interest';
-      default:
-        return intent; // Return original if not mapped
     }
   };
 
@@ -362,84 +246,6 @@ export default function AdminCallScreen() {
       default: return '#95a5a6';
     }
   };
-
-  // Render ended screen with analysis
-  if (callStatus === 'ended') {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.endedContent}>
-          <Text style={styles.endedTitle}>Call Ended</Text>
-          <Text style={styles.callerInfo}>With: {clientUsername || 'Client'}</Text>
-          <Text style={styles.durationText}>Duration: {formatDuration(callDuration)}</Text>
-
-          {waitingForAnalysis && !analysisResult && (
-            <View style={styles.waitingContainer}>
-              <ActivityIndicator size="large" color="#27ae60" />
-              <Text style={styles.waitingText}>Waiting for voice analysis...</Text>
-              <Text style={styles.waitingSubtext}>Client is uploading the recording</Text>
-            </View>
-          )}
-
-          {analysisResult && (
-            <View style={styles.analysisContainer}>
-              <Text style={styles.analysisTitle}>🎯 Raw Voice Intent Model Output</Text>
-              <View style={[styles.intentBadge, { backgroundColor: getIntentColor(analysisResult.intentLabel) }]}>
-                <Text style={styles.intentText}>{getIntentLabel(analysisResult.intentLabel)}</Text>
-              </View>
-              <Text style={styles.confidenceText}>
-                Intent confidence: {(analysisResult.confidence * 100).toFixed(1)}%
-              </Text>
-              <Text style={styles.helperText}>
-                This is the initial model-only Gate-1 result captured at call end. The Full Analysis view later shows the final Gate-1 combined decision with truthfulness and risk context.
-              </Text>
-              {analysisResult.scores && Object.keys(analysisResult.scores).length > 0 && (
-                <View style={styles.scoresContainer}>
-                  <Text style={styles.scoresTitle}>Raw Intent Scores:</Text>
-                  {Object.entries(analysisResult.scores).map(([label, score]) => (
-                    <View key={label} style={styles.scoreRow}>
-                      <Text style={styles.scoreLabel}>{getIntentLabel(label)}:</Text>
-                      <View style={styles.scoreBarContainer}>
-                        <View style={[styles.scoreBar, { width: `${score * 100}%`, backgroundColor: getIntentColor(label) }]} />
-                      </View>
-                      <Text style={styles.scoreValue}>{(score * 100).toFixed(1)}%</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* DeepSeek Insight Card */}
-          {analysisResult && (
-            <View style={styles.insightContainer}>
-              <Text style={styles.insightTitle}>🧠 Deepseek Insight</Text>
-              {insightLoading ? (
-                <View style={styles.insightLoadingContainer}>
-                  <ActivityIndicator size="small" color="#8B5CF6" />
-                  <Text style={styles.insightLoadingText}>Generating AI insight...</Text>
-                </View>
-              ) : deepseekInsight ? (
-                <Text style={styles.insightText}>{deepseekInsight}</Text>
-              ) : (
-                <Text style={styles.insightErrorText}>Insight unavailable. Tap to retry.</Text>
-              )}
-            </View>
-          )}
-
-          {!waitingForAnalysis && !analysisResult && (
-            <View style={styles.noAnalysisContainer}>
-              <Text style={styles.noAnalysisText}>No analysis available</Text>
-              <Text style={styles.noAnalysisSubtext}>Client may not have uploaded the recording</Text>
-            </View>
-          )}
-
-          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-            <Text style={styles.closeButtonText}>Close</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
 
   // Render active call screen
   return (
