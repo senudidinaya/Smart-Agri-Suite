@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { api, Question } from '../services/api';
 
 type RouteParams = {
