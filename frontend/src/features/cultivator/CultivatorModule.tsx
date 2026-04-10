@@ -9,6 +9,7 @@ import ClientProfileScreen from "./screens/ClientProfileScreen";
 import ClientJobsScreen from "./screens/ClientJobsScreen";
 import ClientNotificationsScreen from "./screens/ClientNotificationsScreen";
 import AdminApplicationsScreen from "./screens/AdminApplicationsScreen";
+import AdminDashboardScreen from "./screens/AdminDashboardScreen";
 import AdminCallScreen from "./screens/AdminCallScreen";
 import ClientCallScreen from "./screens/ClientCallScreen";
 import IncomingCallScreen from "./screens/IncomingCallScreen";
@@ -22,6 +23,7 @@ type ClientTabParamList = {
 };
 
 type AdminTabParamList = {
+  Dashboard: undefined;
   Applications: undefined;
 };
 
@@ -185,6 +187,15 @@ function AdminTabNavigator() {
         tabBarInactiveTintColor: "#999",
       }}
     >
+      <AdminTab.Screen
+        name="Dashboard"
+        component={AdminDashboardScreen}
+        options={{
+          headerShown: true,
+          title: "Dashboard",
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📊</Text>,
+        }}
+      />
       <AdminTab.Screen
         name="Applications"
         component={AdminApplicationsScreen}
