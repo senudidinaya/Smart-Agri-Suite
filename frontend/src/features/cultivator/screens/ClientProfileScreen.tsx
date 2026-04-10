@@ -15,7 +15,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   Modal,
-  FlatList,
 } from 'react-native';
 import { api } from '../services/api';
 
@@ -96,14 +95,22 @@ export default function ClientProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Create Job Post</Text>
-          <Text style={styles.headerSubtitle}>Post a farming job opportunity</Text>
+          <Text style={styles.headerSubtitle}>Post a farming opportunity and start receiving applications</Text>
         </View>
 
-        {/* Form */}
+        <View style={styles.guidanceCard}>
+          <Text style={styles.guidanceTitle}>Job Posting Details</Text>
+          <Text style={styles.guidanceText}>Complete all required fields so applicants can quickly understand your requirement.</Text>
+        </View>
+
         <View style={styles.formContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Role Information</Text>
+            <Text style={styles.requiredHint}>* Required fields</Text>
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Job Title / Type of Work *</Text>
             <TouchableOpacity
@@ -144,6 +151,7 @@ export default function ClientProfileScreen() {
             />
           </View>
 
+          <Text style={styles.sectionTitle}>Schedule</Text>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Starts From *</Text>
             <TouchableOpacity
@@ -166,6 +174,7 @@ export default function ClientProfileScreen() {
             </TouchableOpacity>
           </View>
 
+          <Text style={styles.sectionTitle}>Experience Preference</Text>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Plantations You Have Prior Experience *</Text>
             <TouchableOpacity
@@ -321,86 +330,129 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    paddingBottom: 28,
   },
   header: {
-    marginBottom: 25,
-    marginTop: 10,
+    marginBottom: 14,
+    marginTop: 8,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1f2a24',
+    marginBottom: 6,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: '#5f6d65',
+    lineHeight: 20,
+  },
+  guidanceCard: {
+    backgroundColor: '#eaf7ef',
+    borderWidth: 1,
+    borderColor: '#d3ecd9',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  guidanceTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1d6a3a',
+    marginBottom: 4,
+  },
+  guidanceText: {
+    fontSize: 13,
+    color: '#37634a',
+    lineHeight: 18,
   },
   formContainer: {
     backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 20,
-    // Use boxShadow for web compatibility (shadow* props are deprecated)
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#e8ecea',
     ...Platform.select({
       web: {
-        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+        boxShadow: '0px 6px 16px rgba(25, 35, 30, 0.08)',
       },
       default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowColor: '#1d2a22',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
         elevation: 3,
       },
     }),
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    color: '#26352d',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 10,
+    marginTop: 2,
+  },
+  requiredHint: {
+    color: '#70847a',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
   inputGroup: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   label: {
-    color: '#333',
+    color: '#314238',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
+    borderColor: '#d5dfda',
+    borderRadius: 12,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 13,
     fontSize: 15,
-    color: '#333',
-    backgroundColor: '#fafafa',
+    color: '#24332b',
+    backgroundColor: '#fbfdfc',
   },
   dropdown: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
+    borderColor: '#d5dfda',
+    borderRadius: 12,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 13,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fafafa',
+    backgroundColor: '#fbfdfc',
   },
   dropdownText: {
     fontSize: 15,
-    color: '#333',
+    color: '#24332b',
   },
   dropdownPlaceholder: {
     fontSize: 15,
-    color: '#999',
+    color: '#7a8a81',
   },
   dropdownArrow: {
     fontSize: 12,
-    color: '#666',
+    color: '#5d6c63',
   },
   dropdownList: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
+    borderColor: '#d5dfda',
+    borderRadius: 12,
     marginTop: 5,
     backgroundColor: '#fff',
     overflow: 'hidden',
@@ -423,7 +475,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dropdownDoneButton: {
-    paddingVertical: 12,
+    paddingVertical: 13,
     alignItems: 'center',
     backgroundColor: '#27ae60',
   },
@@ -433,11 +485,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   button: {
-    backgroundColor: '#27ae60',
-    borderRadius: 25,
+    backgroundColor: '#219653',
+    borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
   buttonDisabled: {
     backgroundColor: '#a3d9a5',

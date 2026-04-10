@@ -127,9 +127,11 @@ export default function ClientNotificationsScreen() {
       onPress={() => handleNotificationPress(item)}
     >
       <View style={styles.notificationHeader}>
-        <Text style={styles.notificationIcon}>
-          {getNotificationIcon(item.type)}
-        </Text>
+        <View style={styles.iconWrap}>
+          <Text style={styles.notificationIcon}>
+            {getNotificationIcon(item.type)}
+          </Text>
+        </View>
         <View style={styles.notificationContent}>
           <Text style={[
             styles.notificationTitle,
@@ -147,24 +149,34 @@ export default function ClientNotificationsScreen() {
         {item.message}
       </Text>
       {item.jobTitle && (
-        <Text style={styles.jobTitle}>
-          📍 {item.jobTitle}
-        </Text>
+        <View style={styles.jobTag}>
+          <Text style={styles.jobTitle}>📍 {item.jobTitle}</Text>
+        </View>
       )}
     </TouchableOpacity>
   );
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Text style={styles.headerTitle}>Notifications</Text>
-      {unreadCount > 0 && (
-        <TouchableOpacity
-          style={styles.markAllButton}
-          onPress={handleMarkAllRead}
-        >
-          <Text style={styles.markAllText}>Mark all read</Text>
-        </TouchableOpacity>
-      )}
+      <View>
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={styles.headerSubtitle}>Track interview invites and application updates</Text>
+      </View>
+      <View style={styles.headerActions}>
+        {unreadCount > 0 && (
+          <View style={styles.unreadCountBadge}>
+            <Text style={styles.unreadCountText}>{unreadCount}</Text>
+          </View>
+        )}
+        {unreadCount > 0 && (
+          <TouchableOpacity
+            style={styles.markAllButton}
+            onPress={handleMarkAllRead}
+          >
+            <Text style={styles.markAllText}>Mark all read</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 
@@ -221,45 +233,75 @@ export default function ClientNotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f2f5f4',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e6ebe8',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1f2d26',
+  },
+  headerSubtitle: {
+    marginTop: 3,
+    fontSize: 12,
+    color: '#6d7d74',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  unreadCountBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e9f6ed',
+    borderWidth: 1,
+    borderColor: '#cde8d7',
+  },
+  unreadCountText: {
+    color: '#1f8b4c',
+    fontSize: 12,
+    fontWeight: '700',
   },
   markAllButton: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#e8f5e9',
-    borderRadius: 16,
+    paddingVertical: 8,
+    backgroundColor: '#1f8b4c',
+    borderRadius: 10,
   },
   markAllText: {
-    color: '#4CAF50',
-    fontSize: 14,
-    fontWeight: '500',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   unreadBanner: {
-    backgroundColor: '#e8f5e9',
-    paddingVertical: 8,
+    backgroundColor: '#e9f6ed',
+    paddingVertical: 9,
     paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#dceee3',
   },
   unreadBannerText: {
-    color: '#2e7d32',
+    color: '#296a46',
     fontSize: 14,
     textAlign: 'center',
+    fontWeight: '600',
   },
   listContent: {
-    padding: 16,
+    padding: 14,
   },
   emptyList: {
     flex: 1,
@@ -268,28 +310,38 @@ const styles = StyleSheet.create({
   },
   notificationCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderWidth: 1,
+    borderColor: '#e5ebe8',
+    shadowColor: '#1b251f',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 2,
   },
   unreadCard: {
-    backgroundColor: '#f8fff8',
+    backgroundColor: '#f6fcf8',
     borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
+    borderLeftColor: '#1f8b4c',
   },
   notificationHeader: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#edf5f0',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
+    marginRight: 10,
   },
   notificationIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 18,
   },
   notificationContent: {
     flex: 1,
@@ -297,33 +349,41 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#27362f',
   },
   unreadText: {
     fontWeight: 'bold',
-    color: '#2e7d32',
+    color: '#21623f',
   },
   notificationTime: {
     fontSize: 12,
-    color: '#888',
+    color: '#73837b',
     marginTop: 2,
   },
   unreadDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1f8b4c',
+    marginTop: 5,
   },
   notificationMessage: {
     fontSize: 14,
-    color: '#666',
+    color: '#4f5f57',
     lineHeight: 20,
   },
+  jobTag: {
+    marginTop: 9,
+    alignSelf: 'flex-start',
+    backgroundColor: '#f0f5f3',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
   jobTitle: {
-    fontSize: 13,
-    color: '#888',
-    marginTop: 8,
-    fontStyle: 'italic',
+    fontSize: 12,
+    color: '#5f6f67',
+    fontWeight: '500',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -342,7 +402,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#888',
+    color: '#74827b',
     textAlign: 'center',
     lineHeight: 20,
   },

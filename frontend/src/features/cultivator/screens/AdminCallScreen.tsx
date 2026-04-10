@@ -47,6 +47,8 @@ export default function AdminCallScreen() {
   
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasExitedRef = useRef(false);
+  const isEndingRef = useRef(false);
 
   // Configure Agora
   const agoraConfig: AgoraConfig | null = agora ? {
@@ -69,7 +71,7 @@ export default function AdminCallScreen() {
     const setup = async () => {
       if (!agoraConfig) {
         Alert.alert('Error', 'No call configuration received');
-        navigation.goBack();
+        await exitCallScreenSafely();
         return;
       }
 
@@ -78,7 +80,7 @@ export default function AdminCallScreen() {
       const joined = await joinChannel();
       if (!joined) {
         Alert.alert('Error', 'Failed to start the call. Please try again.');
-        navigation.goBack();
+        await exitCallScreenSafely();
         return;
       }
 
@@ -156,6 +158,23 @@ export default function AdminCallScreen() {
     await leaveChannel();
   };
 
+  const exitCallScreenSafely = async (skipCleanup = false) => {
+    if (hasExitedRef.current) return;
+    hasExitedRef.current = true;
+
+    if (!skipCleanup) {
+      await cleanup();
+    }
+
+    const nav = navigation as any;
+    if (typeof nav.canGoBack === 'function' && nav.canGoBack()) {
+      nav.goBack();
+      return;
+    }
+
+    nav.navigate('AdminTabs');
+  };
+
   const startCloudRecordingIfAvailable = async () => {
     try {
       const result = await api.startCloudRecording(callId);
@@ -182,13 +201,16 @@ export default function AdminCallScreen() {
   const startStatusPolling = () => {
     pollRef.current = setInterval(async () => {
       try {
+        if (isEndingRef.current || hasExitedRef.current) {
+          return;
+        }
+
         const response = await api.getCallStatus(callId);
         
         if (response.status === 'accepted' && callStatus !== 'connected') {
           setCallStatus('connected');
         } else if (response.status === 'ended' || response.status === 'rejected') {
-          await cleanup();
-          navigation.goBack();
+          await exitCallScreenSafely();
         }
       } catch (error) {
         console.debug('Status poll error:', error);
@@ -207,6 +229,9 @@ export default function AdminCallScreen() {
   };
 
   const handleEndCall = async () => {
+    if (isEndingRef.current || hasExitedRef.current) return;
+    isEndingRef.current = true;
+
     try {
       // Stop cloud recording if active
       await stopCloudRecordingIfActive();
@@ -220,8 +245,9 @@ export default function AdminCallScreen() {
       // Clean up timers and navigate back immediately
       // Analysis runs in background and is accessible later via View Analysis
       await cleanup();
-      navigation.goBack();
+      await exitCallScreenSafely(true);
     } catch (error: any) {
+      isEndingRef.current = false;
       Alert.alert('Error', error.message);
     }
   };
