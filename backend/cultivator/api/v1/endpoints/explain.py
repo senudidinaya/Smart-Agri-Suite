@@ -19,7 +19,7 @@ from cultivator.schemas.explain import (
     QuestionGenerationResponse,
     Question,
 )
-from cultivator.services.deepseek_service import (
+from cultivator.services.llm_service import (
     generate_gate1_insight,
     generate_gate2_insight,
     generate_questions,

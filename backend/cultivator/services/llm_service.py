@@ -5,9 +5,7 @@ Generates human-readable, professional explanations for Gate-1 (voice intent)
 and Gate-2 (video interview) analysis results using the Groq chat API.
 Helps admins interpret ML predictions with evidence-grounded insights.
 
-Note: This file retains its original name to avoid import-path churn in Phase 1.
-The active provider is Groq (OpenAI-compatible). DeepSeek references in
-function names are kept for backward-compatibility with existing callers.
+The active provider is Groq (OpenAI-compatible).
 """
 
 import logging
@@ -189,7 +187,7 @@ async def generate_gate1_insight(
         "to help the admin recruiter make an informed decision."
     )
 
-    return await _call_deepseek(
+    return await _call_llm(
         GATE1_SYSTEM_PROMPT,
         user_content,
         flow="gate1_explanation",
@@ -286,7 +284,7 @@ async def generate_gate2_insight(
         "to help the admin make an informed hiring decision."
     )
 
-    return await _call_deepseek(
+    return await _call_llm(
         GATE2_SYSTEM_PROMPT,
         user_content,
         flow="gate2_explanation",
@@ -338,7 +336,7 @@ async def generate_questions(
         else GATE2_QUESTIONS_PROMPT_VERSION
     )
 
-    response_text = await _call_deepseek(
+    response_text = await _call_llm(
         system_prompt,
         user_content,
         flow="question_generation",
@@ -380,7 +378,7 @@ async def generate_questions(
 # Internal helper
 # ---------------------------------------------------------------------------
 
-async def _call_deepseek(
+async def _call_llm(
     system_prompt: str,
     user_content: str,
     *,
@@ -390,8 +388,7 @@ async def _call_deepseek(
     """
     Call the Groq Chat Completions API (OpenAI-compatible).
 
-    Function name kept as ``_call_deepseek`` to avoid import-path churn in
-    Phase 1.  The actual provider is now Groq.
+    The active provider for this service path is Groq.
 
     Phase 3 additions:
     - Structured audit logging (provider, model, prompt_version, flow,

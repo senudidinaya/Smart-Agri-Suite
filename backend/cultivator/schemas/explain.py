@@ -1,5 +1,5 @@
 """
-Schemas for DeepSeek AI-powered insight explanations.
+Schemas for AI-powered insight explanations.
 """
 
 from typing import Any, Dict, List, Optional

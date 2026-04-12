@@ -1,10 +1,10 @@
 """
-DeepSeek Explainability Service for Intent Risk Predictions.
+AI Explainability Service for Intent Risk Predictions.
 
 Smart Agri-Suite - Cultivator Intent Module V2
 
 This module provides optional natural language explanations for
-intent risk predictions using the DeepSeek API.
+intent risk predictions using an LLM provider API.
 
 Usage:
     from cultivator.services.explainability import get_prediction_explanation
@@ -14,6 +14,10 @@ Usage:
         prosodic_features=prosodic_features,
         text_features=text_features,
     )
+
+Legacy note:
+    This module is retained for backward compatibility and is not part of the
+    active `/explain/*` Groq-backed service path.
 """
 
 import os
@@ -25,7 +29,7 @@ from cultivator.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# DeepSeek API configuration
+# Legacy LLM API configuration
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 DEEPSEEK_MODEL = "deepseek-chat"
 
@@ -50,7 +54,7 @@ async def get_prediction_explanation(
         prosodic_features: Prosodic features used in prediction.
         text_features: Text features used in prediction.
         model_version: Version of the model used.
-        api_key: DeepSeek API key (falls back to env variable).
+        api_key: LLM provider API key (falls back to env variable).
         timeout: Request timeout in seconds.
         
     Returns:
@@ -60,7 +64,7 @@ async def get_prediction_explanation(
     api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
     
     if not api_key:
-        logger.debug("DeepSeek API key not configured, skipping explanation")
+        logger.debug("LLM provider API key not configured, skipping explanation")
         return None
     
     # Build the prompt
@@ -109,7 +113,7 @@ async def get_prediction_explanation(
             explanation = data["choices"][0]["message"]["content"].strip()
             
             logger.info(
-                "DeepSeek explanation generated",
+                "AI explanation generated",
                 extra={
                     "extra_data": {
                         "predicted_intent": predicted_intent,
@@ -121,10 +125,10 @@ async def get_prediction_explanation(
             return explanation
             
     except httpx.TimeoutException:
-        logger.warning("DeepSeek API timeout, skipping explanation")
+        logger.warning("LLM provider API timeout, skipping explanation")
         return None
     except httpx.HTTPStatusError as e:
-        logger.warning(f"DeepSeek API error: {e.response.status_code}")
+        logger.warning(f"LLM provider API error: {e.response.status_code}")
         return None
     except Exception as e:
         logger.error(f"Failed to generate explanation: {e}")
@@ -213,7 +217,7 @@ def get_fallback_explanation(
     text_features: Optional[Dict[str, int]] = None,
 ) -> str:
     """
-    Generate a simple rule-based explanation when DeepSeek is unavailable.
+    Generate a simple rule-based explanation when AI insight generation is unavailable.
     
     Args:
         predicted_intent: The predicted intent label.

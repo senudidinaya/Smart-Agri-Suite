@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
-  // DeepSeek Insight styles
+  // AI Insight styles
   insightContainer: {
     backgroundColor: 'rgba(139, 92, 246, 0.12)',
     borderRadius: 18,

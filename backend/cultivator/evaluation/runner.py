@@ -234,7 +234,7 @@ def _score_questions(questions: List[Dict[str, Any]], case: Dict[str, Any]) -> C
 
 async def _run_direct() -> List[Dict[str, Any]]:
     """Call service functions in-process (no server needed)."""
-    from cultivator.services.deepseek_service import (
+    from cultivator.services.llm_service import (
         generate_gate1_insight,
         generate_gate2_insight,
         generate_questions,

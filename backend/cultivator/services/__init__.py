@@ -5,7 +5,7 @@ Smart Agri-Suite - Cultivator Intent Module V2
 
 Services:
     - inference: Intent risk classification (ML + rules-based fallback)
-    - explainability: DeepSeek-powered prediction explanations
+    - explainability: AI-powered prediction explanations (Groq provider)
 """
 
 from cultivator.services.inference import (

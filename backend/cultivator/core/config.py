@@ -139,14 +139,14 @@ class Settings(BaseSettings):
         description="Directory to keep permanent debug copies of uploaded call recordings",
     )
 
-    # DeepSeek API settings (AI-powered explainability) — legacy, kept for reference
+    # Legacy LLM API settings (deprecated; kept for compatibility)
     deepseek_api_key: str = Field(
         default="",
-        description="DeepSeek API key (legacy — replaced by Groq)",
+        description="Legacy API key setting (deprecated — replaced by Groq)",
     )
     deepseek_base_url: str = Field(
         default="https://api.deepseek.com",
-        description="DeepSeek API base URL (legacy — replaced by Groq)",
+        description="Legacy API base URL setting (deprecated — replaced by Groq)",
     )
 
     # Groq API settings (AI-powered explainability — active provider)

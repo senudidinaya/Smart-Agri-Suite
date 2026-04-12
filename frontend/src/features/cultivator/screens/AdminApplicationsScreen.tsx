@@ -393,7 +393,7 @@ export default function AdminApplicationsScreen() {
       const status = await api.getInterviewStatus(job.id, job.createdByUserId);
       setAnalysisData(status);
 
-      // Fetch DeepSeek insights in background
+      // Fetch AI insights in background
       setInsightLoading(true);
       const promises: Promise<void>[] = [];
 
@@ -1045,7 +1045,7 @@ export default function AdminApplicationsScreen() {
                         </View>
                       )}
 
-                      {/* DeepSeek Insight */}
+                      {/* AI Insight */}
                       {insightLoading && !gate1Insight && (
                         <ActivityIndicator size="small" color="#8B5CF6" style={{ marginTop: 8 }} />
                       )}
@@ -1105,7 +1105,7 @@ export default function AdminApplicationsScreen() {
                       })}
                       {renderRawDeceptionPanel(rawDeception)}
 
-                      {/* DeepSeek Insight */}
+                      {/* AI Insight */}
                       {insightLoading && !gate2Insight && (
                         <ActivityIndicator size="small" color="#8B5CF6" style={{ marginTop: 8 }} />
                       )}
