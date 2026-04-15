@@ -49,6 +49,14 @@ const orderSchema = mongoose.Schema({
     logisticsETA: {
         type: String,
         default: '3h 30m'
+    },
+    isPooled: {
+        type: Boolean,
+        default: false
+    },
+    region: {
+        type: String,
+        default: 'Unknown'
     }
 }, {
     timestamps: true

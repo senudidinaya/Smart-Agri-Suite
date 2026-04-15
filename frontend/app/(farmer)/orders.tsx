@@ -1,110 +1,170 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, FlatList, Dimensions, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useOrders } from '../../context/OrderContext';
+import { useRouter } from 'expo-router';
+import { useOrders, Order, OrderStatus } from '../../context/OrderContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
-const { width } = Dimensions.get('window');
+const TRANSPORT_ICONS: Record<string, string> = {
+    'Bike': 'bicycle-outline', 'Three-Wheeler': 'car-sport-outline',
+    'Lorry': 'bus-outline', 'Heavy Truck': 'trail-sign-outline',
+};
 
-const SpiceIcon = ({ type }: { type: string }) => {
-    let colors = ['#10B981', '#059669'];
-    switch(type) {
-        case 'Cinnamon': colors = ['#F59E0B', '#D97706']; break;
-        case 'Cardamom': colors = ['#10B981', '#059669']; break;
-        case 'Pepper': colors = ['#1E293B', '#0F172A']; break;
-        case 'Clove': colors = ['#8B5CF6', '#6D28D9']; break;
-        case 'Nutmeg': colors = ['#EC4899', '#BE185D']; break;
-    }
-    return (
-        <LinearGradient colors={colors} style={styles.spiceIconBox}><Ionicons name="cube" size={22} color="#fff" /></LinearGradient>
-    );
+const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bg: string; darkBg: string; icon: string }> = {
+    PENDING:    { label: 'PENDING',    color: '#D97706', bg: '#FEF3C7', darkBg: '#2d1f06', icon: 'time-outline' },
+    ACCEPTED:   { label: 'ACCEPTED',  color: '#059669', bg: '#ECFDF5', darkBg: '#062010', icon: 'checkmark-circle-outline' },
+    REJECTED:   { label: 'REJECTED',  color: '#DC2626', bg: '#FEF2F2', darkBg: '#2d0606', icon: 'close-circle-outline' },
+    IN_TRANSIT: { label: 'IN TRANSIT', color: '#6366F1', bg: '#EEF2FF', darkBg: '#12133a', icon: 'bus-outline' },
+    DELIVERED:  { label: 'DELIVERED', color: '#0EA5E9', bg: '#F0F9FF', darkBg: '#062030', icon: 'checkmark-done-outline' },
+};
+
+const spiceColors: Record<string, [string, string]> = {
+    Cinnamon:['#F59E0B','#D97706'], Pepper:['#1E293B','#0F172A'],
+    Cardamom:['#10B981','#059669'], Clove:['#8B5CF6','#6D28D9'], Nutmeg:['#EC4899','#BE185D'],
 };
 
 export default function FarmerOrders() {
     const router = useRouter();
-    const { orders } = useOrders();
+    const { orders, acceptOrder, rejectOrder, updateOrderStatus } = useOrders();
+    const { t } = useLanguage();
+    const { theme } = useTheme();
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+    const doAction = async (id: string, action: () => Promise<void>) => {
+        setActionLoading(id);
+        await action();
+        setActionLoading(null);
+    };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
             <View style={styles.header}>
-                <View>
-                    <Text style={styles.headerTitle}>Inbound Orders</Text>
-                    <Text style={styles.headerSub}>Live customer purchases & logistics</Text>
-                </View>
-                <View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveText}>SYNCED</Text></View>
+                <Text style={[styles.title, { color: theme.textPrimary }]}>{t('inboundOrdersTitle')}</Text>
+                <Text style={[styles.subtitle, { color: theme.textMuted }]}>{t('manageFullfilments')}</Text>
             </View>
 
             <FlatList
                 data={orders}
-                keyExtractor={item => item._id || item.id || Math.random().toString()}
+                keyExtractor={o => o._id || o.id || Math.random().toString()}
                 contentContainerStyle={styles.listContent}
-                renderItem={({ item, index }) => (
-                    <Animated.View entering={FadeInDown.delay(index * 150)} style={styles.orderCardWrapper}>
-                        <Pressable 
-                            style={styles.orderCard} 
-                            onPress={() => router.push({
-                                pathname: '/tracking-dashboard',
-                                params: { 
-                                    id: item.id || item._id, 
-                                    spice: item.spice, 
-                                    status: item.status, 
-                                    mode: item.mode || 'Lorry',
-                                    qty: item.qty || (item as any).quantity
-                                }
-                            })}
-                        >
-                            <View style={styles.orderTop}>
-                                <SpiceIcon type={item.spice} />
-                                <View style={styles.orderMainInfo}>
-                                    <View style={styles.idRow}>
-                                        <Text style={styles.orderId}>{item.id || item._id}</Text>
-                                        <View style={[styles.statusTag, { backgroundColor: item.status === 'DISPATCHED' ? '#ECFDF5' : '#FEF3C7' }]}>
-                                             <Text style={[styles.statusTagText, { color: item.status === 'DISPATCHED' ? '#059669' : '#D97706' }]}>{item.status}</Text>
+                renderItem={({ item: order, index }) => {
+                    const qty    = order.qty || order.quantity || 0;
+                    const cfg    = STATUS_CONFIG[order.status] || STATUS_CONFIG['PENDING'];
+                    const colors = spiceColors[order.spice] || ['#10B981','#059669'];
+                    const mode   = order.mode || 'Lorry';
+                    const id     = order._id || order.id || '';
+                    const isLoading = actionLoading === id;
+                    const badgeBg   = theme.mode === 'dark' ? cfg.darkBg : cfg.bg;
+
+                    return (
+                        <Animated.View entering={FadeInDown.delay(index * 80)} style={styles.cardWrapper}>
+                            <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
+                                <LinearGradient colors={colors} style={styles.colorBand} start={{ x:0, y:0 }} end={{ x:1, y:0 }} />
+                                <View style={styles.cardInner}>
+                                    <View style={styles.topRow}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.spice, { color: theme.textPrimary }]}>{order.spice}</Text>
+                                            <Text style={[styles.customer, { color: theme.textMuted }]}>
+                                                {order.customer || 'Customer'} · #{id.slice(-6).toUpperCase() || 'NEW'}
+                                            </Text>
+                                        </View>
+                                        <View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
+                                            <Ionicons name={cfg.icon as any} size={12} color={cfg.color} />
+                                            <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
                                         </View>
                                     </View>
-                                    <Text style={styles.customerName}>{item.customer || 'Regional Buyer'}</Text>
-                                </View>
-                                <View style={styles.trackIcon}><Ionicons name="navigate-circle" size={32} color="#6366F1" /></View>
-                            </View>
 
-                            <View style={styles.divider} />
+                                    {/* Metrics */}
+                                    <View style={[styles.metrics, { backgroundColor: theme.bgSecondary }]}>
+                                        {[
+                                            { l: t('quantity'),    v: `${qty} ${t('kg')}` },
+                                            { l: t('netProceeds'), v: `${t('lkr')} ${order.revenue?.toLocaleString() || 0}` },
+                                            { l: t('vehicle'),     v: mode },
+                                        ].map((m, i, arr) => (
+                                            <React.Fragment key={m.l}>
+                                                <View style={styles.metric}>
+                                                    <Text style={[styles.mLabel, { color: theme.textMuted }]}>{m.l}</Text>
+                                                    {m.l === t('vehicle')
+                                                        ? <View style={{ flexDirection:'row', alignItems:'center', gap:4, marginTop:4 }}>
+                                                            <Ionicons name={TRANSPORT_ICONS[m.v] as any || 'bus-outline'} size={12} color={theme.indigo} />
+                                                            <Text style={[styles.mVal, { color: theme.indigo, fontSize: 11 }]}>{m.v}</Text>
+                                                          </View>
+                                                        : <Text style={[styles.mVal, { color: theme.textPrimary }]}>{m.v}</Text>
+                                                    }
+                                                </View>
+                                                {i < arr.length - 1 && <View style={[styles.mDivider, { backgroundColor: theme.border }]} />}
+                                            </React.Fragment>
+                                        ))}
+                                    </View>
 
-                            <View style={styles.orderMetrics}>
-                                <View style={styles.metric}>
-                                     <Text style={styles.metricL}>Variety</Text>
-                                     <Text style={styles.metricV}>{item.spice}</Text>
-                                </View>
-                                <View style={styles.vDivider} />
-                                <View style={styles.metric}>
-                                     <Text style={styles.metricL}>Quantity</Text>
-                                     <Text style={styles.metricV}>{item.qty || (item as any).quantity} kg</Text>
-                                </View>
-                                <View style={styles.vDivider} />
-                                <View style={styles.metric}>
-                                     <Text style={styles.metricL}>Proceeds</Text>
-                                     <Text style={styles.metricV}>LKR {item.revenue.toLocaleString()}</Text>
+                                    {/* Actions */}
+                                    {order.status === 'PENDING' && (
+                                        <View style={styles.actionsRow}>
+                                            <Pressable
+                                                style={[styles.rejectBtn, { borderColor: theme.red }]}
+                                                disabled={isLoading}
+                                                onPress={() => Alert.alert('Reject Order', 'Are you sure?', [
+                                                    { text: 'Cancel', style: 'cancel' },
+                                                    { text: 'Reject', style: 'destructive', onPress: () => doAction(id, () => rejectOrder(id)) }
+                                                ])}
+                                            >
+                                                <Text style={[styles.rejectText, { color: theme.red }]}>{t('rejectOrder')}</Text>
+                                            </Pressable>
+                                            <Pressable
+                                                style={styles.acceptBtn}
+                                                disabled={isLoading}
+                                                onPress={() => doAction(id, () => acceptOrder(id))}
+                                            >
+                                                <LinearGradient colors={['#10B981','#059669']} style={styles.acceptBtnG}>
+                                                    <Ionicons name="checkmark" size={18} color="#fff" />
+                                                    <Text style={styles.acceptText}>{t('acceptOrder')}</Text>
+                                                </LinearGradient>
+                                            </Pressable>
+                                        </View>
+                                    )}
+
+                                    {order.status === 'ACCEPTED' && (
+                                        <Pressable
+                                            style={styles.fullBtn}
+                                            onPress={() => doAction(id, () => updateOrderStatus(id, 'IN_TRANSIT'))}
+                                            disabled={isLoading}
+                                        >
+                                            <LinearGradient colors={['#6366F1','#4F46E5']} style={styles.fullBtnG}>
+                                                <Ionicons name="bus-outline" size={18} color="#fff" />
+                                                <Text style={styles.fullBtnText}>{t('handOverTransport')}</Text>
+                                            </LinearGradient>
+                                        </Pressable>
+                                    )}
+
+                                    {(order.status === 'IN_TRANSIT' || order.status === 'DELIVERED') && (
+                                        <Pressable
+                                            style={styles.fullBtn}
+                                            onPress={() => router.push({
+                                                pathname: '/tracking-dashboard',
+                                                params: { id, spice: order.spice, status: order.status, mode, qty }
+                                            })}
+                                        >
+                                            <LinearGradient colors={['#0EA5E9','#0284C7']} style={styles.fullBtnG}>
+                                                <Ionicons name="navigate-circle" size={18} color="#fff" />
+                                                <Text style={styles.fullBtnText}>{t('viewLiveRoute')}</Text>
+                                            </LinearGradient>
+                                        </Pressable>
+                                    )}
                                 </View>
                             </View>
-
-                            <View style={styles.footerRow}>
-                                <View style={styles.logisticsBox}>
-                                    <Ionicons name="bus-outline" size={14} color="#64748B" />
-                                    <Text style={styles.logisticsText}>{item.mode || 'Optimized Logistics'} • Tracking Active</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-                            </View>
-                        </Pressable>
-                        <View style={styles.cardShadow} />
-                    </Animated.View>
-                )}
+                            <View style={[styles.cardShadow, { backgroundColor: theme.cardShadowBg }]} />
+                        </Animated.View>
+                    );
+                }}
                 ListEmptyComponent={() => (
                     <View style={styles.empty}>
-                        <Ionicons name="clipboard-outline" size={60} color="#CBD5E1" />
-                        <Text style={styles.emptyTitle}>No Orders Yet</Text>
-                        <Text style={styles.emptySub}>Your marketplace items will appear here once purchased.</Text>
+                        <Ionicons name="receipt-outline" size={64} color={theme.border} />
+                        <Text style={[styles.emptyTitle, { color: theme.textMuted }]}>{t('noOrdersTitle')}</Text>
+                        <Text style={[styles.emptySub, { color: theme.textMuted }]}>{t('noOrdersFarmerSub')}</Text>
                     </View>
                 )}
             />
@@ -113,42 +173,36 @@ export default function FarmerOrders() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
-    header: { padding: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    headerTitle: { fontFamily: 'Poppins_700Bold', fontSize: 26, color: '#0F172A' },
-    headerSub: { fontFamily: 'Poppins_400Regular', fontSize: 13, color: '#64748B', marginTop: 2 },
-    liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, gap: 6, marginTop: 4 },
-    liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' },
-    liveText: { fontFamily: 'Poppins_700Bold', fontSize: 9, color: '#166534' },
-    
-    listContent: { padding: 24, paddingTop: 0, paddingBottom: 120 },
-    orderCardWrapper: { marginBottom: 20, position: 'relative' },
-    orderCard: { backgroundColor: '#fff', borderRadius: 28, padding: 20, zIndex: 2, borderWidth: 1, borderColor: '#F1F5F9', elevation: 2 },
-    cardShadow: { position: 'absolute', bottom: -5, left: 15, right: 15, height: 20, backgroundColor: '#E2E8F0', borderRadius: 30, opacity: 0.1, zIndex: 1 },
-    
-    orderTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-    spiceIconBox: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-    orderMainInfo: { marginLeft: 14, flex: 1 },
-    idRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    orderId: { fontFamily: 'Poppins_700Bold', fontSize: 12, color: '#94A3B8', letterSpacing: 0.5 },
-    statusTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-    statusTagText: { fontFamily: 'Poppins_700Bold', fontSize: 8 },
-    customerName: { fontFamily: 'Poppins_700Bold', fontSize: 16, color: '#0F172A', marginTop: 2 },
-    trackIcon: { padding: 4 },
-    
-    divider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 16 },
-    
-    orderMetrics: { flexDirection: 'row', backgroundColor: '#F8FAFC', borderRadius: 18, padding: 12, marginBottom: 16 },
+    container: { flex: 1 },
+    header: { padding: 24, paddingBottom: 12 },
+    title: { fontFamily: 'Poppins_700Bold', fontSize: 28 },
+    subtitle: { fontFamily: 'Poppins_400Regular', fontSize: 13, marginTop: 2 },
+    listContent: { paddingHorizontal: 24, paddingBottom: 120 },
+    cardWrapper: { marginBottom: 20, position: 'relative' },
+    card: { borderRadius: 28, overflow: 'hidden', elevation: 2, borderWidth: 1 },
+    cardShadow: { position: 'absolute', bottom: -6, left: 14, right: 14, height: 16, borderRadius: 28, opacity: 0.08 },
+    colorBand: { height: 5 },
+    cardInner: { padding: 20 },
+    topRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20, gap: 12 },
+    spice: { fontFamily: 'Poppins_700Bold', fontSize: 20 },
+    customer: { fontFamily: 'Poppins_400Regular', fontSize: 12, marginTop: 2 },
+    statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+    statusText: { fontFamily: 'Poppins_700Bold', fontSize: 10 },
+    metrics: { flexDirection: 'row', borderRadius: 18, padding: 14, marginBottom: 16 },
     metric: { flex: 1, alignItems: 'center' },
-    metricL: { fontFamily: 'Poppins_500Medium', fontSize: 10, color: '#94A3B8' },
-    metricV: { fontFamily: 'Poppins_700Bold', fontSize: 13, color: '#1E293B', marginTop: 2 },
-    vDivider: { width: 1, height: 24, backgroundColor: '#E2E8F0', alignSelf: 'center' },
-    
-    footerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4 },
-    logisticsBox: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    logisticsText: { fontFamily: 'Poppins_600SemiBold', fontSize: 11, color: '#64748B' },
-
-    empty: { alignItems: 'center', marginTop: 100, opacity: 0.5 },
-    emptyTitle: { fontFamily: 'Poppins_700Bold', fontSize: 18, color: '#475569', marginTop: 16 },
-    emptySub: { fontFamily: 'Poppins_400Regular', fontSize: 13, color: '#94A3B8', textAlign: 'center', marginTop: 6, paddingHorizontal: 40 }
+    mLabel: { fontFamily: 'Poppins_500Medium', fontSize: 10 },
+    mVal: { fontFamily: 'Poppins_700Bold', fontSize: 13, marginTop: 4 },
+    mDivider: { width: 1, marginHorizontal: 4 },
+    actionsRow: { flexDirection: 'row', gap: 12 },
+    rejectBtn: { flex: 1, height: 52, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5 },
+    rejectText: { fontFamily: 'Poppins_700Bold', fontSize: 14 },
+    acceptBtn: { flex: 2, height: 52, borderRadius: 18, overflow: 'hidden' },
+    acceptBtnG: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+    acceptText: { fontFamily: 'Poppins_700Bold', fontSize: 14, color: '#fff' },
+    fullBtn: { height: 54, borderRadius: 18, overflow: 'hidden' },
+    fullBtnG: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
+    fullBtnText: { fontFamily: 'Poppins_700Bold', fontSize: 14, color: '#fff' },
+    empty: { alignItems: 'center', marginTop: 80, paddingHorizontal: 20 },
+    emptyTitle: { fontFamily: 'Poppins_700Bold', fontSize: 18, marginTop: 16 },
+    emptySub: { fontFamily: 'Poppins_400Regular', fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 20 },
 });

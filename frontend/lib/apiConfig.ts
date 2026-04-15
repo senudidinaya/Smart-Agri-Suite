@@ -1,5 +1,5 @@
-import { ML_BASE_URL } from "../config";
-export const API_BASE_URL = ML_BASE_URL; // use central ML config
+import { API_BASE_URL } from "../config";
+export { API_BASE_URL };
 
 export async function fetchWithTimeout(
   resource: RequestInfo,

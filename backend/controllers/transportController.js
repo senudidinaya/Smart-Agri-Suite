@@ -1,8 +1,27 @@
 const TransportLog = require('../models/TransportLog');
 const Order = require('../models/Order');
 
+// Haversine formula to calculate distance between two coordinates in km
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+const VEHICLE_CONFIG = {
+    'Bike':          { costPerKm: 20,  maxWeight: 5,   icon: 'bicycle' },
+    'Three-Wheeler': { costPerKm: 45,  maxWeight: 30,  icon: 'car' },
+    'Lorry':         { costPerKm: 85,  maxWeight: 150, icon: 'bus' },
+    'Heavy Truck':   { costPerKm: 150, maxWeight: 1000,icon: 'trail-sign' }
+};
+
 // @desc    Get order tracking status
-// @route   GET /api/orders/:id/status
 const getOrderStatus = async (req, res) => {
     try {
         const log = await TransportLog.findOne({ orderId: req.params.id }).sort({ timestamp: -1 });
@@ -16,55 +35,49 @@ const getOrderStatus = async (req, res) => {
 };
 
 // @desc    Get transport analytics
-// @route   GET /api/transport/analytics
 const getTransportAnalytics = async (req, res) => {
     try {
         const mockData = {
-            costDistribution: { Van: 12000, Lorry: 8000, Train: 4500, TukTuk: 15000 },
-            deliveryTimes: [2.5, 2.1, 3.4, 1.8, 2.2], // Mon-Fri
+            costDistribution: { Bike: 5000, "Three-Wheeler": 12000, Lorry: 45000, "Heavy Truck": 18000 },
+            deliveryTimes: [1.2, 1.5, 2.4, 0.8, 1.1],
             usage: [
-                { name: "Van", value: 45 },
-                { name: "Lorry", value: 35 },
-                { name: "Train", value: 15 },
-                { name: "TukTuk", value: 5 }
+                { name: "Bike", value: 30 },
+                { name: "Three-Wheeler", value: 45 },
+                { name: "Lorry", value: 20 },
+                { name: "Heavy Truck", value: 5 }
             ],
-            fastestRoute: "Matale -> Kandy",
-            cheapestRoute: "Matale -> Colombo"
+            fastestRoute: "Galle -> Colombo (90m)",
+            cheapestRoute: "Matara -> Galle"
         };
-
-        // In a real DB scenario, we would aggregate TrnasportLogs here.
         res.json(mockData);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// @desc    Get Optimal Route and Mode recommendation
-// @route   GET /api/transport/optimize
+// @desc    Get Optimal Route and Mode recommendation based on REAL distance
+// @route   GET /api/transport/optimize?lat1=...&lng1=...&lat2=...&lng2=...&weight=...
 const getOptimalRoute = async (req, res) => {
     try {
-        const { origin, destination, weight } = req.query;
+        const { lat1, lng1, lat2, lng2, weight } = req.query;
         const load = parseFloat(weight);
+        const distance = calculateDistance(parseFloat(lat1), parseFloat(lng1), parseFloat(lat2), parseFloat(lng2));
 
-        // Mock optimization logic
-        let modes = [
-            { name: "Van", costPerKm: 15, capacity: 500, timeScale: 1.0 },
-            { name: "Lorry", costPerKm: 12, capacity: 2000, timeScale: 1.2 },
-            { name: "Train", costPerKm: 8, capacity: 5000, timeScale: 1.5 }
-        ];
+        // Determine mode based on weight
+        let mode = 'Bike';
+        if (load > 150) mode = 'Heavy Truck';
+        else if (load > 30) mode = 'Lorry';
+        else if (load > 5) mode = 'Three-Wheeler';
 
-        // Filter valid modes by capacity
-        const validModes = modes.filter(m => m.capacity >= load);
-        
-        // Find cheapest valid mode
-        const recommended = validModes.sort((a,b) => a.costPerKm - b.costPerKm)[0];
+        const config = VEHICLE_CONFIG[mode];
+        const estimatedCost = distance * config.costPerKm;
 
         res.json({
-            recommendedMode: recommended.name,
-            estimatedCost: recommended.costPerKm * 100, // Hardcoded 100km for now
-            efficiencyScore: 0.92,
-            route: `${origin} -> ${destination} (Express Highway)`,
-            impact: "Carbon footprint reduced by 12% using " + recommended.name
+            recommendedMode: mode,
+            distanceKm: Math.ceil(distance),
+            estimatedCost: Math.ceil(estimatedCost),
+            efficiencyScore: 0.95,
+            impact: `Eco-friendly delivery via ${mode} selected for ${load}kg load.`
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -72,21 +85,20 @@ const getOptimalRoute = async (req, res) => {
 };
 
 // @desc    Get estimated time of arrival for a route
-// @route   GET /api/transport/eta
 const getTransportETA = async (req, res) => {
     try {
         const { mode } = req.query;
         const baseETA = {
-            "Van": "3.5 Hours",
-            "Lorry": "5.2 Hours",
-            "Train": "4.8 Hours",
-            "TukTuk": "2.1 Hours"
+            "Bike": "45m",
+            "Three-Wheeler": "1h 15m",
+            "Lorry": "2h 30m",
+            "Heavy Truck": "4h 0m"
         };
 
         res.json({
-            mode: mode || "Van",
-            eta: baseETA[mode] || "4.0 Hours",
-            reliability: 0.88,
+            mode: mode || "Lorry",
+            eta: baseETA[mode] || "3h 30m",
+            reliability: 0.94,
             congested: false
         });
     } catch (error) {

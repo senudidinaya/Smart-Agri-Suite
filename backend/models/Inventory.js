@@ -2,33 +2,66 @@ const mongoose = require('mongoose');
 
 const inventorySchema = mongoose.Schema({
     farmerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+        type: String, // Using name as ID for current frontend compatibility
+        required: true,
+        index: true
     },
-    spiceType: {
+    farmerName: {
         type: String,
         required: true
     },
-    quantity: {
+    hubName: {
+        type: String,
+        required: true
+    },
+    region: {
+        type: String,
+        required: true
+    },
+    lat: {
         type: Number,
         required: true
     },
-    unit: {
-        type: String,
-        default: 'kg'
+    lng: {
+        type: Number,
+        required: true
     },
-    quality: {
+    spice: {
         type: String,
         required: true
     },
-    district: {
+    variety: {
         type: String,
         required: true
     },
-    isListed: {
-        type: Boolean,
-        default: false
+    price: {
+        type: Number, // LKR per kg
+        required: true
+    },
+    totalStock: {
+        type: Number,
+        required: true
+    },
+    stock: {
+        type: Number,
+        required: true
+    },
+    reserved: {
+        type: Number,
+        default: 0
+    },
+    rating: {
+        type: Number,
+        default: 4.5
+    },
+    reviews: {
+        type: Number,
+        default: 0
+    },
+    status: {
+        type: String,
+        enum: ['Active', 'SoldOut', 'Paused'],
+        default: 'Active'
     }
 }, {
     timestamps: true

@@ -10,9 +10,24 @@ import { OrderProvider } from "../context/OrderContext";
 import { LanguageProvider } from "../context/LanguageContext";
 import { CartProvider } from "../context/CartContext";
 import { UserProvider } from "../context/UserContext";
+import { StockProvider } from "../context/StockContext";
+import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View } from "react-native";
 
+function AppContent() {
+  const { theme } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "transparent" },
+        }}
+      />
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -26,17 +41,19 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <LanguageProvider>
-        <UserProvider>
-          <CartProvider>
-            <OrderProvider>
-              <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
-              </View>
-            </OrderProvider>
-          </CartProvider>
-        </UserProvider>
-      </LanguageProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <UserProvider>
+            <StockProvider>
+              <CartProvider>
+                <OrderProvider>
+                  <AppContent />
+                </OrderProvider>
+              </CartProvider>
+            </StockProvider>
+          </UserProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

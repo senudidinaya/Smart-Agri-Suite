@@ -22,26 +22,49 @@ exports.createOrder = async (req, res) => {
         const order = new Order(req.body);
         const createdOrder = await order.save();
 
-        // 2. Initialize Transport Log (Logistics Flow)
-        const TransportLog = require('../models/TransportLog');
-        
-        // Basic optimization logic: Choose vehicle based on weight
+        // 2. Smart Transport Pooling Algorithm
         let recommendedMode = 'Van';
-        if (quantity < 10) recommendedMode = 'Bike';
-        else if (quantity > 500) recommendedMode = 'Lorry';
+        let isPooled = false;
+        let poolMessage = '';
+        
+        // Find if there are other PENDING orders (simulate same region logic)
+        const pendingOrders = await Order.find({ status: 'PENDING' });
+        
+        if (pendingOrders.length > 0) {
+            const totalGroupWeight = quantity + pendingOrders.reduce((sum, o) => sum + o.quantity, 0);
+            if (totalGroupWeight > 100) {
+                recommendedMode = 'Shared Lorry (Pooled)';
+                isPooled = true;
+                poolMessage = `Pooled with ${pendingOrders.length} order(s). Shared freight selected.`;
+                
+                // Update previous orders to pooled (simplified for demo)
+                await Order.updateMany(
+                    { status: 'PENDING' },
+                    { $set: { isPooled: true, logisticsMode: 'Shared Lorry (Pooled)' } }
+                );
+            }
+        }
+        
+        if (!isPooled) {
+            if (quantity < 10) recommendedMode = 'Bike';
+            else if (quantity > 500) recommendedMode = 'Lorry';
+        }
+
+        const TransportLog = require('../models/TransportLog');
 
         const initialLog = new TransportLog({
             orderId: createdOrder._id,
             status: 'ORDER_PLACED',
-            location: 'Farmer Warehouse',
-            details: `Order received. Optimized for ${recommendedMode} based on load.`,
+            location: 'Farmer Warehouse (Hub)',
+            details: isPooled ? poolMessage : `Order received. Optimized for ${recommendedMode} based on load.`,
             driverName: 'Auto-Optimized',
             vehicleNo: 'TBD'
         });
         await initialLog.save();
 
-        // Update order with recommended mode
+        // Update order with recommended mode and pool flag
         createdOrder.logisticsMode = recommendedMode;
+        createdOrder.isPooled = isPooled;
         await createdOrder.save();
 
         // 3. Decrement product stock if productId is provided

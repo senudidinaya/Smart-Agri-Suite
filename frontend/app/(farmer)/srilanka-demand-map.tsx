@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Circle } from 'react-native-maps';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -38,7 +38,8 @@ export default function DemandMapTracker() {
     // High-Assurance Analysis Engine
     const analysis = useMemo(() => {
         const reg = REGION_COORDS[activeRegion] || REGION_COORDS['Colombo'];
-        const isHot = (spice?.regions || []).includes(activeRegion);
+        const regions = spice?.regions || [];
+        const isHot = regions.includes(activeRegion);
         
         const score = isHot ? reg.demand + 12 : reg.demand - 12;
         
@@ -85,7 +86,6 @@ export default function DemandMapTracker() {
 
             {/* INTERACTIVE GEOMAP - CRASH-SAFE & UNIFORM */}
             <MapView
-                provider={PROVIDER_GOOGLE}
                 style={styles.mapView}
                 initialRegion={{
                     latitude: 7.25,
@@ -95,7 +95,7 @@ export default function DemandMapTracker() {
                 }}
             >
                 {/* Heat Radius Overlay - Unified Format for all 5 Spices */}
-                {spice.regions.map((regionName, index) => {
+                {spice?.regions?.map((regionName, index) => {
                     const coords = REGION_COORDS[regionName];
                     if (!coords) return null;
                     return (
@@ -119,7 +119,7 @@ export default function DemandMapTracker() {
                     >
                         <View style={[
                             styles.pinContainer, 
-                            activeRegion === name && { borderColor: spice.color, transform: [{scale: 1.15}] }
+                            activeRegion === name ? { borderColor: spice.color, transform: [{scale: 1.15}] } : {}
                         ]}>
                              <View style={[
                                  styles.pinDot, 
@@ -162,12 +162,10 @@ export default function DemandMapTracker() {
                         </View>
                     </View>
 
-                    <Pressable style={styles.confirmBtn}>
-                         <LinearGradient colors={['#1E293B', '#0F172A']} style={styles.btnInner}>
-                             <Text style={styles.btnLabel}>Confirm Logistics for {activeRegion}</Text>
-                             <Ionicons name="shield-checkmark" size={18} color="#fff" />
-                         </LinearGradient>
-                    </Pressable>
+                    <View style={styles.infoBox}>
+                        <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+                        <Text style={styles.infoText}>Toggle spices above to see regional demand density.</Text>
+                    </View>
                 </View>
             </Animated.View>
         </View>
@@ -199,14 +197,14 @@ const styles = StyleSheet.create({
 
     pinContainer: { 
         width: 26, height: 26, borderRadius: 13, backgroundColor: '#fff', 
-        justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff', elevation: 8 
+        justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' 
     },
     pinDot: { width: 14, height: 14, borderRadius: 7 },
 
     sheetContainer: { position: 'absolute', bottom: 0, left: 0, right: 0 },
     sheetBody: { 
         backgroundColor: '#fff', borderTopLeftRadius: 40, borderTopRightRadius: 40, 
-        padding: 32, paddingBottom: 115, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 30, elevation: 32 
+        padding: 32, paddingBottom: 40, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 30, elevation: 32 
     },
     handleBar: { width: 40, height: 4, backgroundColor: '#F1F5F9', borderRadius: 2, alignSelf: 'center', marginBottom: 28 },
     
@@ -218,13 +216,12 @@ const styles = StyleSheet.create({
     priceLabel: { fontFamily: 'Poppins_500Medium', fontSize: 10, color: '#94A3B8' },
     priceValue: { fontFamily: 'Poppins_700Bold', fontSize: 18, color: '#10B981', marginTop: 4 },
 
-    statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
     statCell: { flex: 1, alignItems: 'center' },
     statL: { fontFamily: 'Poppins_500Medium', fontSize: 11, color: '#94A3B8' },
     statV: { fontFamily: 'Poppins_700Bold', fontSize: 14, color: '#1E293B', marginTop: 4 },
     statDivider: { width: 1, height: 30, backgroundColor: '#F1F5F9', marginTop: 8 },
 
-    confirmBtn: { height: 64, borderRadius: 24, overflow: 'hidden' },
-    btnInner: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 },
-    btnLabel: { fontFamily: 'Poppins_700Bold', fontSize: 15, color: '#fff' }
+    infoBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F8FAFC', padding: 12, borderRadius: 14 },
+    infoText: { fontFamily: 'Poppins_400Regular', fontSize: 12, color: '#64748B' }
 });
