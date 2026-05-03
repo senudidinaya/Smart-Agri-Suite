@@ -4,10 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PieChart } from 'react-native-chart-kit';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
-import { predictYield, getProfitProjection } from '../../lib/priceApi';
+import { predictYield, predictPrice } from '../../lib/priceApi';
 
 const SPICES = ['Cinnamon', 'Pepper', 'Cardamom', 'Clove', 'Nutmeg'];
 
@@ -23,29 +24,45 @@ export default function FarmerAnalytics() {
     const [selectedSpice, setSelectedSpice] = useState(SPICES[0]);
     const [temp, setTemp] = useState(27);
     const [rainfall, setRainfall] = useState(60);
+    const [harvestMonth, setHarvestMonth] = useState(new Date().getMonth() + 1);
     
     // API Data
     const [expectedYield, setExpectedYield] = useState<number | null>(null);
+    const [expectedPrice, setExpectedPrice] = useState<number | null>(null);
     const [yieldFetching, setYieldFetching] = useState(false);
     
-    const [projections, setProjections] = useState<any[]>([]);
-    const [projFetching, setProjFetching] = useState(false);
+    const [spiceProfits, setSpiceProfits] = useState<any[]>([]);
+    const [compFetching, setCompFetching] = useState(false);
 
     // Call yield API
     const fetchYield = useCallback(async () => {
         setYieldFetching(true);
-        const res = await predictYield(selectedSpice, region, temp, rainfall);
-        setExpectedYield(res.yield_kg);
+        const [resYield, resPrice] = await Promise.all([
+            predictYield(selectedSpice, region, temp, rainfall, harvestMonth),
+            predictPrice(selectedSpice, region, 12, harvestMonth)
+        ]);
+        setExpectedYield(resYield.yield_kg);
+        setExpectedPrice(resPrice.price);
         setYieldFetching(false);
-    }, [selectedSpice, region, temp, rainfall]);
+    }, [selectedSpice, region, temp, rainfall, harvestMonth]);
 
-    // Call profit API
-    const fetchProjections = useCallback(async () => {
-        setProjFetching(true);
-        const res = await getProfitProjection(selectedSpice, region, new Date().getMonth() + 1, 0.42);
-        setProjections(res.projection || []);
-        setProjFetching(false);
-    }, [selectedSpice, region]);
+    // Fetch comparative profits for ALL spices
+    const fetchComparativeProfits = useCallback(async () => {
+        setCompFetching(true);
+        const results = await Promise.all(
+            SPICES.map(async (spice) => {
+                const [resYield, resPrice] = await Promise.all([
+                    predictYield(spice, region, temp, rainfall, harvestMonth),
+                    predictPrice(spice, region, 12, harvestMonth)
+                ]);
+                const revenue = resYield.yield_kg * resPrice.price;
+                const profit = revenue * (1 - 0.42);
+                return { spice, profit };
+            })
+        );
+        setSpiceProfits(results);
+        setCompFetching(false);
+    }, [region, temp, rainfall, harvestMonth]);
 
     useEffect(() => {
         // Debounce yield so it doesn't spam while sliding
@@ -56,17 +73,30 @@ export default function FarmerAnalytics() {
     }, [fetchYield]);
 
     useEffect(() => {
-        fetchProjections();
-    }, [fetchProjections]);
+        const timer = setTimeout(() => {
+            fetchComparativeProfits();
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [fetchComparativeProfits]);
 
     // Helpers
     const changeTemp = (delta: number) => setTemp(prev => Math.max(15, Math.min(40, prev + delta)));
     const changeRain = (delta: number) => setRainfall(prev => Math.max(0, Math.min(200, prev + delta)));
+    const changeMonth = (delta: number) => {
+        setHarvestMonth(prev => {
+            const newMonth = prev + delta;
+            if (newMonth > 12) return 1;
+            if (newMonth < 1) return 12;
+            return newMonth;
+        });
+    };
 
-    // Recommendation logic (Simple: Highest profit month)
-    const bestMonthObj = projections.length > 0 ? projections.reduce((prev, current) => (prev.profit > current.profit) ? prev : current) : null;
-    const currentMonthObj = projections[0];
-    const shouldHold = bestMonthObj && currentMonthObj && bestMonthObj.month !== currentMonthObj.month && bestMonthObj.profit > currentMonthObj.profit * 1.05;
+    const estRevenue = expectedYield !== null && expectedPrice !== null ? expectedYield * expectedPrice : null;
+    const estProfit = estRevenue !== null ? estRevenue * (1 - 0.42) : null;
+
+    // Recommendation logic (Simple: Compare selected spice to max profit spice)
+    const maxProfitSpice = spiceProfits.length > 0 ? spiceProfits.reduce((prev, current) => (prev.profit > current.profit) ? prev : current) : null;
+    const isOptimal = maxProfitSpice && maxProfitSpice.spice === selectedSpice;
 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -94,7 +124,7 @@ export default function FarmerAnalytics() {
                 {/* 1. Yield Predictor */}
                 <Animated.View entering={FadeInDown} style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
                     <View style={[styles.cardIndicator, { backgroundColor: theme.green }]} />
-                    <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>EXPECTED HARVEST YIELD</Text>
+                    <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>EXPECTED HARVEST IN {monthNames[harvestMonth - 1].toUpperCase()}</Text>
                     
                     <View style={styles.heroRow}>
                         {yieldFetching || expectedYield === null ? (
@@ -108,7 +138,7 @@ export default function FarmerAnalytics() {
                         </View>
                     </View>
 
-                    <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Climate Simulator</Text>
+                    <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Climate Simulator & Timing</Text>
                     <View style={styles.climateGrid}>
                         {/* Temp Control */}
                         <View style={[styles.controlBox, { backgroundColor: theme.bgSecondary }]}>
@@ -128,42 +158,64 @@ export default function FarmerAnalytics() {
                                 <Pressable onPress={() => changeRain(5)} style={[styles.ctrlBtn, { backgroundColor: theme.bgCard }]}><Ionicons name="add" size={16} color={theme.textPrimary}/></Pressable>
                             </View>
                         </View>
+                        {/* Month Control */}
+                        <View style={[styles.controlBox, { backgroundColor: theme.bgSecondary, minWidth: '100%' }]}>
+                            <Text style={[styles.controlLabel, { color: theme.textMuted }]}>Harvest Month</Text>
+                            <View style={styles.controlRow}>
+                                <Pressable onPress={() => changeMonth(-1)} style={[styles.ctrlBtn, { backgroundColor: theme.bgCard }]}><Ionicons name="remove" size={16} color={theme.textPrimary}/></Pressable>
+                                <Text style={[styles.controlVal, { color: theme.textPrimary }]}>{monthNames[harvestMonth - 1]}</Text>
+                                <Pressable onPress={() => changeMonth(1)} style={[styles.ctrlBtn, { backgroundColor: theme.bgCard }]}><Ionicons name="add" size={16} color={theme.textPrimary}/></Pressable>
+                            </View>
+                        </View>
                     </View>
+
+                    {estRevenue !== null && estProfit !== null && !yieldFetching && (
+                        <View style={{ marginTop: 24, padding: 16, backgroundColor: theme.bgSecondary, borderRadius: 16 }}>
+                            <Text style={{ fontFamily: 'Poppins_600SemiBold', fontSize: 12, color: theme.textMuted, marginBottom: 12 }}>ESTIMATED FINANCIALS FOR {monthNames[harvestMonth - 1].toUpperCase()}</Text>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <Text style={{ color: theme.textSecondary, fontFamily: 'Poppins_500Medium', fontSize: 13 }}>Selling Price</Text>
+                                <Text style={{ fontFamily: 'Poppins_600SemiBold', color: theme.textPrimary, fontSize: 13 }}>Rs. {expectedPrice?.toLocaleString()}/kg</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <Text style={{ color: theme.textSecondary, fontFamily: 'Poppins_500Medium', fontSize: 13 }}>Gross Revenue</Text>
+                                <Text style={{ fontFamily: 'Poppins_600SemiBold', color: theme.textPrimary, fontSize: 13 }}>Rs. {estRevenue.toLocaleString(undefined, {maximumFractionDigits:0})}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.border }}>
+                                <Text style={{ color: theme.textSecondary, fontFamily: 'Poppins_600SemiBold', fontSize: 14 }}>Net Profit</Text>
+                                <Text style={{ fontFamily: 'Poppins_700Bold', color: theme.green, fontSize: 16 }}>Rs. {estProfit.toLocaleString(undefined, {maximumFractionDigits:0})}</Text>
+                            </View>
+                        </View>
+                    )}
                 </Animated.View>
 
-                {/* 2. Profit Projection (6 months) */}
+                {/* 2. Profit Comparison (Pie Chart) */}
                 <Animated.View entering={FadeInDown.delay(100)} style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
                     <View style={[styles.cardIndicator, { backgroundColor: theme.indigo }]} />
-                    <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>6-MONTH PROFIT FORECAST</Text>
+                    <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>COMPARATIVE PROFITABILITY</Text>
 
-                    {projFetching || projections.length === 0 ? (
-                        <View style={{ height: 150, justifyContent: 'center' }}>
+                    {compFetching || spiceProfits.length === 0 ? (
+                        <View style={{ height: 180, justifyContent: 'center' }}>
                             <ActivityIndicator size="large" color={theme.indigo} />
                         </View>
                     ) : (
-                        <View style={styles.chartArea}>
-                            <View style={styles.chartBars}>
-                                {projections.map((p, i) => {
-                                    const maxProfit = Math.max(...projections.map(x => x.profit));
-                                    const heightPct = Math.max(10, (p.profit / maxProfit) * 100);
-                                    const isBest = p.profit === maxProfit;
-                                    
-                                    return (
-                                        <View key={i} style={styles.barWrapper}>
-                                            <Text style={[styles.barValueText, { color: theme.textMuted }]}>{(p.profit / 1000).toFixed(0)}k</Text>
-                                            <View style={[styles.barTrack, { backgroundColor: theme.bgSecondary }]}>
-                                                <LinearGradient 
-                                                    colors={isBest ? ['#10B981', '#059669'] : ['#6366F1', '#4F46E5']} 
-                                                    style={[styles.barFill, { height: `${heightPct}%` }]} 
-                                                />
-                                            </View>
-                                            <Text style={[styles.barLabelText, { color: isBest ? theme.green : theme.textPrimary }]}>
-                                                {monthNames[p.month - 1]}
-                                            </Text>
-                                        </View>
-                                    );
-                                })}
-                            </View>
+                        <View style={{ alignItems: 'center', marginTop: 10 }}>
+                            <PieChart
+                                data={spiceProfits.map(item => ({
+                                    name: item.spice,
+                                    population: item.profit,
+                                    color: item.spice === selectedSpice ? theme.indigo : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
+                                    legendFontColor: theme.textSecondary,
+                                    legendFontSize: 11
+                                }))}
+                                width={Dimensions.get('window').width - 80}
+                                height={180}
+                                chartConfig={{ color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})` }}
+                                accessor={"population"}
+                                backgroundColor={"transparent"}
+                                paddingLeft={"0"}
+                                center={[0, 0]}
+                                absolute={false}
+                            />
                         </View>
                     )}
                 </Animated.View>
@@ -176,14 +228,13 @@ export default function FarmerAnalytics() {
                             <Text style={styles.hLabel}>Smart Selling Recommendation</Text>
                         </View>
                         
-                        {shouldHold ? (
+                        {isOptimal ? (
                             <Text style={styles.hVal}>
-                                Hold your {selectedSpice} stock until {monthNames[bestMonthObj.month - 1]}. 
-                                Prices are projected to peak, yielding a <Text style={{ color: '#10B981' }}>+{( (bestMonthObj.profit - currentMonthObj.profit) / currentMonthObj.profit * 100).toFixed(1)}%</Text> profit increase.
+                                {selectedSpice} is highly profitable under these conditions. Focus on maximizing your yield for {monthNames[harvestMonth - 1]}!
                             </Text>
                         ) : (
                             <Text style={styles.hVal}>
-                                Sell your {selectedSpice} now. Current market conditions in {region} are optimal, and future profits are projected to decline or stagnate.
+                                <Text style={{ color: '#10B981' }}>{maxProfitSpice?.spice}</Text> yields a higher projected profit (Rs. {maxProfitSpice?.profit.toLocaleString(undefined, {maximumFractionDigits:0})}) under these conditions. Consider diversifying your harvest.
                             </Text>
                         )}
                         
@@ -217,7 +268,7 @@ const styles = StyleSheet.create({
     badgeText: { fontFamily: 'Poppins_700Bold', fontSize: 10 },
     
     inputLabel: { fontFamily: 'Poppins_600SemiBold', fontSize: 12, marginBottom: 12 },
-    climateGrid: { flexDirection: 'row', gap: 12 },
+    climateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     controlBox: { flex: 1, borderRadius: 20, padding: 16 },
     controlLabel: { fontFamily: 'Poppins_500Medium', fontSize: 11, marginBottom: 8 },
     controlRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

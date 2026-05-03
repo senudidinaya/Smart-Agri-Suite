@@ -67,18 +67,7 @@ exports.createOrder = async (req, res) => {
         createdOrder.isPooled = isPooled;
         await createdOrder.save();
 
-        // 3. Decrement product stock if productId is provided
-        if (productId) {
-            const product = await Product.findById(productId);
-            if (product) {
-                product.availableQuantityKg -= quantity;
-                if (product.availableQuantityKg <= 0) {
-                    product.availableQuantityKg = 0;
-                    product.status = 'SOLD_OUT';
-                }
-                await product.save();
-            }
-        }
+        // 3. Stock will be deducted later when status changes to IN_TRANSIT
 
         res.status(201).json(createdOrder);
     } catch (error) {
@@ -92,7 +81,24 @@ exports.updateOrderStatus = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
         if (order) {
+            const oldStatus = order.status;
             order.status = req.body.status || order.status;
+            
+            // Deduct stock ONLY when transitioning to "IN_TRANSIT"
+            if (oldStatus !== 'IN_TRANSIT' && order.status === 'IN_TRANSIT') {
+                if (order.productId) {
+                    const product = await Product.findById(order.productId);
+                    if (product) {
+                        product.availableQuantityKg -= order.quantity;
+                        if (product.availableQuantityKg <= 0) {
+                            product.availableQuantityKg = 0;
+                            product.status = 'SOLD_OUT';
+                        }
+                        await product.save();
+                    }
+                }
+            }
+            
             const updatedOrder = await order.save();
             res.status(200).json(updatedOrder);
         } else {

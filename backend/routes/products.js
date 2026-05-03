@@ -59,6 +59,9 @@ router.get('/marketplace', async (req, res) => {
                  };
 
                 // 2. Call Python ML service to ascertain price dynamically
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
                 const mlResponse = await fetch('http://127.0.0.1:8000/predict', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -67,8 +70,10 @@ router.get('/marketplace', async (req, res) => {
                         qty_sold_kg: prod.availableQuantityKg,
                         region: prod.district,
                         ...environmentalData
-                    })
+                    }),
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
                 
                 const mlData = await mlResponse.json();
                 

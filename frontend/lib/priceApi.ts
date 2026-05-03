@@ -80,9 +80,6 @@ export async function predictPrice(
   const modelMonth  = month ?? new Date().getMonth() + 1;
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5 s timeout
-
     const res = await fetch(`${ML_BASE_URL}/predict/simple`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -92,9 +89,7 @@ export async function predictPrice(
         moisture_pct: moisturePct,
         month: modelMonth,
       }),
-      signal: controller.signal,
     });
-    clearTimeout(timeout);
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -162,7 +157,7 @@ export async function getCustomerTrends() {
     try {
         const response = await fetch(`${ML_BASE_URL}/analytics/customer-trends`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json' }
         });
         if (!response.ok) throw new Error("Trends API failed");
         const data = await response.json();

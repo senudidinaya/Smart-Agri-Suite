@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, fetchWithTimeout } from '../lib/apiConfig';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type Listing = {
@@ -54,21 +54,26 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
   const fetchListings = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/inventory`);
+      const res = await fetchWithTimeout(`${API_BASE_URL}/inventory`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       
       if (data.length === 0) {
         // First time initialization — seed the DB
         console.log("Seeding backend with initial farmers...");
         for (const seed of SEED_LISTINGS) {
-          await fetch(`${API_BASE_URL}/inventory/add`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(seed),
-          });
+          try {
+            await fetchWithTimeout(`${API_BASE_URL}/inventory/add`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(seed),
+            });
+          } catch (e) {
+            console.error("Seed failed for:", seed.farmerName);
+          }
         }
         // Fetch again after seeding
-        const res2 = await fetch(`${API_BASE_URL}/inventory`);
+        const res2 = await fetchWithTimeout(`${API_BASE_URL}/inventory`);
         const data2 = await res2.json();
         setListings(data2);
       } else {
@@ -76,6 +81,8 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (err) {
       console.error("Failed to fetch listings:", err);
+      // Fallback to seed data locally if backend is unreachable
+      setListings(SEED_LISTINGS as Listing[]);
     } finally {
       setLoading(false);
     }
@@ -92,7 +99,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
 
   const addListing = useCallback(async (data: Partial<Listing>) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/inventory/add`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/inventory/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -114,7 +121,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
 
   const removeListing = useCallback(async (id: string) => {
     try {
-      await fetch(`${API_BASE_URL}/inventory/${id}`, { method: 'DELETE' });
+      await fetchWithTimeout(`${API_BASE_URL}/inventory/${id}`, { method: 'DELETE' });
       setListings(prev => prev.filter(l => (l._id || l.id) !== id));
     } catch (err) {
       console.error("Delete listing failed:", err);
@@ -123,7 +130,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
 
   const updateListing = useCallback(async (id: string, data: Partial<Listing>) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/inventory/${id}`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/inventory/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -143,7 +150,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     if (qty > available) return false;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/inventory/${id}`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/inventory/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reserved: listing.reserved + qty }),
@@ -162,7 +169,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     if (!listing) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/inventory/${id}`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/inventory/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reserved: Math.max(0, listing.reserved - qty) }),
@@ -180,7 +187,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       const newStock = Math.max(0, listing.stock - qty);
-      const res = await fetch(`${API_BASE_URL}/inventory/${id}`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/inventory/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -57,6 +57,11 @@ const orderSchema = mongoose.Schema({
     region: {
         type: String,
         default: 'Unknown'
+    },
+    productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+        required: false
     }
 }, {
     timestamps: true
