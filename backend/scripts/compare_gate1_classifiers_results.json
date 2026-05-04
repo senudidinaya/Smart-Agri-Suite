@@ -1,0 +1,115 @@
+{
+  "evaluated_at_seconds": 17.5,
+  "protocol": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+  "n_samples": 400,
+  "n_features": 16,
+  "features": [
+    "duration_seconds",
+    "rms_mean",
+    "rms_std",
+    "f0_mean",
+    "f0_std",
+    "zcr_mean",
+    "spectral_centroid_mean",
+    "tempo_proxy",
+    "transcript_char_len",
+    "transcript_word_count",
+    "urgency_count",
+    "money_count",
+    "secrecy_count",
+    "pressure_count",
+    "id_avoidance_count",
+    "otp_pin_count"
+  ],
+  "class_balance": {
+    "0": 200,
+    "1": 200
+  },
+  "candidates": [
+    "GradientBoosting",
+    "HistGradientBoosting",
+    "RandomForest",
+    "LogReg-L2"
+  ],
+  "results": [
+    {
+      "model": "GradientBoosting",
+      "metrics": {
+        "n_folds": 5,
+        "accuracy_mean": 0.5825,
+        "accuracy_std": 0.0458,
+        "macro_f1_mean": 0.5815,
+        "macro_f1_std": 0.0465,
+        "roc_auc_mean": 0.6083,
+        "roc_auc_std": 0.0535,
+        "per_fold_accuracy": [
+          0.575,
+          0.6,
+          0.6375,
+          0.6,
+          0.5
+        ]
+      }
+    },
+    {
+      "model": "HistGradientBoosting",
+      "metrics": {
+        "n_folds": 5,
+        "accuracy_mean": 0.55,
+        "accuracy_std": 0.0652,
+        "macro_f1_mean": 0.5489,
+        "macro_f1_std": 0.0649,
+        "roc_auc_mean": 0.5878,
+        "roc_auc_std": 0.0805,
+        "per_fold_accuracy": [
+          0.575,
+          0.625,
+          0.6,
+          0.5,
+          0.45
+        ]
+      }
+    },
+    {
+      "model": "RandomForest",
+      "metrics": {
+        "n_folds": 5,
+        "accuracy_mean": 0.4675,
+        "accuracy_std": 0.061,
+        "macro_f1_mean": 0.4657,
+        "macro_f1_std": 0.062,
+        "roc_auc_mean": 0.4557,
+        "roc_auc_std": 0.0849,
+        "per_fold_accuracy": [
+          0.425,
+          0.4875,
+          0.575,
+          0.45,
+          0.4
+        ]
+      }
+    },
+    {
+      "model": "LogReg-L2",
+      "metrics": {
+        "n_folds": 5,
+        "accuracy_mean": 0.565,
+        "accuracy_std": 0.0502,
+        "macro_f1_mean": 0.5633,
+        "macro_f1_std": 0.0513,
+        "roc_auc_mean": 0.6109,
+        "roc_auc_std": 0.0689,
+        "per_fold_accuracy": [
+          0.5125,
+          0.6375,
+          0.6125,
+          0.5375,
+          0.525
+        ]
+      }
+    }
+  ],
+  "winner_by_roc_auc": "LogReg-L2",
+  "winner_by_accuracy": "GradientBoosting",
+  "winner_by_design_choice": "LogReg-L2"
+}

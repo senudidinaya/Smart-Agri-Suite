@@ -17,8 +17,8 @@ def combine_intent_and_deception(
     - Truthfulness captures IF they're honest (communication authenticity)  
     - Together = (commitment × honesty) = actual safety/trustworthiness
     
-    Decision Matrix:
-    - PROCEED + TRUTHFUL → APPROVE (Trustworthy, strong commitment)
+    Decision Matrix (Gate-1 vocabulary: PROCEED / VERIFY / REJECT):
+    - PROCEED + TRUTHFUL → PROCEED (Trustworthy, strong commitment)
     - PROCEED + DECEPTIVE → REJECT (Claims commitment but shows deception - safety risk)
     - VERIFY + TRUTHFUL → VERIFY (Moderate commitment, needs verification)
     - VERIFY + DECEPTIVE → REJECT (Uncertain + deceptive - safety risk)
@@ -62,9 +62,9 @@ def combine_intent_and_deception(
     
     elif intent_label == "PROCEED":
         if deception_label == "truthful":
-            # PROCEED + TRUTHFUL = APPROVE
+            # PROCEED + TRUTHFUL = PROCEED (Gate-1 vocabulary)
             if intent_confidence >= 0.75 and deception_probability <= 0.40:
-                final_decision = "APPROVE"
+                final_decision = "PROCEED"
                 reasoning = "Cultivator shows strong commitment with honest communication. Trustworthy candidate for private land work."
                 recommendation = "auto_approve"
             else:

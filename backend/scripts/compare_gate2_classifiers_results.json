@@ -1,0 +1,66 @@
+{
+  "evaluated_at_seconds": 292.3,
+  "candidates": [
+    "RandomForest",
+    "HistGradientBoosting",
+    "LogReg-L2"
+  ],
+  "results": [
+    {
+      "split": "subject_independent",
+      "model": "RandomForest",
+      "metrics": {
+        "n_clips": 11,
+        "accuracy": 0.3636,
+        "macro_f1": 0.3567
+      }
+    },
+    {
+      "split": "subject_independent",
+      "model": "HistGradientBoosting",
+      "metrics": {
+        "n_clips": 11,
+        "accuracy": 0.4545,
+        "macro_f1": 0.4107
+      }
+    },
+    {
+      "split": "subject_independent",
+      "model": "LogReg-L2",
+      "metrics": {
+        "n_clips": 11,
+        "accuracy": 0.1818,
+        "macro_f1": 0.1538
+      }
+    },
+    {
+      "split": "clip_stratified",
+      "model": "RandomForest",
+      "metrics": {
+        "n_clips": 23,
+        "accuracy": 0.6087,
+        "macro_f1": 0.6057
+      }
+    },
+    {
+      "split": "clip_stratified",
+      "model": "HistGradientBoosting",
+      "metrics": {
+        "n_clips": 23,
+        "accuracy": 0.6087,
+        "macro_f1": 0.6087
+      }
+    },
+    {
+      "split": "clip_stratified",
+      "model": "LogReg-L2",
+      "metrics": {
+        "n_clips": 23,
+        "accuracy": 0.6522,
+        "macro_f1": 0.6515
+      }
+    }
+  ],
+  "winner_by_clip_stratified": "LogReg-L2",
+  "winner_by_design_choice": "RandomForest"
+}

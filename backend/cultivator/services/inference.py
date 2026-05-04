@@ -3,12 +3,9 @@ Inference service for buyer intent risk prediction.
 
 Smart Agri-Suite - Cultivator Intent Module V2
 
-This module provides intent risk classification using either:
-1. A trained ML model (if available)
-2. Rules-based fallback (when model not available)
-
-The service automatically detects whether a trained model exists
-and uses it for predictions, falling back to heuristic rules otherwise.
+This module provides intent risk classification using a trained ML model.
+Gate-1 requires the trained model to be present; loading failures raise
+rather than falling back to heuristics.
 """
 
 import json
@@ -100,17 +97,18 @@ INTENT_LABELS: List[str] = ["PROCEED", "VERIFY", "REJECT"]
 
 class IntentRiskClassifier:
     """
-    Intent risk classifier with ML model and rules-based fallback.
-    
-    This classifier automatically loads a trained sklearn model if available,
-    otherwise uses a rules-based approach for predictions.
-    
+    Intent risk classifier backed by a trained sklearn model.
+
+    Gate-1 requires the model to be loaded before prediction; if the
+    artifacts are missing or fail to load, ``load_model`` raises and the
+    instance must not be used.
+
     Attributes:
-        model: Loaded sklearn model (None if not available).
-        scaler: Feature scaler (None if not available).
+        model: Loaded sklearn model.
+        scaler: Feature scaler.
         label_encoder: Label encoder for classes (None if not available).
         metadata: Model training metadata (None if not available).
-        use_ml_model: Whether ML model is loaded and ready.
+        use_ml_model: True once the ML artifacts have loaded successfully.
         model_version: Version string for predictions.
     """
 
@@ -131,7 +129,7 @@ class IntentRiskClassifier:
         
         # State
         self.use_ml_model = False
-        self.model_version = "rules-1.0.0"
+        self.model_version = "unloaded"
         self.is_loaded = False
         
         logger.info(
@@ -141,12 +139,11 @@ class IntentRiskClassifier:
 
     def load_model(self) -> bool:
         """
-        Attempt to load the trained ML model.
-        
-        Falls back to rules-based mode if model files are not found.
-        
+        Load the trained ML model artifacts.
+
         Returns:
-            True if ML model loaded, False if using rules-based fallback.
+            True on successful load. Raises ``RuntimeError`` if any required
+            artifact is missing or fails to load — Gate-1 has no fallback.
         """
         try:
             model_path = self.models_dir / "intent_risk_model.pkl"
@@ -455,15 +452,33 @@ class IntentRiskClassifier:
         
         # Get prediction probabilities
         if hasattr(self.model, "predict_proba"):
-            probs = self.model.predict_proba(features_scaled)[0]
+            raw_probs = self.model.predict_proba(features_scaled)[0]
         else:
             # For models without predict_proba, use hard prediction
             pred_idx = self.model.predict(features_scaled)[0]
-            probs = np.zeros(len(INTENT_LABELS))
-            probs[pred_idx] = 1.0
+            raw_probs = np.zeros(len(INTENT_LABELS))
+            raw_probs[pred_idx] = 1.0
 
         logger.info(f"[GATE1 MODEL] model_loaded={self.is_loaded} use_ml_model={self.use_ml_model}")
-        logger.info(f"[GATE1 MODEL] raw_scores={np.array(probs).round(6).tolist()}")
+        logger.info(f"[GATE1 MODEL] raw_scores={np.array(raw_probs).round(6).tolist()}")
+
+        # Temperature scaling for probability calibration. The trained Logistic
+        # Regression saturates to ~1.0 / 0.0 on inputs whose fraud-keyword
+        # features are all zero (normal speech), which makes the displayed
+        # confidence look uninterpretable. Dividing the recovered logits by T
+        # softens the distribution without changing the argmax — the predicted
+        # label is preserved, only the confidence becomes more graded.
+        # T was chosen empirically; tuning on a calibration set is future work.
+        TEMPERATURE = 10.0
+        log_probs = np.log(np.clip(raw_probs, 1e-10, 1.0))
+        scaled_logits = log_probs / TEMPERATURE
+        shifted = scaled_logits - np.max(scaled_logits)
+        exp_shifted = np.exp(shifted)
+        probs = exp_shifted / np.sum(exp_shifted)
+        logger.info(
+            f"[GATE1 MODEL] calibrated_scores={np.array(probs).round(6).tolist()} "
+            f"temperature={TEMPERATURE}"
+        )
         
         # Get predicted class
         pred_idx = np.argmax(probs)
@@ -478,126 +493,6 @@ class IntentRiskClassifier:
         
         confidence = float(probs[pred_idx])
         all_scores = [(label, float(prob)) for label, prob in zip(all_labels, probs)]
-        
-        return predicted_label, confidence, all_scores
-
-    def predict_with_rules(
-        self,
-        prosodic_features: Dict[str, float],
-        text_features: Dict[str, int],
-    ) -> Tuple[str, float, List[Tuple[str, float]]]:
-        """
-        Make prediction using rules-based heuristics.
-        
-        This is the fallback when no ML model is available.
-        
-        Args:
-            prosodic_features: Prosodic feature dict.
-            text_features: Text feature dict.
-            
-        Returns:
-            Tuple of (predicted_label, confidence, all_scores).
-        """
-        # Initialize scores
-        proceed_score = 0.0
-        verify_score = 0.0
-        reject_score = 0.0
-        
-        # ============================
-        # Prosodic Rules
-        # ============================
-        
-        # Pitch variability (higher = more stress = negative)
-        pitch_std = prosodic_features.get("pitch_std", 25.0)
-        if pitch_std < 22:
-            proceed_score += 0.15
-        elif pitch_std > 35:
-            reject_score += 0.15
-        else:
-            verify_score += 0.10
-        
-        # Pause ratio (higher = more hesitation = negative)
-        pause_ratio = prosodic_features.get("pause_ratio", 0.15)
-        if pause_ratio < 0.12:
-            proceed_score += 0.15
-        elif pause_ratio > 0.22:
-            reject_score += 0.15
-        else:
-            verify_score += 0.10
-        
-        # Speech rate (higher = more confident = positive)
-        speech_rate = prosodic_features.get("speech_rate", 3.0)
-        if speech_rate > 3.2:
-            proceed_score += 0.10
-        elif speech_rate < 2.7:
-            reject_score += 0.10
-        else:
-            verify_score += 0.05
-        
-        # ============================
-        # Text Rules
-        # ============================
-        
-        # Sentiment balance
-        positive_count = text_features.get("positive_word_count", 0)
-        negative_count = text_features.get("negative_word_count", 0)
-        
-        if positive_count > negative_count * 2:
-            proceed_score += 0.20
-        elif negative_count > positive_count * 2:
-            reject_score += 0.20
-        else:
-            verify_score += 0.15
-        
-        # Hesitation markers
-        hesitation_count = text_features.get("hesitation_count", 0)
-        if hesitation_count <= 1:
-            proceed_score += 0.10
-        elif hesitation_count >= 5:
-            reject_score += 0.15
-        else:
-            verify_score += 0.10
-        
-        # Question count (more questions = uncertainty)
-        question_count = text_features.get("question_count", 0)
-        if question_count <= 2:
-            proceed_score += 0.10
-        elif question_count >= 6:
-            reject_score += 0.10
-            verify_score += 0.05
-        else:
-            verify_score += 0.10
-        
-        # Word count (very short = disengaged)
-        word_count = text_features.get("text_word_count", 100)
-        if word_count >= 150:
-            proceed_score += 0.10
-        elif word_count < 70:
-            reject_score += 0.10
-        
-        # ============================
-        # Normalize scores
-        # ============================
-        
-        # Add base scores to ensure reasonable distribution
-        proceed_score += 0.1
-        verify_score += 0.15
-        reject_score += 0.1
-        
-        total = proceed_score + verify_score + reject_score
-        
-        scores = {
-            "PROCEED": proceed_score / total,
-            "VERIFY": verify_score / total,
-            "REJECT": reject_score / total,
-        }
-        
-        # Find prediction
-        predicted_label = max(scores, key=scores.get)
-        confidence = scores[predicted_label]
-        
-        all_scores = [(label, score) for label, score in scores.items()]
-        all_scores.sort(key=lambda x: x[1], reverse=True)
         
         return predicted_label, confidence, all_scores
 
@@ -630,68 +525,35 @@ class IntentRiskClassifier:
         if text_features is None:
             text_features = {}
         
-        # Make prediction
-        if self.use_ml_model and self.model is not None:
-            logger.debug("Using ML model for prediction")
-            try:
-                features = self.extract_features(
-                    audio_data=audio_data,
-                    transcript=transcript,
-                    audio_features=audio_features if audio_features else None,
-                    text_features=text_features if text_features else None,
-                )
-                predicted_label, confidence, all_scores = self.predict_with_ml(features)
-                
-                # ============================
-                # Decision Gate: Flag uncertain predictions
-                # ============================
-                # If confidence too low or margin between top-2 scores too small, flag as VERIFY
-                confidence_threshold = 0.65
-                margin_threshold = 0.10
-                
-                # Calculate margin between top-2 scores
-                margin = 0.0
-                if len(all_scores) >= 2:
-                    margin = all_scores[0][1] - all_scores[1][1]
-                
-                if confidence < confidence_threshold or margin < margin_threshold:
-                    logger.debug(
-                        f"Decision gate triggered: confidence={confidence:.3f} (threshold={confidence_threshold}), "
-                        f"margin={margin:.3f} (threshold={margin_threshold}). Changing prediction to VERIFY."
-                    )
-                    predicted_label = "VERIFY"
-                    confidence = all_scores[all_scores.index(next(s for s in all_scores if s[0] == "VERIFY"))][1]
-                    # Reorder all_scores to put VERIFY at top
-                    all_scores = [(label, score) if label == "VERIFY" else (label, score) for label, score in all_scores]
-                    all_scores = sorted(all_scores, key=lambda x: (x[0] == "VERIFY", x[1]), reverse=True)
-            except Exception as e:
-                # Fall back to rules-based if ML prediction fails
-                # (e.g., scikit-learn version incompatibility)
-                logger.warning(
-                    f"ML prediction failed ({type(e).__name__}: {e}), falling back to rules-based prediction"
-                )
-                self.use_ml_model = False
-                self.model_version = "rules-1.0.0"
-                if transcript and not text_features:
-                    text_features = self._extract_text_features(transcript)
-                predicted_label, confidence, all_scores = self.predict_with_rules(
-                    prosodic_features=audio_features,
-                    text_features=text_features,
-                )
-        else:
-            logger.debug("Using rules-based prediction")
-            logger.warning(
+        if not (self.use_ml_model and self.model is not None):
+            logger.error(
                 f"[GATE1 MODEL] model loaded status={self.is_loaded}, use_ml_model={self.use_ml_model}. "
-                "If analysis defaults to unknown, inspect earlier extraction/inference errors."
+                "Gate-1 requires the trained intent model to be loaded."
             )
-            raise RuntimeError("Gate-1 intent model is not loaded; rules-based fallback is disabled for Gate-1")
-            # Fallback: use text features from transcript if available
-            if transcript and not text_features:
-                text_features = self._extract_text_features(transcript)
-            predicted_label, confidence, all_scores = self.predict_with_rules(
-                prosodic_features=audio_features,
-                text_features=text_features,
+            raise RuntimeError("Gate-1 intent model is not loaded")
+
+        features = self.extract_features(
+            audio_data=audio_data,
+            transcript=transcript,
+            audio_features=audio_features if audio_features else None,
+            text_features=text_features if text_features else None,
+        )
+        predicted_label, confidence, all_scores = self.predict_with_ml(features)
+
+        # Decision gate: force VERIFY when the top class is uncertain or
+        # the margin between the top two classes is narrow.
+        confidence_threshold = 0.65
+        margin_threshold = 0.10
+        margin = all_scores[0][1] - all_scores[1][1] if len(all_scores) >= 2 else 0.0
+
+        if confidence < confidence_threshold or margin < margin_threshold:
+            logger.debug(
+                f"Decision gate triggered: confidence={confidence:.3f} (threshold={confidence_threshold}), "
+                f"margin={margin:.3f} (threshold={margin_threshold}). Changing prediction to VERIFY."
             )
+            predicted_label = "VERIFY"
+            confidence = next(score for label, score in all_scores if label == "VERIFY")
+            all_scores = sorted(all_scores, key=lambda x: (x[0] == "VERIFY", x[1]), reverse=True)
         
         # Build result
         intent_scores = [
@@ -795,29 +657,21 @@ class IntentClassifier:
             transcript=transcript,
         )
         
-        # Use ML model if available
-        if self._classifier.use_ml_model and self._classifier.is_loaded:
-            label, confidence, all_scores = self._classifier.predict_with_ml(features)
-            
-            # Convert tuples to IntentScore objects
-            intent_scores = [
-                IntentScore(label=str(lbl), score=round(float(sc), 4))
-                for lbl, sc in all_scores
-            ]
-            
-            result = PredictionResult(
-                predicted_intent=str(label),
-                confidence=float(confidence),
-                all_scores=intent_scores,
-            )
-            return result, audio_duration
-        
-        # Fallback to rule-based prediction
-        result, _, _ = self._classifier.predict(
-            audio_data=audio_data,
-            transcript=transcript,
+        if not (self._classifier.use_ml_model and self._classifier.is_loaded):
+            raise RuntimeError("Gate-1 intent model is not loaded")
+
+        label, confidence, all_scores = self._classifier.predict_with_ml(features)
+
+        intent_scores = [
+            IntentScore(label=str(lbl), score=round(float(sc), 4))
+            for lbl, sc in all_scores
+        ]
+
+        result = PredictionResult(
+            predicted_intent=str(label),
+            confidence=float(confidence),
+            all_scores=intent_scores,
         )
-        
         return result, audio_duration
 
 

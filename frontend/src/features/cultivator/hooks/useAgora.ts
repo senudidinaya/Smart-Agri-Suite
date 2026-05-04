@@ -177,6 +177,7 @@ export function useAgora(config: AgoraConfig | null): UseAgoraReturn {
       },
       onError: (errorCode: number, message: string) => {
         let errorMessage = `Call error: ${message} (code: ${errorCode})`;
+        if (errorCode === 109) errorMessage = "Call token has expired. Please end the call and try again.";
         if (errorCode === 110) errorMessage = "Invalid token. Please try again.";
         if (errorCode === 2 || errorCode === 101) errorMessage = "Invalid App ID configuration.";
         if (errorCode === 102) errorMessage = "Invalid channel name.";

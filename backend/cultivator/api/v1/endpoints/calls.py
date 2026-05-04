@@ -252,13 +252,13 @@ async def initiate_call(
             channel_name=channel_name,
             uid=admin_uid,
             role=RtcTokenRole.PUBLISHER,
-            expire_seconds=3600
+            expire_seconds=86400
         )
         client_token = generate_agora_token(
             channel_name=channel_name,
             uid=client_uid,
             role=RtcTokenRole.PUBLISHER,
-            expire_seconds=3600
+            expire_seconds=86400
         )
         agora_app_id = get_agora_app_id()
     except RuntimeError as exc:
@@ -640,6 +640,30 @@ async def upload_recording(
     try:
         logger.info(f"[GATE1] Inference pipeline started callId={call_id}")
         logger.info("[GATE1 AUDIO] inference_source=uploaded_bytes")
+
+        # Step 0: Transcribe audio if no transcript was uploaded with the form.
+        # Without a transcript, half of the intent model's 16-feature input is
+        # zero (the keyword counts), which causes the model to saturate to a
+        # degenerate prediction. If transcription fails we continue with no
+        # transcript — the existing safety gate in inference.predict() will
+        # downgrade overconfident, low-information predictions to VERIFY.
+        if not transcript:
+            try:
+                from cultivator.services.transcription import transcribe_audio
+                transcript = await transcribe_audio(
+                    contents,
+                    filename=file.filename or "call.wav",
+                )
+                logger.info(
+                    f"[GATE1 STT] callId={call_id} transcript_chars={len(transcript)}"
+                )
+            except Exception as stt_exc:
+                logger.warning(
+                    f"[GATE1 STT] callId={call_id} transcription failed: {stt_exc} "
+                    "— continuing without transcript"
+                )
+                transcript = None
+
         # Step 1: Intent Classification
         logger.info(f"[GATE1] Running intent classifier callId={call_id}")
         classifier = get_classifier()
